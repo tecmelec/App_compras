@@ -12,7 +12,7 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    redirect('/login?error=' + encodeURIComponent('Usuario o contraseña incorrectos'));
+    redirect('/login?error=' + encodeURIComponent('DEBUG: ' + error.message + ' (status ' + error.status + ')'));
   }
 
   redirect('/tienda');
