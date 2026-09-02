@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #F5F6F4;
+  color: #1C2126;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+
+.badge-pendiente { background-color: #FDF2E3; color: #8A5A15; border-color: #F2D9AE; }
+.badge-proceso { background-color: #EAF1F6; color: #2F6690; border-color: #C7DBE7; }
+.badge-entregado { background-color: #E8F1EC; color: #3F7D58; border-color: #C4DECD; }
+.badge-cancelado { background-color: #F6E9E9; color: #B54A4A; border-color: #E7C7C7; }
+
+.input {
+  width: 100%;
+  border: 1px solid #DDE1E0;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.9375rem;
+  background-color: white;
+}
+.input:focus {
+  outline: 2px solid #2F6690;
+  outline-offset: 1px;
+}
+
+.btn-primary {
+  background-color: #2F6690;
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+.btn-primary:hover { background-color: #285875; }
+.btn-primary:disabled { background-color: #9FB4C0; cursor: not-allowed; }
+
+.btn-secondary {
+  background-color: white;
+  color: #1C2126;
+  border: 1px solid #DDE1E0;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+.btn-secondary:hover { background-color: #F5F6F4; }
