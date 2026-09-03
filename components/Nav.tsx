@@ -21,6 +21,7 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'responsable'] },
     { href: '/carrito', label: `Carrito${totalItems ? ` (${totalItems})` : ''}`, roles: ['admin', 'usuario', 'responsable'] },
     { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'responsable'] },
+    { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/comprador', label: 'Solicitudes por comprar', roles: ['admin', 'comprador'] },
     {
       href: '/responsable',
