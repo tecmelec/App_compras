@@ -92,7 +92,8 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     .single();
 
   const limite = config?.limite_aprobacion ?? 200;
-  const requiereAprobacion = totalEstimado > limite;
+  // Admin y responsable no necesitan aprobación de nadie, sin importar el monto.
+  const requiereAprobacion = puedeElegirComprador ? false : totalEstimado > limite;
 
   // 3. Crear el pedido
   const { data: pedido, error: errorPedido } = await supabase
