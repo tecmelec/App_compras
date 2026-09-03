@@ -5,25 +5,34 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { crearPedido } from '@/app/actions/pedidos';
+import SolicitudModal from './SolicitudModal';
 
 export default function CarritoPage() {
   const { items, updateCantidad, removeItem, clear } = useCart();
+  const [mostrarModal, setMostrarModal] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  async function handleSolicitar() {
+  async function handleConfirmar(datos: {
+    nombre_contacto: string;
+    telefono_contacto: string;
+    direccion_entrega_id: string;
+    fecha_requerida: string;
+  }) {
     setEnviando(true);
     setError(null);
 
-    const resultado = await crearPedido(items);
+    const resultado = await crearPedido(items, datos);
+
+    setEnviando(false);
 
     if (resultado.error) {
       setError(resultado.error);
-      setEnviando(false);
       return;
     }
 
+    setMostrarModal(false);
     clear();
     router.push(`/mis-pedidos?creado=${resultado.numeroApp}`);
   }
@@ -74,10 +83,18 @@ export default function CarritoPage() {
             </p>
           )}
 
-          <button onClick={handleSolicitar} disabled={enviando} className="btn-primary mt-6">
-            {enviando ? 'Enviando solicitud…' : 'Solicitar materiales'}
+          <button onClick={() => setMostrarModal(true)} className="btn-primary mt-6">
+            Solicitar materiales
           </button>
         </>
+      )}
+
+      {mostrarModal && (
+        <SolicitudModal
+          onCancel={() => setMostrarModal(false)}
+          onConfirmar={handleConfirmar}
+          enviando={enviando}
+        />
       )}
     </div>
   );

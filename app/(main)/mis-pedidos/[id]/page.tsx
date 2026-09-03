@@ -8,7 +8,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'numero_app, numero_tecmelec, fecha_estimada_entrega, created_at, estados_pedido(nombre), pedido_items(cantidad, productos(nombre, descripcion, imagen_url))'
+      'numero_app, numero_tecmelec, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), pedido_items(cantidad, productos(nombre, descripcion, imagen_url))'
     )
     .eq('id', params.id)
     .single();
@@ -39,9 +39,43 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
           </p>
         </div>
         <div>
+          <p className="text-slate mb-1">Fecha requerida</p>
+          <p className="text-grafito">
+            {(pedido as any).fecha_requerida
+              ? new Date((pedido as any).fecha_requerida + 'T00:00:00').toLocaleDateString('es-CL')
+              : '—'}
+          </p>
+        </div>
+        <div>
           <p className="text-slate mb-1">Fecha de solicitud</p>
           <p className="text-grafito">{new Date(pedido.created_at).toLocaleDateString('es-CL')}</p>
         </div>
+        <div>
+          <p className="text-slate mb-1">Contacto</p>
+          <p className="text-grafito">
+            {(pedido as any).nombre_contacto} — {(pedido as any).telefono_contacto}
+          </p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-slate mb-1">Dirección de entrega</p>
+          <p className="text-grafito">
+            {(pedido as any).direcciones
+              ? `${(pedido as any).direcciones.alias} — ${(pedido as any).direcciones.direccion}, ${(pedido as any).direcciones.ciudad || ''}`
+              : '—'}
+          </p>
+        </div>
+        {(pedido as any).requiere_aprobacion && (
+          <div className="col-span-2">
+            <p className="text-slate mb-1">Aprobación del responsable</p>
+            <p className="text-grafito">
+              {(pedido as any).aprobado === null
+                ? 'Pendiente de aprobación'
+                : (pedido as any).aprobado
+                ? 'Aprobada'
+                : 'Rechazada'}
+            </p>
+          </div>
+        )}
       </div>
 
       <h2 className="font-medium text-grafito mb-3">Artículos solicitados</h2>

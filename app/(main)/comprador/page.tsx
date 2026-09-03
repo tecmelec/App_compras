@@ -12,7 +12,7 @@ export default async function CompradorPage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, numero_tecmelec, created_at, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
+      'id, numero_app, numero_tecmelec, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
     )
     .eq('comprador_id', user?.id)
     .order('created_at', { ascending: false });
@@ -32,6 +32,8 @@ export default async function CompradorPage() {
                 <th className="px-4 py-3 font-medium">Nº pedido APP</th>
                 <th className="px-4 py-3 font-medium">Solicitante</th>
                 <th className="px-4 py-3 font-medium">Nº pedido Tecmelec</th>
+                <th className="px-4 py-3 font-medium">Total</th>
+                <th className="px-4 py-3 font-medium">Aprobación</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Fecha</th>
               </tr>
@@ -47,6 +49,20 @@ export default async function CompradorPage() {
                   <td className="px-4 py-3 text-grafito">{p.profiles?.nombre_completo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     {p.numero_tecmelec || '—'}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    {p.total_estimado?.toFixed(2)} €
+                  </td>
+                  <td className="px-4 py-3">
+                    {!p.requiere_aprobacion ? (
+                      <span className="badge badge-entregado">Automática</span>
+                    ) : p.aprobado === null ? (
+                      <span className="badge badge-pendiente">Pendiente</span>
+                    ) : p.aprobado ? (
+                      <span className="badge badge-entregado">Aprobada</span>
+                    ) : (
+                      <span className="badge badge-cancelado">Rechazada</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <EstadoBadge estado={p.estados_pedido?.nombre} />

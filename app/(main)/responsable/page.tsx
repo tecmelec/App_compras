@@ -12,7 +12,7 @@ export default async function ResponsablePage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, numero_tecmelec, created_at, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
+      'id, numero_app, numero_tecmelec, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
     )
     .eq('responsable_id', user?.id)
     .order('created_at', { ascending: false });
@@ -20,7 +20,9 @@ export default async function ResponsablePage() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitudes de mi equipo</h1>
-      <p className="text-slate text-sm mb-6">Vista de solo lectura de las solicitudes de tu equipo.</p>
+      <p className="text-slate text-sm mb-6">
+        Las solicitudes que superan el monto de aprobación automática requieren tu aprobación.
+      </p>
 
       {!pedidos || pedidos.length === 0 ? (
         <p className="text-slate text-sm">Tu equipo no tiene solicitudes registradas.</p>
@@ -31,7 +33,8 @@ export default async function ResponsablePage() {
               <tr>
                 <th className="px-4 py-3 font-medium">Nº pedido APP</th>
                 <th className="px-4 py-3 font-medium">Solicitante</th>
-                <th className="px-4 py-3 font-medium">Nº pedido Tecmelec</th>
+                <th className="px-4 py-3 font-medium">Total</th>
+                <th className="px-4 py-3 font-medium">Aprobación</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Fecha</th>
               </tr>
@@ -40,13 +43,22 @@ export default async function ResponsablePage() {
               {pedidos.map((p: any) => (
                 <tr key={p.id} className="hover:bg-fondo">
                   <td className="px-4 py-3">
-                    <Link href={`/mis-pedidos/${p.id}`} className="font-mono text-acero">
+                    <Link href={`/responsable/${p.id}`} className="font-mono text-acero">
                       {p.numero_app}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-grafito">{p.profiles?.nombre_completo}</td>
-                  <td className="px-4 py-3 font-mono text-grafito">
-                    {p.numero_tecmelec || '—'}
+                  <td className="px-4 py-3 font-mono text-grafito">{p.total_estimado?.toFixed(2)} €</td>
+                  <td className="px-4 py-3">
+                    {!p.requiere_aprobacion ? (
+                      <span className="badge badge-entregado">Automática</span>
+                    ) : p.aprobado === null ? (
+                      <span className="badge badge-pendiente">Pendiente</span>
+                    ) : p.aprobado ? (
+                      <span className="badge badge-entregado">Aprobada</span>
+                    ) : (
+                      <span className="badge badge-cancelado">Rechazada</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <EstadoBadge estado={p.estados_pedido?.nombre} />

@@ -9,6 +9,7 @@ export async function crearProducto(datos: {
   descripcion: string;
   imagen_url: string | null;
   categoria: string;
+  precio: number;
 }) {
   await requireAdmin();
   const supabase = createClient();
@@ -23,7 +24,14 @@ export async function crearProducto(datos: {
 
 export async function actualizarProducto(
   id: string,
-  datos: { nombre: string; descripcion: string; imagen_url: string | null; categoria: string; visible: boolean }
+  datos: {
+    nombre: string;
+    descripcion: string;
+    imagen_url: string | null;
+    categoria: string;
+    visible: boolean;
+    precio: number;
+  }
 ) {
   await requireAdmin();
   const supabase = createClient();
@@ -67,5 +75,20 @@ export async function eliminarEstado(id: number) {
   if (error) return { error: 'No se pudo eliminar el estado (puede estar en uso por algún pedido).' };
 
   revalidatePath('/admin/estados');
+  return { success: true };
+}
+
+export async function actualizarLimiteAprobacion(valor: number) {
+  await requireAdmin();
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from('configuracion')
+    .update({ limite_aprobacion: valor })
+    .eq('id', 1);
+
+  if (error) return { error: 'No se pudo actualizar el límite.' };
+
+  revalidatePath('/admin/configuracion');
   return { success: true };
 }

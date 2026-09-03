@@ -8,6 +8,7 @@ type Usuario = {
   id: string;
   nombre_completo: string;
   email: string;
+  telefono: string | null;
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   comprador_id: string | null;
   responsable_id: string | null;
@@ -123,6 +124,7 @@ function UsuarioForm({
 
   const [nombre, setNombre] = useState(usuario?.nombre_completo || '');
   const [email, setEmail] = useState(usuario?.email || '');
+  const [telefono, setTelefono] = useState(usuario?.telefono || '');
   const [password, setPassword] = useState('');
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [rol, setRol] = useState<Usuario['rol']>(usuario?.rol || 'usuario');
@@ -137,6 +139,7 @@ function UsuarioForm({
 
     const datosComunes = {
       nombre_completo: nombre,
+      telefono,
       rol,
       comprador_id: rol === 'usuario' ? compradorId || null : null,
       responsable_id: rol === 'usuario' ? responsableId || null : null,
@@ -176,6 +179,16 @@ function UsuarioForm({
             value={email}
             disabled={esEdicion}
             onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-grafito mb-1">Teléfono</label>
+          <input
+            className="input"
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            placeholder="+34 600111222"
           />
         </div>
 

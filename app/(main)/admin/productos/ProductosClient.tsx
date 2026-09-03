@@ -13,6 +13,7 @@ type Producto = {
   imagen_url: string | null;
   categoria: string | null;
   visible: boolean;
+  precio: number;
 };
 
 export default function ProductosClient({ productos }: { productos: Producto[] }) {
@@ -37,6 +38,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
               <th className="px-4 py-3"></th>
               <th className="px-4 py-3 font-medium">Nombre</th>
               <th className="px-4 py-3 font-medium">Categoría</th>
+              <th className="px-4 py-3 font-medium">Precio</th>
               <th className="px-4 py-3 font-medium">Visible</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -54,6 +56,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                   </td>
                   <td className="px-4 py-3 text-grafito">{p.nombre}</td>
                   <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-grafito">{p.precio?.toFixed(2)} €</td>
                   <td className="px-4 py-3 text-slate">{p.visible ? 'Sí' : 'No'}</td>
                   <td className="px-4 py-3 text-right">
                     <button
@@ -101,6 +104,7 @@ function ProductoForm({
   const [nombre, setNombre] = useState(producto?.nombre || '');
   const [descripcion, setDescripcion] = useState(producto?.descripcion || '');
   const [categoria, setCategoria] = useState(producto?.categoria || '');
+  const [precio, setPrecio] = useState(producto?.precio?.toString() || '0');
   const [visible, setVisible] = useState(producto?.visible ?? true);
   const [imagenUrl, setImagenUrl] = useState(producto?.imagen_url || '');
   const [subiendo, setSubiendo] = useState(false);
@@ -136,7 +140,7 @@ function ProductoForm({
     setGuardando(true);
     setError(null);
 
-    const datos = { nombre, descripcion, categoria, imagen_url: imagenUrl || null };
+    const datos = { nombre, descripcion, categoria, imagen_url: imagenUrl || null, precio: Number(precio) || 0 };
 
     const resultado = esEdicion
       ? await actualizarProducto(producto!.id, { ...datos, visible })
@@ -170,6 +174,18 @@ function ProductoForm({
         <div>
           <label className="block text-sm font-medium text-grafito mb-1">Categoría</label>
           <input className="input" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-grafito mb-1">Precio (€)</label>
+          <input
+            className="input font-mono"
+            type="number"
+            step="0.01"
+            min="0"
+            value={precio}
+            onChange={(e) => setPrecio(e.target.value)}
+          />
         </div>
 
         <div className="col-span-2">

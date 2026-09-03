@@ -4,6 +4,7 @@ const secciones = [
   { href: '/admin/usuarios', titulo: 'Usuarios', desc: 'Crear cuentas, asignar rol, comprador y responsable.' },
   { href: '/admin/productos', titulo: 'Productos', desc: 'Gestionar el catálogo de la Tienda Tecmelec.' },
   { href: '/admin/estados', titulo: 'Estados de pedido', desc: 'Definir los estados por los que pasa una solicitud.' },
+  { href: '/admin/configuracion', titulo: 'Configuración', desc: 'Límite de aprobación automática y otros ajustes.' },
 ];
 
 export default function AdminHomePage() {

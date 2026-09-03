@@ -9,6 +9,7 @@ export async function crearUsuario(datos: {
   nombre_completo: string;
   email: string;
   password: string;
+  telefono: string;
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   comprador_id: string | null;
   responsable_id: string | null;
@@ -30,6 +31,7 @@ export async function crearUsuario(datos: {
     id: nuevoUsuario.user.id,
     nombre_completo: datos.nombre_completo,
     email: datos.email,
+    telefono: datos.telefono || null,
     rol: datos.rol,
     comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
     responsable_id: datos.rol === 'usuario' ? datos.responsable_id : null,
@@ -49,6 +51,7 @@ export async function actualizarUsuario(
   id: string,
   datos: {
     nombre_completo: string;
+    telefono: string;
     rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
     comprador_id: string | null;
     responsable_id: string | null;
@@ -61,6 +64,7 @@ export async function actualizarUsuario(
     .from('profiles')
     .update({
       nombre_completo: datos.nombre_completo,
+      telefono: datos.telefono || null,
       rol: datos.rol,
       comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
       responsable_id: datos.rol === 'usuario' ? datos.responsable_id : null,

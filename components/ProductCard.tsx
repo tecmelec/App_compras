@@ -10,9 +10,16 @@ type Producto = {
   descripcion: string | null;
   imagen_url: string | null;
   categoria: string | null;
+  precio?: number;
 };
 
-export default function ProductCard({ producto }: { producto: Producto }) {
+export default function ProductCard({
+  producto,
+  mostrarPrecio,
+}: {
+  producto: Producto;
+  mostrarPrecio?: boolean;
+}) {
   const { addItem } = useCart();
   const [cantidad, setCantidad] = useState(1);
   const [agregado, setAgregado] = useState(false);
@@ -43,6 +50,9 @@ export default function ProductCard({ producto }: { producto: Producto }) {
           <span className="text-xs text-acero font-medium mb-1">{producto.categoria}</span>
         )}
         <h3 className="font-medium text-grafito leading-snug">{producto.nombre}</h3>
+        {mostrarPrecio && producto.precio !== undefined && (
+          <p className="text-sm font-mono text-acero mt-0.5">{producto.precio.toFixed(2)} €</p>
+        )}
         {producto.descripcion && (
           <p className="text-sm text-slate mt-1 flex-1">{producto.descripcion}</p>
         )}

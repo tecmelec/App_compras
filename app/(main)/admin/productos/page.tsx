@@ -6,7 +6,7 @@ export default async function ProductosAdminPage() {
 
   const { data: productos } = await supabase
     .from('productos')
-    .select('id, nombre, descripcion, imagen_url, categoria, visible')
+    .select('id, nombre, descripcion, imagen_url, categoria, visible, precio')
     .order('categoria');
 
   return (

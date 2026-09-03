@@ -61,3 +61,25 @@ body {
   font-size: 0.9375rem;
 }
 .btn-secondary:hover { background-color: #F5F6F4; }
+
+.btn-aprobar {
+  background-color: #3F7D58;
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+.btn-aprobar:hover { background-color: #356848; }
+.btn-aprobar:disabled { background-color: #9FC2AB; cursor: not-allowed; }
+
+.btn-rechazar {
+  background-color: white;
+  color: #B54A4A;
+  border: 1px solid #E7C7C7;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+.btn-rechazar:hover { background-color: #F6E9E9; }

@@ -9,11 +9,13 @@ export async function enviarEmailSolicitud({
   solicitante,
   numeroApp,
   items,
+  requiereAprobacion,
 }: {
   destinatarios: string[];
   solicitante: string;
   numeroApp: string;
   items: ItemEmail[];
+  requiereAprobacion?: boolean;
 }) {
   if (destinatarios.length === 0) return;
 
@@ -23,6 +25,12 @@ export async function enviarEmailSolicitud({
         `<tr><td style="padding:6px 12px;border-bottom:1px solid #DDE1E0;">${i.nombre}</td><td style="padding:6px 12px;border-bottom:1px solid #DDE1E0;text-align:center;">${i.cantidad}</td></tr>`
     )
     .join('');
+
+  const avisoAprobacion = requiereAprobacion
+    ? `<p style="margin-top:12px;padding:10px 12px;background:#FDF2E3;border:1px solid #F2D9AE;border-radius:6px;color:#8A5A15;">
+         Esta solicitud supera el monto de aprobación automática y queda <strong>pendiente de aprobación</strong> del responsable.
+       </p>`
+    : '';
 
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
@@ -41,6 +49,7 @@ export async function enviarEmailSolicitud({
           </thead>
           <tbody>${filas}</tbody>
         </table>
+        ${avisoAprobacion}
         <p style="margin-top:16px;">Ingresa a la plataforma para asignar el número de pedido Tecmelec y la fecha estimada de entrega.</p>
       </div>
     `,

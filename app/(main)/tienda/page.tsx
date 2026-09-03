@@ -4,9 +4,21 @@ import ProductCard from '@/components/ProductCard';
 export default async function TiendaPage() {
   const supabase = createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('rol')
+    .eq('id', user?.id)
+    .single();
+
+  const mostrarPrecio = perfil?.rol === 'admin' || perfil?.rol === 'comprador';
+
   const { data: productos } = await supabase
     .from('productos')
-    .select('id, nombre, descripcion, imagen_url, categoria')
+    .select('id, nombre, descripcion, imagen_url, categoria, precio')
     .eq('visible', true)
     .order('categoria');
 
@@ -24,7 +36,7 @@ export default async function TiendaPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {productos.map((p) => (
-            <ProductCard key={p.id} producto={p} />
+            <ProductCard key={p.id} producto={p} mostrarPrecio={mostrarPrecio} />
           ))}
         </div>
       )}

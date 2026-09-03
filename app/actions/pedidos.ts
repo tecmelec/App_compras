@@ -5,9 +5,40 @@ import { enviarEmailSolicitud } from '@/lib/email';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
-export async function crearPedido(items: ItemInput[]) {
+type DatosSolicitud = {
+  nombre_contacto: string;
+  telefono_contacto: string;
+  direccion_entrega_id: string;
+  fecha_requerida: string;
+};
+
+export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   if (items.length === 0) {
     return { error: 'El carrito está vacío.' };
+  }
+
+  if (!datos.nombre_contacto || !datos.telefono_contacto) {
+    return { error: 'Falta el nombre o el teléfono de contacto.' };
+  }
+
+  if (!datos.direccion_entrega_id) {
+    return { error: 'Selecciona una dirección de entrega.' };
+  }
+
+  if (!datos.fecha_requerida) {
+    return { error: 'Selecciona la fecha requerida de entrega.' };
+  }
+
+  const fecha = new Date(datos.fecha_requerida + 'T00:00:00');
+  const diaSemana = fecha.getDay(); // 0 = domingo, 6 = sábado
+  if (diaSemana === 0 || diaSemana === 6) {
+    return { error: 'La fecha requerida no puede ser sábado ni domingo.' };
+  }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  if (fecha <= hoy) {
+    return { error: 'La fecha requerida debe ser posterior a hoy.' };
   }
 
   const supabase = createClient();
@@ -30,13 +61,43 @@ export async function crearPedido(items: ItemInput[]) {
     return { error: 'No se encontró tu perfil de usuario.' };
   }
 
-  // 1. Crear el pedido
+  // 1. Calcular el total real a partir de los precios guardados en la base (nunca confiar en el precio del cliente)
+  const idsProductos = items.map((i) => i.producto_id);
+  const { data: productosDb } = await supabase
+    .from('productos')
+    .select('id, precio')
+    .in('id', idsProductos);
+
+  const precios = new Map((productosDb || []).map((p) => [p.id, p.precio]));
+  const totalEstimado = items.reduce(
+    (suma, item) => suma + (precios.get(item.producto_id) || 0) * item.cantidad,
+    0
+  );
+
+  // 2. Determinar si supera el límite de aprobación automática
+  const { data: config } = await supabase
+    .from('configuracion')
+    .select('limite_aprobacion')
+    .eq('id', 1)
+    .single();
+
+  const limite = config?.limite_aprobacion ?? 200;
+  const requiereAprobacion = totalEstimado > limite;
+
+  // 3. Crear el pedido
   const { data: pedido, error: errorPedido } = await supabase
     .from('pedidos')
     .insert({
       usuario_id: user.id,
       comprador_id: perfil.comprador_id,
       responsable_id: perfil.responsable_id,
+      nombre_contacto: datos.nombre_contacto,
+      telefono_contacto: datos.telefono_contacto,
+      direccion_entrega_id: datos.direccion_entrega_id,
+      fecha_requerida: datos.fecha_requerida,
+      total_estimado: totalEstimado,
+      requiere_aprobacion: requiereAprobacion,
+      aprobado: requiereAprobacion ? null : true,
     })
     .select('id, numero_app')
     .single();
@@ -45,7 +106,7 @@ export async function crearPedido(items: ItemInput[]) {
     return { error: 'No se pudo crear el pedido. Intenta nuevamente.' };
   }
 
-  // 2. Crear las líneas del pedido
+  // 4. Crear las líneas del pedido
   const { error: errorItems } = await supabase.from('pedido_items').insert(
     items.map((i) => ({
       pedido_id: pedido.id,
@@ -58,7 +119,7 @@ export async function crearPedido(items: ItemInput[]) {
     return { error: 'El pedido se creó pero hubo un problema guardando los artículos.' };
   }
 
-  // 3. Obtener emails del comprador y responsable asignados
+  // 5. Obtener emails del comprador y responsable asignados
   const idsDestino = [perfil.comprador_id, perfil.responsable_id].filter(Boolean) as string[];
   let destinatarios: string[] = [];
 
@@ -70,13 +131,14 @@ export async function crearPedido(items: ItemInput[]) {
     destinatarios = (contactos || []).map((c) => c.email);
   }
 
-  // 4. Enviar email (si falla, no revertimos el pedido; solo lo reportamos)
+  // 6. Enviar email (si falla, no revertimos el pedido; solo lo reportamos)
   try {
     await enviarEmailSolicitud({
       destinatarios,
       solicitante: perfil.nombre_completo,
       numeroApp: pedido.numero_app,
       items: items.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad })),
+      requiereAprobacion,
     });
   } catch (e) {
     console.error('Error enviando email de solicitud:', e);
@@ -104,6 +166,30 @@ export async function actualizarPedido(
   if (error) {
     return { error: 'No se pudo actualizar el pedido.' };
   }
+
+  return { success: true };
+}
+
+export async function responderAprobacion(pedidoId: string, aprobado: boolean) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Debes iniciar sesión.' };
+
+  const { error } = await supabase
+    .from('pedidos')
+    .update({
+      aprobado,
+      aprobado_por: user.id,
+      aprobado_en: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', pedidoId);
+
+  if (error) return { error: 'No se pudo registrar la decisión.' };
 
   return { success: true };
 }

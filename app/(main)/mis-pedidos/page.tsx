@@ -15,7 +15,7 @@ export default async function MisPedidosPage({
 
   const { data: pedidos } = await supabase
     .from('pedidos')
-    .select('id, numero_app, numero_tecmelec, created_at, estados_pedido(nombre)')
+    .select('id, numero_app, numero_tecmelec, created_at, requiere_aprobacion, aprobado, estados_pedido(nombre)')
     .eq('usuario_id', user?.id)
     .order('created_at', { ascending: false });
 
@@ -39,6 +39,7 @@ export default async function MisPedidosPage({
               <tr>
                 <th className="px-4 py-3 font-medium">Nº pedido APP</th>
                 <th className="px-4 py-3 font-medium">Nº pedido Tecmelec</th>
+                <th className="px-4 py-3 font-medium">Aprobación</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium">Fecha</th>
               </tr>
@@ -53,6 +54,17 @@ export default async function MisPedidosPage({
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     {p.numero_tecmelec || '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {!p.requiere_aprobacion ? (
+                      <span className="badge badge-entregado">Automática</span>
+                    ) : p.aprobado === null ? (
+                      <span className="badge badge-pendiente">Pendiente</span>
+                    ) : p.aprobado ? (
+                      <span className="badge badge-entregado">Aprobada</span>
+                    ) : (
+                      <span className="badge badge-cancelado">Rechazada</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <EstadoBadge estado={p.estados_pedido?.nombre} />
