@@ -1,13 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-
-type Fila = {
-  numero_app: string;
-  numero_tecmelec: string | null;
-  articulo: string;
-  cantidad: number;
-  fecha_requerida: string | null;
-  fecha_estimada_entrega: string | null;
-};
+import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
 
 export default async function LineasCompraPage() {
   const supabase = createClient();
@@ -40,7 +32,7 @@ export default async function LineasCompraPage() {
 
   const { data: pedidos } = await query;
 
-  const filas: Fila[] = (pedidos || []).flatMap((p: any) =>
+  const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
       numero_tecmelec: p.numero_tecmelec,
@@ -59,40 +51,7 @@ export default async function LineasCompraPage() {
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No hay líneas de compra para mostrar.</p>
       ) : (
-        <div className="bg-white border border-borde rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-fondo text-slate text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium">Nº pedido APP</th>
-                <th className="px-4 py-3 font-medium">Nº pedido Tecmelec</th>
-                <th className="px-4 py-3 font-medium">Artículo solicitado</th>
-                <th className="px-4 py-3 font-medium">Cantidad</th>
-                <th className="px-4 py-3 font-medium">Fecha requerida</th>
-                <th className="px-4 py-3 font-medium">Fecha estimada de entrega</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-borde">
-              {filas.map((f, idx) => (
-                <tr key={idx} className="hover:bg-fondo">
-                  <td className="px-4 py-3 font-mono text-acero">{f.numero_app}</td>
-                  <td className="px-4 py-3 font-mono text-grafito">{f.numero_tecmelec || '—'}</td>
-                  <td className="px-4 py-3 text-grafito">{f.articulo}</td>
-                  <td className="px-4 py-3 font-mono text-grafito">{f.cantidad}</td>
-                  <td className="px-4 py-3 text-slate">
-                    {f.fecha_requerida
-                      ? new Date(f.fecha_requerida + 'T00:00:00').toLocaleDateString('es-ES')
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-slate">
-                    {f.fecha_estimada_entrega
-                      ? new Date(f.fecha_estimada_entrega).toLocaleDateString('es-ES')
-                      : 'Por definir'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <LineasComprasClient filas={filas} />
       )}
     </div>
   );
