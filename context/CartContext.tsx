@@ -19,29 +19,36 @@ type CartContextType = {
 };
 
 const CartContext = createContext<CartContextType | null>(null);
-const STORAGE_KEY = 'tecmelec_carrito';
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+function storageKey(userId: string) {
+  return `tecmelec_carrito_${userId}`;
+}
+
+export function CartProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // Carga el carrito de ESTE usuario específico (nunca el de otro que haya usado el mismo navegador)
   useEffect(() => {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    setLoaded(false);
+    const raw = window.localStorage.getItem(storageKey(userId));
     if (raw) {
       try {
         setItems(JSON.parse(raw));
       } catch {
-        // carrito corrupto, se ignora
+        setItems([]);
       }
+    } else {
+      setItems([]);
     }
     setLoaded(true);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (loaded) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      window.localStorage.setItem(storageKey(userId), JSON.stringify(items));
     }
-  }, [items, loaded]);
+  }, [items, loaded, userId]);
 
   function addItem(item: Omit<CartItem, 'cantidad'>, cantidad: number) {
     setItems((prev) => {

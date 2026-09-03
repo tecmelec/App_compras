@@ -29,3 +29,48 @@ export async function crearDireccion(datos: {
   revalidatePath('/carrito');
   return { success: true, direccion: data };
 }
+
+export async function actualizarDireccion(
+  id: string,
+  datos: { alias: string; direccion: string; codigo_postal: string; ciudad: string; provincia: string }
+) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Debes iniciar sesión.' };
+
+  const { error } = await supabase
+    .from('direcciones')
+    .update(datos)
+    .eq('id', id)
+    .eq('usuario_id', user.id);
+
+  if (error) return { error: 'No se pudo actualizar la dirección.' };
+
+  revalidatePath('/carrito');
+  return { success: true };
+}
+
+export async function eliminarDireccion(id: string) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Debes iniciar sesión.' };
+
+  const { error } = await supabase
+    .from('direcciones')
+    .delete()
+    .eq('id', id)
+    .eq('usuario_id', user.id);
+
+  if (error) return { error: 'No se pudo eliminar la dirección (puede estar en uso en algún pedido).' };
+
+  revalidatePath('/carrito');
+  return { success: true };
+}

@@ -14,7 +14,7 @@ export default async function TiendaPage() {
     .eq('id', user?.id)
     .single();
 
-  const mostrarPrecio = perfil?.rol === 'admin' || perfil?.rol === 'comprador';
+  const mostrarPrecio = perfil?.rol === 'admin' || perfil?.rol === 'comprador' || perfil?.rol === 'responsable';
 
   const { data: productos } = await supabase
     .from('productos')

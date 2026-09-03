@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { crearDireccion } from '@/app/actions/direcciones';
+import { crearDireccion, actualizarDireccion, eliminarDireccion } from '@/app/actions/direcciones';
 
 type Direccion = {
   id: string;
@@ -52,6 +52,7 @@ export default function SolicitudModal({
   const [direccionId, setDireccionId] = useState('');
   const [fecha, setFecha] = useState(proximaFechaHabilValida());
   const [creandoDireccion, setCreandoDireccion] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,20 +141,74 @@ export default function SolicitudModal({
                 <p className="text-sm text-slate mb-2">Todavía no tienes direcciones guardadas.</p>
               )}
 
-              {direcciones.length > 0 && (
-                <select
-                  className="input mb-2"
-                  value={direccionId}
-                  onChange={(e) => setDireccionId(e.target.value)}
-                >
-                  {direcciones.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.alias} — {d.direccion}
-                      {d.ciudad ? `, ${d.ciudad}` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <div className="space-y-2 mb-2">
+                {direcciones.map((d) =>
+                  editandoId === d.id ? (
+                    <NuevaDireccionForm
+                      key={d.id}
+                      direccion={d}
+                      onCancel={() => setEditandoId(null)}
+                      onCreada={(dir) => {
+                        setDirecciones((prev) => prev.map((x) => (x.id === dir.id ? dir : x)));
+                        setEditandoId(null);
+                      }}
+                    />
+                  ) : (
+                    <label
+                      key={d.id}
+                      className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer ${
+                        direccionId === d.id ? 'border-acero bg-aceroClaro' : 'border-borde'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="direccion"
+                        className="mt-1"
+                        checked={direccionId === d.id}
+                        onChange={() => setDireccionId(d.id)}
+                      />
+                      <div className="flex-1 text-sm">
+                        <p className="font-medium text-grafito">{d.alias}</p>
+                        <p className="text-slate">
+                          {d.direccion}
+                          {d.codigo_postal ? ` — CP ${d.codigo_postal}` : ''}
+                          {d.ciudad ? `, ${d.ciudad}` : ''}
+                          {d.provincia ? ` (${d.provincia})` : ''}
+                        </p>
+                        <div className="flex gap-3 mt-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setEditandoId(d.id);
+                            }}
+                            className="text-xs text-acero hover:underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              if (!confirm(`¿Eliminar la dirección "${d.alias}"?`)) return;
+                              const resultado = await eliminarDireccion(d.id);
+                              if (resultado.error) {
+                                setError(resultado.error);
+                                return;
+                              }
+                              setDirecciones((prev) => prev.filter((x) => x.id !== d.id));
+                              if (direccionId === d.id) setDireccionId('');
+                            }}
+                            className="text-xs text-rojo hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    </label>
+                  )
+                )}
+              </div>
 
               {!creandoDireccion ? (
                 <button
@@ -243,17 +298,20 @@ export default function SolicitudModal({
 }
 
 function NuevaDireccionForm({
+  direccion: direccionExistente,
   onCancel,
   onCreada,
 }: {
+  direccion?: Direccion;
   onCancel: () => void;
   onCreada: (dir: Direccion) => void;
 }) {
-  const [alias, setAlias] = useState('');
-  const [direccion, setDireccion] = useState('');
-  const [codigoPostal, setCodigoPostal] = useState('');
-  const [ciudad, setCiudad] = useState('');
-  const [provincia, setProvincia] = useState('');
+  const esEdicion = !!direccionExistente;
+  const [alias, setAlias] = useState(direccionExistente?.alias || '');
+  const [direccion, setDireccion] = useState(direccionExistente?.direccion || '');
+  const [codigoPostal, setCodigoPostal] = useState(direccionExistente?.codigo_postal || '');
+  const [ciudad, setCiudad] = useState(direccionExistente?.ciudad || '');
+  const [provincia, setProvincia] = useState(direccionExistente?.provincia || '');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -265,14 +323,26 @@ function NuevaDireccionForm({
     setGuardando(true);
     setError(null);
 
-    const resultado = await crearDireccion({
+    const datos = {
       alias: alias.trim(),
       direccion: direccion.trim(),
       codigo_postal: codigoPostal.trim(),
       ciudad: ciudad.trim(),
       provincia: provincia.trim(),
-    });
+    };
 
+    if (esEdicion) {
+      const resultado = await actualizarDireccion(direccionExistente!.id, datos);
+      setGuardando(false);
+      if (resultado.error) {
+        setError(resultado.error);
+        return;
+      }
+      onCreada({ id: direccionExistente!.id, ...datos });
+      return;
+    }
+
+    const resultado = await crearDireccion(datos);
     setGuardando(false);
 
     if (resultado.error || !resultado.direccion) {

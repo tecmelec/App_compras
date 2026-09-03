@@ -1,19 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import SolicitudesFiltrables, { type PedidoFila } from '@/components/SolicitudesFiltrables';
 
-export default async function ResponsablePage() {
+export default async function TodasLasSolicitudesPage() {
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, numero_tecmelec, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
+      'id, numero_app, numero_tecmelec, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo), comprador:profiles!pedidos_comprador_id_fkey(nombre_completo)'
     )
-    .eq('responsable_id', user?.id)
     .order('created_at', { ascending: false });
 
   const filas: PedidoFila[] = (pedidos || []).map((p: any) => ({
@@ -21,6 +16,7 @@ export default async function ResponsablePage() {
     numero_app: p.numero_app,
     numero_tecmelec: p.numero_tecmelec,
     solicitante: p.profiles?.nombre_completo || '—',
+    comprador: p.comprador?.nombre_completo || '—',
     total_estimado: p.total_estimado || 0,
     requiere_aprobacion: p.requiere_aprobacion,
     aprobado: p.aprobado,
@@ -30,15 +26,13 @@ export default async function ResponsablePage() {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitudes de mi equipo</h1>
-      <p className="text-slate text-sm mb-6">
-        Las solicitudes que superan el monto de aprobación automática requieren tu aprobación.
-      </p>
+      <h1 className="text-2xl font-semibold text-grafito mb-1">Todas las solicitudes</h1>
+      <p className="text-slate text-sm mb-6">Vista completa de todas las solicitudes del sistema.</p>
 
       {filas.length === 0 ? (
-        <p className="text-slate text-sm">Tu equipo no tiene solicitudes registradas.</p>
+        <p className="text-slate text-sm">Todavía no hay solicitudes registradas.</p>
       ) : (
-        <SolicitudesFiltrables pedidos={filas} linkBase="/responsable" />
+        <SolicitudesFiltrables pedidos={filas} linkBase="/admin/pedidos" mostrarComprador />
       )}
     </div>
   );

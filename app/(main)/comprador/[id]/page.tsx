@@ -46,7 +46,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <p className="text-slate mb-0.5">Dirección de entrega</p>
           <p className="text-grafito">
             {(pedido as any).direcciones
-              ? `${(pedido as any).direcciones.alias} — ${(pedido as any).direcciones.direccion}, ${(pedido as any).direcciones.ciudad || ''}`
+              ? `${(pedido as any).direcciones.alias} — ${(pedido as any).direcciones.direccion}${(pedido as any).direcciones.codigo_postal ? ` — CP ${(pedido as any).direcciones.codigo_postal}` : ''}, ${(pedido as any).direcciones.ciudad || ''}`
               : '—'}
           </p>
         </div>

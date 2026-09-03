@@ -9,9 +9,10 @@ import clsx from 'clsx';
 type Props = {
   nombre: string;
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
+  pendientesAprobacion?: number;
 };
 
-export default function Nav({ nombre, rol }: Props) {
+export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { totalItems } = useCart();
@@ -21,7 +22,13 @@ export default function Nav({ nombre, rol }: Props) {
     { href: '/carrito', label: `Carrito${totalItems ? ` (${totalItems})` : ''}`, roles: ['admin', 'usuario'] },
     { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario'] },
     { href: '/comprador', label: 'Solicitudes por comprar', roles: ['admin', 'comprador'] },
-    { href: '/responsable', label: 'Solicitudes de mi equipo', roles: ['admin', 'responsable'] },
+    {
+      href: '/responsable',
+      label: 'Solicitudes de mi equipo',
+      roles: ['admin', 'responsable'],
+      badge: pendientesAprobacion,
+    },
+    { href: '/admin/pedidos', label: 'Todas las solicitudes', roles: ['admin'] },
     { href: '/admin', label: 'Administración', roles: ['admin'] },
   ].filter((l) => l.roles.includes(rol));
 
@@ -45,11 +52,16 @@ export default function Nav({ nombre, rol }: Props) {
             key={l.href}
             href={l.href}
             className={clsx(
-              'block px-3 py-2 rounded-md text-sm font-medium',
+              'flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium',
               pathname.startsWith(l.href) ? 'bg-acero text-white' : 'text-white/80 hover:bg-white/10'
             )}
           >
-            {l.label}
+            <span>{l.label}</span>
+            {!!l.badge && (
+              <span className="bg-rojo text-white text-xs font-semibold rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center">
+                {l.badge}
+              </span>
+            )}
           </Link>
         ))}
       </div>

@@ -20,10 +20,21 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   if (!profile) redirect('/login');
 
+  let pendientesAprobacion = 0;
+  if (profile.rol === 'responsable' || profile.rol === 'admin') {
+    const { count } = await supabase
+      .from('pedidos')
+      .select('id', { count: 'exact', head: true })
+      .eq('responsable_id', user.id)
+      .eq('requiere_aprobacion', true)
+      .is('aprobado', null);
+    pendientesAprobacion = count || 0;
+  }
+
   return (
-    <CartProvider>
+    <CartProvider userId={user.id}>
       <div className="flex">
-        <Nav nombre={profile.nombre_completo} rol={profile.rol} />
+        <Nav nombre={profile.nombre_completo} rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
         <main className="flex-1 min-h-screen">{children}</main>
       </div>
     </CartProvider>
