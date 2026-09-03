@@ -42,6 +42,7 @@ export default function SolicitudModal({
     telefono_contacto: string;
     direccion_entrega_id: string;
     fecha_requerida: string;
+    comprador_id: string | null;
   }) => void;
   enviando: boolean;
 }) {
@@ -56,6 +57,13 @@ export default function SolicitudModal({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Comprador: bloqueado (asignado por admin) para "usuario"; seleccionable para admin/responsable
+  const [rol, setRol] = useState<string>('usuario');
+  const [compradorAsignadoNombre, setCompradorAsignadoNombre] = useState<string | null>(null);
+  const [compradorAsignadoId, setCompradorAsignadoId] = useState<string | null>(null);
+  const [compradoresDisponibles, setCompradoresDisponibles] = useState<{ id: string; nombre_completo: string }[]>([]);
+  const [compradorSeleccionado, setCompradorSeleccionado] = useState('');
+
   useEffect(() => {
     async function cargar() {
       const supabase = createClient();
@@ -67,12 +75,13 @@ export default function SolicitudModal({
 
       const { data: perfil } = await supabase
         .from('profiles')
-        .select('nombre_completo, telefono')
+        .select('nombre_completo, telefono, rol, comprador_id')
         .eq('id', user.id)
         .single();
 
       if (perfil) {
         setNombre(perfil.nombre_completo || '');
+        setRol(perfil.rol);
         if (perfil.telefono) {
           // separa el código de país si ya viene guardado como "+34 600111222"
           const partes = perfil.telefono.split(' ');
@@ -82,6 +91,26 @@ export default function SolicitudModal({
           } else {
             setTelefono(perfil.telefono.replace(/\D/g, ''));
           }
+        }
+
+        if (perfil.rol === 'usuario') {
+          setCompradorAsignadoId(perfil.comprador_id || null);
+          if (perfil.comprador_id) {
+            const { data: comprador } = await supabase
+              .from('profiles')
+              .select('nombre_completo')
+              .eq('id', perfil.comprador_id)
+              .single();
+            setCompradorAsignadoNombre(comprador?.nombre_completo || null);
+          }
+        } else {
+          // admin o responsable: eligen el comprador manualmente
+          const { data: compradores } = await supabase
+            .from('profiles')
+            .select('id, nombre_completo')
+            .eq('rol', 'comprador')
+            .order('nombre_completo');
+          setCompradoresDisponibles(compradores || []);
         }
       }
 
@@ -107,6 +136,10 @@ export default function SolicitudModal({
     if (!direccionId) return setError('Selecciona una dirección de entrega.');
     if (!fecha) return setError('Selecciona la fecha requerida de entrega.');
 
+    if (rol !== 'usuario' && !compradorSeleccionado) {
+      return setError('Selecciona el comprador para esta solicitud.');
+    }
+
     const fechaSeleccionada = new Date(fecha + 'T00:00:00');
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
@@ -119,6 +152,7 @@ export default function SolicitudModal({
       telefono_contacto: `${codigoPais} ${telefono.trim()}`,
       direccion_entrega_id: direccionId,
       fecha_requerida: fecha,
+      comprador_id: rol === 'usuario' ? compradorAsignadoId : compradorSeleccionado,
     });
   }
 
@@ -227,6 +261,30 @@ export default function SolicitudModal({
                     setCreandoDireccion(false);
                   }}
                 />
+              )}
+            </div>
+
+            <div>
+              <h3 className="font-medium text-grafito mb-2">Comprador</h3>
+              {rol === 'usuario' ? (
+                <input
+                  className="input bg-fondo text-slate"
+                  value={compradorAsignadoNombre || 'Sin comprador asignado'}
+                  disabled
+                />
+              ) : (
+                <select
+                  className="input"
+                  value={compradorSeleccionado}
+                  onChange={(e) => setCompradorSeleccionado(e.target.value)}
+                >
+                  <option value="">Selecciona un comprador</option>
+                  {compradoresDisponibles.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre_completo}
+                    </option>
+                  ))}
+                </select>
               )}
             </div>
 

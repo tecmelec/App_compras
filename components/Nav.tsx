@@ -18,9 +18,9 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
   const { totalItems } = useCart();
 
   const links = [
-    { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario'] },
-    { href: '/carrito', label: `Carrito${totalItems ? ` (${totalItems})` : ''}`, roles: ['admin', 'usuario'] },
-    { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario'] },
+    { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'responsable'] },
+    { href: '/carrito', label: `Carrito${totalItems ? ` (${totalItems})` : ''}`, roles: ['admin', 'usuario', 'responsable'] },
+    { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'responsable'] },
     { href: '/comprador', label: 'Solicitudes por comprar', roles: ['admin', 'comprador'] },
     {
       href: '/responsable',

@@ -19,6 +19,7 @@ export default function CarritoPage() {
     telefono_contacto: string;
     direccion_entrega_id: string;
     fecha_requerida: string;
+    comprador_id: string | null;
   }) {
     setEnviando(true);
     setError(null);

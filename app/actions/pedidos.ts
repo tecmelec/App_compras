@@ -10,6 +10,7 @@ type DatosSolicitud = {
   telefono_contacto: string;
   direccion_entrega_id: string;
   fecha_requerida: string;
+  comprador_id?: string | null;
 };
 
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
@@ -53,12 +54,21 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
   const { data: perfil } = await supabase
     .from('profiles')
-    .select('nombre_completo, comprador_id, responsable_id')
+    .select('nombre_completo, rol, comprador_id, responsable_id')
     .eq('id', user.id)
     .single();
 
   if (!perfil) {
     return { error: 'No se encontró tu perfil de usuario.' };
+  }
+
+  // El usuario normal siempre usa su comprador/responsable asignado.
+  // Admin y responsable eligen el comprador manualmente al solicitar (no tienen uno fijo).
+  const puedeElegirComprador = perfil.rol === 'admin' || perfil.rol === 'responsable';
+  const compradorFinal = puedeElegirComprador ? datos.comprador_id || null : perfil.comprador_id;
+
+  if (puedeElegirComprador && !compradorFinal) {
+    return { error: 'Selecciona un comprador para esta solicitud.' };
   }
 
   // 1. Calcular el total real a partir de los precios guardados en la base (nunca confiar en el precio del cliente)
@@ -89,7 +99,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     .from('pedidos')
     .insert({
       usuario_id: user.id,
-      comprador_id: perfil.comprador_id,
+      comprador_id: compradorFinal,
       responsable_id: perfil.responsable_id,
       nombre_contacto: datos.nombre_contacto,
       telefono_contacto: datos.telefono_contacto,
@@ -120,7 +130,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   }
 
   // 5. Obtener emails del comprador y responsable asignados
-  const idsDestino = [perfil.comprador_id, perfil.responsable_id].filter(Boolean) as string[];
+  const idsDestino = [compradorFinal, perfil.responsable_id].filter(Boolean) as string[];
   let destinatarios: string[] = [];
 
   if (idsDestino.length > 0) {
