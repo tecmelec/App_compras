@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import SolicitudesFiltrables, { type PedidoFila } from '@/components/SolicitudesFiltrables';
+import { numerosTecmelecTexto } from '@/lib/pedidos-utils';
 
 export default async function ResponsablePage() {
   const supabase = createClient();
@@ -11,7 +12,7 @@ export default async function ResponsablePage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, numero_tecmelec, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
+      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
     )
     .eq('responsable_id', user?.id)
     .order('created_at', { ascending: false });
@@ -19,7 +20,7 @@ export default async function ResponsablePage() {
   const filas: PedidoFila[] = (pedidos || []).map((p: any) => ({
     id: p.id,
     numero_app: p.numero_app,
-    numero_tecmelec: p.numero_tecmelec,
+    numero_tecmelec: numerosTecmelecTexto(p.pedido_items),
     solicitante: p.profiles?.nombre_completo || '—',
     total_estimado: p.total_estimado || 0,
     requiere_aprobacion: p.requiere_aprobacion,

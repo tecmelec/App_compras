@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
+import { numerosTecmelecTexto } from '@/lib/pedidos-utils';
 
 export default async function MisPedidosPage({
   searchParams,
@@ -15,7 +16,9 @@ export default async function MisPedidosPage({
 
   const { data: pedidos } = await supabase
     .from('pedidos')
-    .select('id, numero_app, numero_tecmelec, created_at, requiere_aprobacion, aprobado, estados_pedido(nombre)')
+    .select(
+      'id, numero_app, created_at, requiere_aprobacion, aprobado, estados_pedido(nombre), pedido_items(numero_tecmelec)'
+    )
     .eq('usuario_id', user?.id)
     .order('created_at', { ascending: false });
 
@@ -53,7 +56,7 @@ export default async function MisPedidosPage({
                     </Link>
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">
-                    {p.numero_tecmelec || '—'}
+                    {numerosTecmelecTexto(p.pedido_items)}
                   </td>
                   <td className="px-4 py-3">
                     {!p.requiere_aprobacion ? (

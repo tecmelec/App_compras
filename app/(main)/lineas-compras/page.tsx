@@ -17,7 +17,7 @@ export default async function LineasCompraPage() {
   let query = supabase
     .from('pedidos')
     .select(
-      'numero_app, numero_tecmelec, fecha_requerida, fecha_estimada_entrega, created_at, pedido_items(cantidad, productos(nombre))'
+      'numero_app, fecha_requerida, fecha_estimada_entrega, created_at, pedido_items(cantidad, numero_tecmelec, productos(nombre))'
     )
     .order('created_at', { ascending: false });
 
@@ -35,7 +35,7 @@ export default async function LineasCompraPage() {
   const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
-      numero_tecmelec: p.numero_tecmelec,
+      numero_tecmelec: item.numero_tecmelec,
       articulo: item.productos?.nombre || '—',
       cantidad: item.cantidad,
       fecha_requerida: p.fecha_requerida,

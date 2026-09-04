@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
+import { numerosTecmelecTexto } from '@/lib/pedidos-utils';
 
 export default async function CompradorPage() {
   const supabase = createClient();
@@ -12,7 +13,7 @@ export default async function CompradorPage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, numero_tecmelec, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo)'
+      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
     )
     .eq('comprador_id', user?.id)
     .order('created_at', { ascending: false });
@@ -48,7 +49,7 @@ export default async function CompradorPage() {
                   </td>
                   <td className="px-4 py-3 text-grafito">{p.profiles?.nombre_completo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">
-                    {p.numero_tecmelec || '—'}
+                    {numerosTecmelecTexto(p.pedido_items)}
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     {p.total_estimado?.toFixed(2)} €

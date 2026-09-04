@@ -160,14 +160,13 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
 export async function actualizarPedido(
   pedidoId: string,
-  datos: { numero_tecmelec: string; estado_id: number; fecha_estimada_entrega: string | null }
+  datos: { estado_id: number; fecha_estimada_entrega: string | null }
 ) {
   const supabase = createClient();
 
   const { error } = await supabase
     .from('pedidos')
     .update({
-      numero_tecmelec: datos.numero_tecmelec || null,
       estado_id: datos.estado_id,
       fecha_estimada_entrega: datos.fecha_estimada_entrega || null,
       updated_at: new Date().toISOString(),
@@ -176,6 +175,23 @@ export async function actualizarPedido(
 
   if (error) {
     return { error: 'No se pudo actualizar el pedido.' };
+  }
+
+  return { success: true };
+}
+
+export async function actualizarLineasTecmelec(items: { id: string; numero_tecmelec: string }[]) {
+  const supabase = createClient();
+
+  for (const item of items) {
+    const { error } = await supabase
+      .from('pedido_items')
+      .update({ numero_tecmelec: item.numero_tecmelec || null })
+      .eq('id', item.id);
+
+    if (error) {
+      return { error: 'No se pudo guardar el número de pedido Tecmelec de una de las líneas.' };
+    }
   }
 
   return { success: true };

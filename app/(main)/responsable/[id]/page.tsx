@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import EstadoBadge from '@/components/EstadoBadge';
 import AprobacionBotones from './AprobacionBotones';
+import { numerosTecmelecTexto } from '@/lib/pedidos-utils';
 
 export default async function DetalleResponsablePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -9,7 +10,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, numero_tecmelec, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(cantidad, productos(nombre, precio))'
+      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(cantidad, numero_tecmelec, productos(nombre, precio))'
     )
     .eq('id', params.id)
     .single();
@@ -32,6 +33,10 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
         <div>
           <p className="text-slate mb-0.5">Contacto</p>
           <p className="text-grafito">{p.nombre_contacto} — {p.telefono_contacto}</p>
+        </div>
+        <div>
+          <p className="text-slate mb-0.5">Nº pedido Tecmelec</p>
+          <p className="font-mono text-grafito">{numerosTecmelecTexto(p.pedido_items)}</p>
         </div>
         <div>
           <p className="text-slate mb-0.5">Fecha requerida</p>
@@ -58,6 +63,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
         {p.pedido_items.map((item: any, idx: number) => (
           <div key={idx} className="flex items-center justify-between p-4 text-sm">
             <p className="text-grafito">{item.productos.nombre}</p>
+            <p className="font-mono text-slate">{item.numero_tecmelec || '—'}</p>
             <p className="font-mono text-slate">{item.productos.precio?.toFixed(2)} € c/u</p>
             <p className="font-mono text-grafito">x{item.cantidad}</p>
           </div>
