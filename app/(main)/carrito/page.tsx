@@ -66,6 +66,7 @@ export default function CarritoPage() {
                   min={1}
                   value={item.cantidad}
                   onChange={(e) => updateCantidad(item.producto_id, Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
                   className="input w-20"
                 />
                 <button

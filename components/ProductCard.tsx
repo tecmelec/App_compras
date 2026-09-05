@@ -63,6 +63,7 @@ export default function ProductCard({
             min={1}
             value={cantidad}
             onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
+            onFocus={(e) => e.target.select()}
             className="input w-20"
           />
           <button onClick={handleAdd} className="btn-primary flex-1">
