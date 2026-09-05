@@ -12,6 +12,8 @@ type Usuario = {
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   comprador_id: string | null;
   responsable_id: string | null;
+  sustituto_id: string | null;
+  sustituto_activo: boolean;
 };
 
 const ROLES = [
@@ -61,6 +63,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
               <th className="px-4 py-3 font-medium">Rol</th>
               <th className="px-4 py-3 font-medium">Comprador</th>
               <th className="px-4 py-3 font-medium">Responsable</th>
+              <th className="px-4 py-3 font-medium">Sustituto</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -73,6 +76,18 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                   <td className="px-4 py-3 text-grafito capitalize">{u.rol}</td>
                   <td className="px-4 py-3 text-slate">{nombrePorId(u.comprador_id)}</td>
                   <td className="px-4 py-3 text-slate">{nombrePorId(u.responsable_id)}</td>
+                  <td className="px-4 py-3 text-slate">
+                    {u.sustituto_id ? (
+                      <>
+                        {nombrePorId(u.sustituto_id)}
+                        {u.sustituto_activo && (
+                          <span className="badge badge-pendiente ml-2">Activo</span>
+                        )}
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => setEditandoId(editandoId === u.id ? null : u.id)}
@@ -84,7 +99,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                 </tr>
                 {editandoId === u.id && (
                   <tr>
-                    <td colSpan={6} className="bg-fondo p-4">
+                    <td colSpan={7} className="bg-fondo p-4">
                       <UsuarioForm
                         usuario={u}
                         compradores={compradores}
@@ -130,6 +145,8 @@ function UsuarioForm({
   const [rol, setRol] = useState<Usuario['rol']>(usuario?.rol || 'usuario');
   const [compradorId, setCompradorId] = useState(usuario?.comprador_id || '');
   const [responsableId, setResponsableId] = useState(usuario?.responsable_id || '');
+  const [sustitutoId, setSustitutoId] = useState(usuario?.sustituto_id || '');
+  const [sustitutoActivo, setSustitutoActivo] = useState(usuario?.sustituto_activo || false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,6 +160,8 @@ function UsuarioForm({
       rol,
       comprador_id: rol === 'usuario' ? compradorId || null : null,
       responsable_id: rol === 'usuario' ? responsableId || null : null,
+      sustituto_id: rol === 'comprador' || rol === 'responsable' ? sustitutoId || null : null,
+      sustituto_activo: rol === 'comprador' || rol === 'responsable' ? sustitutoActivo : false,
     };
 
     const resultado = esEdicion
@@ -256,6 +275,34 @@ function UsuarioForm({
                 ))}
               </select>
             </div>
+          </>
+        )}
+
+        {(rol === 'comprador' || rol === 'responsable') && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-grafito mb-1">Sustituto (vacaciones)</label>
+              <select className="input" value={sustitutoId} onChange={(e) => setSustitutoId(e.target.value)}>
+                <option value="">Sin sustituto</option>
+                {(rol === 'comprador' ? compradores : responsables)
+                  .filter((u) => u.id !== usuario?.id)
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nombre_completo}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-grafito self-end pb-2">
+              <input
+                type="checkbox"
+                checked={sustitutoActivo}
+                disabled={!sustitutoId}
+                onChange={(e) => setSustitutoActivo(e.target.checked)}
+              />
+              Sustituir ahora (el sustituto asume sus pedidos)
+            </label>
           </>
         )}
       </div>

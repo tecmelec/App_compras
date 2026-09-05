@@ -13,6 +13,8 @@ export async function crearUsuario(datos: {
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   comprador_id: string | null;
   responsable_id: string | null;
+  sustituto_id: string | null;
+  sustituto_activo: boolean;
 }) {
   await requireAdmin();
   const admin = createAdminClient();
@@ -27,6 +29,8 @@ export async function crearUsuario(datos: {
     return { error: errorAuth?.message || 'No se pudo crear el usuario.' };
   }
 
+  const esComprablesOResponsable = datos.rol === 'comprador' || datos.rol === 'responsable';
+
   const { error: errorPerfil } = await admin.from('profiles').insert({
     id: nuevoUsuario.user.id,
     nombre_completo: datos.nombre_completo,
@@ -35,6 +39,8 @@ export async function crearUsuario(datos: {
     rol: datos.rol,
     comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
     responsable_id: datos.rol === 'usuario' ? datos.responsable_id : null,
+    sustituto_id: esComprablesOResponsable ? datos.sustituto_id : null,
+    sustituto_activo: esComprablesOResponsable ? datos.sustituto_activo : false,
   });
 
   if (errorPerfil) {
@@ -55,10 +61,14 @@ export async function actualizarUsuario(
     rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
     comprador_id: string | null;
     responsable_id: string | null;
+    sustituto_id: string | null;
+    sustituto_activo: boolean;
   }
 ) {
   await requireAdmin();
   const supabase = createClient();
+
+  const esComprablesOResponsable = datos.rol === 'comprador' || datos.rol === 'responsable';
 
   const { error } = await supabase
     .from('profiles')
@@ -68,6 +78,8 @@ export async function actualizarUsuario(
       rol: datos.rol,
       comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
       responsable_id: datos.rol === 'usuario' ? datos.responsable_id : null,
+      sustituto_id: esComprablesOResponsable ? datos.sustituto_id : null,
+      sustituto_activo: esComprablesOResponsable ? datos.sustituto_activo : false,
     })
     .eq('id', id);
 
