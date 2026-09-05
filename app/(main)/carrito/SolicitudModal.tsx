@@ -59,7 +59,6 @@ export default function SolicitudModal({
 
   // Comprador: bloqueado (asignado por admin) para "usuario"; seleccionable para admin/responsable
   const [rol, setRol] = useState<string>('usuario');
-  const [compradorAsignadoNombre, setCompradorAsignadoNombre] = useState<string | null>(null);
   const [compradorAsignadoId, setCompradorAsignadoId] = useState<string | null>(null);
   const [compradoresDisponibles, setCompradoresDisponibles] = useState<{ id: string; nombre_completo: string }[]>([]);
   const [compradorSeleccionado, setCompradorSeleccionado] = useState('');
@@ -95,14 +94,6 @@ export default function SolicitudModal({
 
         if (perfil.rol === 'usuario') {
           setCompradorAsignadoId(perfil.comprador_id || null);
-          if (perfil.comprador_id) {
-            const { data: comprador } = await supabase
-              .from('profiles')
-              .select('nombre_completo')
-              .eq('id', perfil.comprador_id)
-              .single();
-            setCompradorAsignadoNombre(comprador?.nombre_completo || null);
-          }
         } else {
           // admin o responsable: eligen el comprador manualmente
           const { data: compradores } = await supabase
@@ -264,15 +255,9 @@ export default function SolicitudModal({
               )}
             </div>
 
-            <div>
-              <h3 className="font-medium text-grafito mb-2">Comprador</h3>
-              {rol === 'usuario' ? (
-                <input
-                  className="input bg-fondo text-slate"
-                  value={compradorAsignadoNombre || 'Sin comprador asignado'}
-                  disabled
-                />
-              ) : (
+            {rol !== 'usuario' && (
+              <div>
+                <h3 className="font-medium text-grafito mb-2">Comprador</h3>
                 <select
                   className="input"
                   value={compradorSeleccionado}
@@ -285,8 +270,8 @@ export default function SolicitudModal({
                     </option>
                   ))}
                 </select>
-              )}
-            </div>
+              </div>
+            )}
 
             <div>
               <h3 className="font-medium text-grafito mb-2">Persona de contacto</h3>
