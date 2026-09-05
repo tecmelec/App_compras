@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import ProductCard from '@/components/ProductCard';
+import TiendaClient from './TiendaClient';
 
 export default async function TiendaPage() {
   const supabase = createClient();
@@ -34,11 +34,7 @@ export default async function TiendaPage() {
       {!productos || productos.length === 0 ? (
         <p className="text-slate text-sm">Todavía no hay productos publicados.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {productos.map((p) => (
-            <ProductCard key={p.id} producto={p} mostrarPrecio={mostrarPrecio} />
-          ))}
-        </div>
+        <TiendaClient productos={productos} mostrarPrecio={mostrarPrecio} />
       )}
     </div>
   );
