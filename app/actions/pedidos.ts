@@ -73,15 +73,11 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
   // Si el comprador o el responsable asignado tiene un sustituto activo (ej: vacaciones),
   // el pedido se asigna directamente a ese sustituto: así lo ve en sus listados y le llega el email.
+  // Se resuelve con una función segura (RPC) para que funcione sin importar el rol de quien solicita.
   async function resolverSustituto(id: string | null): Promise<string | null> {
     if (!id) return id;
-    const { data } = await supabase
-      .from('profiles')
-      .select('sustituto_id, sustituto_activo')
-      .eq('id', id)
-      .single();
-    if (data?.sustituto_activo && data.sustituto_id) return data.sustituto_id;
-    return id;
+    const { data } = await supabase.rpc('resolver_sustituto', { id });
+    return data || id;
   }
 
   const compradorEfectivo = await resolverSustituto(compradorFinal);
