@@ -14,6 +14,8 @@ type Producto = {
   categoria: string | null;
   visible: boolean;
   precio: number;
+  unidad_medida: string | null;
+  bc_item_no: string | null;
 };
 
 export default function ProductosClient({ productos }: { productos: Producto[] }) {
@@ -37,6 +39,8 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
             <tr>
               <th className="px-4 py-3"></th>
               <th className="px-4 py-3 font-medium">Nombre</th>
+              <th className="px-4 py-3 font-medium">Nº BC</th>
+              <th className="px-4 py-3 font-medium">Unidad</th>
               <th className="px-4 py-3 font-medium">Categoría</th>
               <th className="px-4 py-3 font-medium">Precio</th>
               <th className="px-4 py-3 font-medium">Visible</th>
@@ -55,6 +59,8 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                     </div>
                   </td>
                   <td className="px-4 py-3 text-grafito">{p.nombre}</td>
+                  <td className="px-4 py-3 font-mono text-slate">{p.bc_item_no || '—'}</td>
+                  <td className="px-4 py-3 text-slate">{p.unidad_medida || '—'}</td>
                   <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
                   <td className="px-4 py-3 font-mono text-grafito">{p.precio?.toFixed(2)} €</td>
                   <td className="px-4 py-3 text-slate">{p.visible ? 'Sí' : 'No'}</td>
@@ -69,7 +75,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 </tr>
                 {editandoId === p.id && (
                   <tr>
-                    <td colSpan={5} className="bg-fondo p-4">
+                    <td colSpan={8} className="bg-fondo p-4">
                       <ProductoForm
                         producto={p}
                         onCancel={() => setEditandoId(null)}
@@ -197,6 +203,13 @@ function ProductoForm({
             onChange={(e) => setDescripcion(e.target.value)}
           />
         </div>
+
+        {producto?.bc_item_no && (
+          <p className="col-span-2 text-xs text-slate bg-fondo rounded-md px-3 py-2">
+            Vinculado a Business Central (Nº {producto.bc_item_no}, unidad {producto.unidad_medida || '—'}).
+            El nombre y el precio se actualizan solos en cada sincronización.
+          </p>
+        )}
 
         <div className="col-span-2">
           <label className="block text-sm font-medium text-grafito mb-1">Imagen</label>
