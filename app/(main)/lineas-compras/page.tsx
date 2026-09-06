@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
+import { idsEfectivos } from '@/lib/pedidos-utils';
 
 export default async function LineasCompraPage() {
   const supabase = createClient();
@@ -24,9 +25,11 @@ export default async function LineasCompraPage() {
   if (perfil?.rol === 'usuario') {
     query = query.eq('usuario_id', user!.id);
   } else if (perfil?.rol === 'comprador') {
-    query = query.eq('comprador_id', user!.id);
+    const ids = await idsEfectivos(supabase, user!.id);
+    query = query.in('comprador_id', ids);
   } else if (perfil?.rol === 'responsable') {
-    query = query.or(`responsable_id.eq.${user!.id},usuario_id.eq.${user!.id}`);
+    const ids = await idsEfectivos(supabase, user!.id);
+    query = query.or(`responsable_id.in.(${ids.join(',')}),usuario_id.eq.${user!.id}`);
   }
   // admin: sin filtro, ve todo
 

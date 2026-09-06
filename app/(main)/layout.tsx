@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { CartProvider } from '@/context/CartContext';
 import Nav from '@/components/Nav';
+import { idsEfectivos } from '@/lib/pedidos-utils';
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -22,10 +23,11 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   let pendientesAprobacion = 0;
   if (profile.rol === 'responsable' || profile.rol === 'admin') {
+    const ids = await idsEfectivos(supabase, user.id);
     const { count } = await supabase
       .from('pedidos')
       .select('id', { count: 'exact', head: true })
-      .eq('responsable_id', user.id)
+      .in('responsable_id', ids)
       .eq('requiere_aprobacion', true)
       .is('aprobado', null);
     pendientesAprobacion = count || 0;

@@ -71,6 +71,22 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     return { error: 'Selecciona un comprador para esta solicitud.' };
   }
 
+  // Si el comprador o el responsable asignado tiene un sustituto activo (ej: vacaciones),
+  // el pedido se asigna directamente a ese sustituto: así lo ve en sus listados y le llega el email.
+  async function resolverSustituto(id: string | null): Promise<string | null> {
+    if (!id) return id;
+    const { data } = await supabase
+      .from('profiles')
+      .select('sustituto_id, sustituto_activo')
+      .eq('id', id)
+      .single();
+    if (data?.sustituto_activo && data.sustituto_id) return data.sustituto_id;
+    return id;
+  }
+
+  const compradorEfectivo = await resolverSustituto(compradorFinal);
+  const responsableEfectivo = await resolverSustituto(perfil.responsable_id);
+
   // 1. Calcular el total real a partir de los precios guardados en la base (nunca confiar en el precio del cliente)
   const idsProductos = items.map((i) => i.producto_id);
   const { data: productosDb } = await supabase
@@ -100,8 +116,8 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     .from('pedidos')
     .insert({
       usuario_id: user.id,
-      comprador_id: compradorFinal,
-      responsable_id: perfil.responsable_id,
+      comprador_id: compradorEfectivo,
+      responsable_id: responsableEfectivo,
       nombre_contacto: datos.nombre_contacto,
       telefono_contacto: datos.telefono_contacto,
       direccion_entrega_id: datos.direccion_entrega_id,
@@ -130,8 +146,8 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     return { error: 'El pedido se creó pero hubo un problema guardando los artículos.' };
   }
 
-  // 5. Obtener emails del comprador y responsable asignados
-  const idsDestino = [compradorFinal, perfil.responsable_id].filter(Boolean) as string[];
+  // 5. Obtener emails del comprador y responsable efectivos (ya considerando sustituto)
+  const idsDestino = [compradorEfectivo, responsableEfectivo].filter(Boolean) as string[];
   let destinatarios: string[] = [];
 
   if (idsDestino.length > 0) {
