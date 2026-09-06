@@ -22,13 +22,41 @@ const CODIGOS_PAIS = [
   { value: '+1', label: '+1 EE.UU./Canadá' },
 ];
 
-function proximaFechaHabilValida(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
+function formatoFechaLocal(fecha: Date): string {
+  const y = fecha.getFullYear();
+  const m = String(fecha.getMonth() + 1).padStart(2, '0');
+  const d = String(fecha.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function saltarFinDeSemana(fecha: Date) {
+  while (fecha.getDay() === 0 || fecha.getDay() === 6) {
+    fecha.setDate(fecha.getDate() + 1);
   }
-  return d.toISOString().slice(0, 10);
+}
+
+function proximaFechaHabilValida(): string {
+  const ahora = new Date();
+  const diaSemana = ahora.getDay(); // 0 = domingo ... 6 = sábado
+  const horaDecimal = ahora.getHours() + ahora.getMinutes() / 60;
+
+  // ¿La solicitud se hace fuera del horario de corte? En ese caso, el día siguiente tampoco es válido.
+  const fueraDeHorario =
+    (diaSemana >= 1 && diaSemana <= 4 && horaDecimal >= 17) || // lunes a jueves después de las 17:00
+    (diaSemana === 5 && horaDecimal >= 13.5) || // viernes después de las 13:30
+    diaSemana === 0 ||
+    diaSemana === 6; // sábado o domingo, a cualquier hora
+
+  const fecha = new Date(ahora);
+  fecha.setDate(fecha.getDate() + 1);
+  saltarFinDeSemana(fecha);
+
+  if (fueraDeHorario) {
+    fecha.setDate(fecha.getDate() + 1);
+    saltarFinDeSemana(fecha);
+  }
+
+  return formatoFechaLocal(fecha);
 }
 
 export default function SolicitudModal({
@@ -137,6 +165,15 @@ export default function SolicitudModal({
     if (fechaSeleccionada <= hoy) return setError('La fecha debe ser posterior a hoy.');
     const dia = fechaSeleccionada.getDay();
     if (dia === 0 || dia === 6) return setError('La fecha no puede ser sábado ni domingo.');
+
+    const minimaPermitida = new Date(proximaFechaHabilValida() + 'T00:00:00');
+    if (fechaSeleccionada < minimaPermitida) {
+      return setError(
+        'Por el horario de corte, la fecha más próxima disponible es ' +
+          minimaPermitida.toLocaleDateString('es-ES') +
+          '.'
+      );
+    }
 
     onConfirmar({
       nombre_contacto: nombre.trim(),
@@ -316,7 +353,10 @@ export default function SolicitudModal({
                 min={proximaFechaHabilValida()}
                 onChange={(e) => setFecha(e.target.value)}
               />
-              <p className="text-xs text-slate mt-1">No se permiten sábados ni domingos.</p>
+              <p className="text-xs text-slate mt-1">
+                No se permiten sábados ni domingos. Fuera del horario de corte (L-J después de las
+                17:00, o V después de las 13:30), la fecha más próxima se ajusta automáticamente.
+              </p>
             </div>
 
             {error && (
