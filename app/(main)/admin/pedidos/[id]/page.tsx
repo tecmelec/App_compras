@@ -13,6 +13,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
        telefono_contacto, total_estimado, requiere_aprobacion, aprobado, created_at,
        estados_pedido(nombre),
        direcciones(alias, direccion, codigo_postal, ciudad, provincia),
+       proyectos(bc_job_no, descripcion),
        solicitante:profiles!pedidos_usuario_id_fkey(nombre_completo, email),
        comprador:profiles!pedidos_comprador_id_fkey(nombre_completo, email),
        responsable:profiles!pedidos_responsable_id_fkey(nombre_completo, email),
@@ -36,6 +37,12 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
       </div>
 
       <div className="bg-white border border-borde rounded-lg p-4 mb-6 grid grid-cols-2 gap-3 text-sm">
+        <div className="col-span-2">
+          <p className="text-slate mb-0.5">Proyecto</p>
+          <p className="text-grafito">
+            {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
+          </p>
+        </div>
         <div>
           <p className="text-slate mb-0.5">Comprador asignado</p>
           <p className="text-grafito">{p.comprador?.nombre_completo || '—'}</p>

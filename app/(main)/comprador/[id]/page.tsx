@@ -8,7 +8,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, estado_id, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, productos(nombre, precio))'
+      'id, numero_app, estado_id, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, productos(nombre, precio))'
     )
     .eq('id', params.id)
     .single();
@@ -28,6 +28,12 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
 
       <div className="bg-white border border-borde rounded-lg p-4 mb-6 grid grid-cols-2 gap-3 text-sm">
+        <div className="col-span-2">
+          <p className="text-slate mb-0.5">Proyecto</p>
+          <p className="text-grafito">
+            {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
+          </p>
+        </div>
         <div>
           <p className="text-slate mb-0.5">Contacto</p>
           <p className="text-grafito">

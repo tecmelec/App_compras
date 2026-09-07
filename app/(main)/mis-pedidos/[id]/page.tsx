@@ -9,7 +9,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), pedido_items(cantidad, numero_tecmelec, productos(nombre, descripcion, imagen_url))'
+      'numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, productos(nombre, descripcion, imagen_url))'
     )
     .eq('id', params.id)
     .single();
@@ -29,6 +29,12 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
       </div>
 
       <div className="bg-white border border-borde rounded-lg p-5 grid grid-cols-2 gap-4 mb-6 text-sm">
+        <div className="col-span-2">
+          <p className="text-slate mb-1">Proyecto</p>
+          <p className="text-grafito">
+            {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
+          </p>
+        </div>
         <div>
           <p className="text-slate mb-1">Nº pedido Tecmelec</p>
           <p className="font-mono text-grafito">{numerosTecmelecTexto(p.pedido_items)}</p>

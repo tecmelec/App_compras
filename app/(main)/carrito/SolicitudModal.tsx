@@ -13,6 +13,8 @@ type Direccion = {
   provincia: string | null;
 };
 
+type Proyecto = { id: string; bc_job_no: string; descripcion: string | null };
+
 const CODIGOS_PAIS = [
   { value: '+34', label: '+34 España' },
   { value: '+351', label: '+351 Portugal' },
@@ -66,6 +68,7 @@ export default function SolicitudModal({
 }: {
   onCancel: () => void;
   onConfirmar: (datos: {
+    proyecto_id: string;
     nombre_contacto: string;
     telefono_contacto: string;
     direccion_entrega_id: string;
@@ -90,6 +93,11 @@ export default function SolicitudModal({
   const [compradorAsignadoId, setCompradorAsignadoId] = useState<string | null>(null);
   const [compradoresDisponibles, setCompradoresDisponibles] = useState<{ id: string; nombre_completo: string }[]>([]);
   const [compradorSeleccionado, setCompradorSeleccionado] = useState('');
+
+  // Proyecto: obligatorio para todos los roles
+  const [proyectos, setProyectos] = useState<Proyecto[]>([]);
+  const [proyectoId, setProyectoId] = useState('');
+  const [busquedaProyecto, setBusquedaProyecto] = useState('');
 
   useEffect(() => {
     async function cargar() {
@@ -140,6 +148,22 @@ export default function SolicitudModal({
 
       setDirecciones(dirs || []);
       if (dirs && dirs.length > 0) setDireccionId(dirs[0].id);
+
+      if (perfil?.rol === 'usuario') {
+        const { data: asignados } = await supabase
+          .from('usuario_proyectos')
+          .select('proyectos(id, bc_job_no, descripcion)')
+          .eq('usuario_id', user.id);
+        setProyectos(((asignados || []) as any).map((a: any) => a.proyectos).filter(Boolean));
+      } else {
+        const { data: abiertos } = await supabase
+          .from('proyectos')
+          .select('id, bc_job_no, descripcion')
+          .eq('estado', 'Open')
+          .order('bc_job_no');
+        setProyectos(abiertos || []);
+      }
+
       setCargando(false);
     }
     cargar();
@@ -152,6 +176,7 @@ export default function SolicitudModal({
     if (!/^\d{6,12}$/.test(telefono.trim())) {
       return setError('El teléfono debe tener solo números (6 a 12 dígitos).');
     }
+    if (!proyectoId) return setError('Selecciona el proyecto.');
     if (!direccionId) return setError('Selecciona una dirección de entrega.');
     if (!fecha) return setError('Selecciona la fecha requerida de entrega.');
 
@@ -176,6 +201,7 @@ export default function SolicitudModal({
     }
 
     onConfirmar({
+      proyecto_id: proyectoId,
       nombre_contacto: nombre.trim(),
       telefono_contacto: `${codigoPais} ${telefono.trim()}`,
       direccion_entrega_id: direccionId,
@@ -196,6 +222,53 @@ export default function SolicitudModal({
           <p className="text-sm text-slate">Cargando…</p>
         ) : (
           <div className="space-y-5">
+            <div>
+              <h3 className="font-medium text-grafito mb-2">Proyecto</h3>
+
+              {proyectos.length === 0 ? (
+                <p className="text-sm text-slate">
+                  No tienes proyectos asignados. Contacta a tu administrador o responsable.
+                </p>
+              ) : (
+                <>
+                  <input
+                    className="input mb-2"
+                    placeholder="Buscar proyecto por número o descripción..."
+                    value={busquedaProyecto}
+                    onChange={(e) => setBusquedaProyecto(e.target.value)}
+                  />
+                  <div className="border border-borde rounded-lg divide-y divide-borde max-h-40 overflow-y-auto">
+                    {proyectos
+                      .filter((p) => {
+                        const texto = busquedaProyecto.trim().toLowerCase();
+                        if (!texto) return true;
+                        return (
+                          p.bc_job_no.toLowerCase().includes(texto) ||
+                          (p.descripcion || '').toLowerCase().includes(texto)
+                        );
+                      })
+                      .map((p) => (
+                        <label
+                          key={p.id}
+                          className={`flex items-center gap-2 p-2.5 text-sm cursor-pointer ${
+                            proyectoId === p.id ? 'bg-aceroClaro' : 'hover:bg-fondo'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="proyecto"
+                            checked={proyectoId === p.id}
+                            onChange={() => setProyectoId(p.id)}
+                          />
+                          <span className="font-mono text-grafito">{p.bc_job_no}</span>
+                          <span className="text-slate">{p.descripcion}</span>
+                        </label>
+                      ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div>
               <h3 className="font-medium text-grafito mb-2">¿Dónde quieres recibir tu pedido?</h3>
 

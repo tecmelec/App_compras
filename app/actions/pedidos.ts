@@ -6,6 +6,7 @@ import { enviarEmailSolicitud } from '@/lib/email';
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
 type DatosSolicitud = {
+  proyecto_id: string;
   nombre_contacto: string;
   telefono_contacto: string;
   direccion_entrega_id: string;
@@ -16,6 +17,10 @@ type DatosSolicitud = {
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   if (items.length === 0) {
     return { error: 'El carrito está vacío.' };
+  }
+
+  if (!datos.proyecto_id) {
+    return { error: 'Selecciona el proyecto.' };
   }
 
   if (!datos.nombre_contacto || !datos.telefono_contacto) {
@@ -112,6 +117,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     .from('pedidos')
     .insert({
       usuario_id: user.id,
+      proyecto_id: datos.proyecto_id,
       comprador_id: compradorEfectivo,
       responsable_id: responsableEfectivo,
       nombre_contacto: datos.nombre_contacto,

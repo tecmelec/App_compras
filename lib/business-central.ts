@@ -9,6 +9,12 @@ type ItemBC = {
   Unit_Price: number;
 };
 
+type ProyectoBC = {
+  No: string;
+  Description: string;
+  Status: string;
+};
+
 let tokenCache: { token: string; expira: number } | null = null;
 
 async function obtenerToken(): Promise<string> {
@@ -44,23 +50,21 @@ async function obtenerToken(): Promise<string> {
   return tokenCache.token;
 }
 
-export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
-  const token = await obtenerToken();
-
+function urlServicioBC(servicio: string): string {
   const tenantId = process.env.BC_TENANT_ID!;
   const environment = process.env.BC_ENVIRONMENT!;
   const company = process.env.BC_COMPANY_NAME!;
-  const servicio = process.env.BC_ODATA_SERVICE!;
 
-  const baseUrl = `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${environment}/ODataV4/Company('${encodeURIComponent(
+  return `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${environment}/ODataV4/Company('${encodeURIComponent(
     company
   )}')/${servicio}`;
+}
 
-  const url = `${baseUrl}?$filter=${encodeURIComponent("Common_Item_No ne ''")}`;
+async function consultarBC(url: string) {
+  const token = await obtenerToken();
 
   const respuesta = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    // Nunca cachear: siempre queremos el dato más reciente de BC al sincronizar
     cache: 'no-store',
   });
 
@@ -70,5 +74,16 @@ export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
   }
 
   const data = await respuesta.json();
-  return data.value as ItemBC[];
+  return data.value;
+}
+
+export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE!);
+  const url = `${base}?$filter=${encodeURIComponent("Common_Item_No ne ''")}`;
+  return consultarBC(url);
+}
+
+export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROYECTOS!);
+  return consultarBC(base);
 }

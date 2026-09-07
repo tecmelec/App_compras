@@ -10,7 +10,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(cantidad, numero_tecmelec, productos(nombre, precio))'
+      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(cantidad, numero_tecmelec, productos(nombre, precio))'
     )
     .eq('id', params.id)
     .single();
@@ -30,6 +30,12 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
       </div>
 
       <div className="bg-white border border-borde rounded-lg p-4 mb-6 grid grid-cols-2 gap-3 text-sm">
+        <div className="col-span-2">
+          <p className="text-slate mb-0.5">Proyecto</p>
+          <p className="text-grafito">
+            {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
+          </p>
+        </div>
         <div>
           <p className="text-slate mb-0.5">Contacto</p>
           <p className="text-grafito">{p.nombre_contacto} — {p.telefono_contacto}</p>

@@ -15,6 +15,7 @@ export default function CarritoPage() {
   const router = useRouter();
 
   async function handleConfirmar(datos: {
+    proyecto_id: string;
     nombre_contacto: string;
     telefono_contacto: string;
     direccion_entrega_id: string;
