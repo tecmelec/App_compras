@@ -35,9 +35,9 @@ export default function ProductCard({
 
   return (
     <div className="bg-white border border-borde rounded-lg overflow-hidden flex flex-col">
-      <div className="aspect-square bg-fondo relative">
+      <div className="h-28 bg-fondo relative">
         {producto.imagen_url ? (
-          <Image src={producto.imagen_url} alt={producto.nombre} fill className="object-cover" />
+          <Image src={producto.imagen_url} alt={producto.nombre} fill className="object-contain" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-slate text-sm">
             Sin imagen
