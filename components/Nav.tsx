@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { useCart } from '@/context/CartContext';
 import clsx from 'clsx';
 
 type Props = {
@@ -15,11 +14,9 @@ type Props = {
 export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
   const pathname = usePathname();
   const router = useRouter();
-  const { totalItems } = useCart();
 
   const links = [
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'responsable'] },
-    { href: '/carrito', label: `Carrito${totalItems ? ` (${totalItems})` : ''}`, roles: ['admin', 'usuario', 'responsable'] },
     { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'responsable'] },
     { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/comprador', label: 'Solicitudes por comprar', roles: ['admin', 'comprador'] },
