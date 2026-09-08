@@ -21,7 +21,7 @@ export default function AdminHomePage() {
           <Link
             key={s.href}
             href={s.href}
-            className="bg-white border border-borde rounded-lg p-5 hover:border-acero transition-colors"
+            className="bg-white border border-borde rounded-lg p-5 hover:border-marca transition-colors"
           >
             <h2 className="font-medium text-grafito mb-1">{s.titulo}</h2>
             <p className="text-sm text-slate">{s.desc}</p>

@@ -30,7 +30,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
     <div className="p-8 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="font-mono text-sm text-acero">{p.numero_app}</p>
+          <p className="font-mono text-sm text-marca">{p.numero_app}</p>
           <h1 className="text-2xl font-semibold text-grafito">Solicitud de {p.solicitante?.nombre_completo}</h1>
         </div>
         <EstadoBadge estado={p.estados_pedido?.nombre} />

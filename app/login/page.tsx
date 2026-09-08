@@ -9,7 +9,7 @@ export default function LoginPage({
     <div className="min-h-screen flex items-center justify-center bg-fondo px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <p className="text-sm font-medium tracking-wide text-acero">TECMELEC</p>
+          <p className="text-sm font-medium tracking-wide text-marca">TECMELEC</p>
           <h1 className="text-2xl font-semibold text-grafito mt-1">Solicitud de materiales</h1>
         </div>
 

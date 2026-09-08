@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { CartProvider } from '@/context/CartContext';
 import Nav from '@/components/Nav';
-import CartIcon from '@/components/CartIcon';
+import HeaderBar from '@/components/HeaderBar';
 import { idsEfectivos } from '@/lib/pedidos-utils';
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
@@ -39,13 +39,14 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   return (
     <CartProvider userId={user.id}>
       <div className="flex">
-        <Nav nombre={profile.nombre_completo} rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
+        <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
         <main className="flex-1 min-h-screen">
-          {tieneCarrito && (
-            <div className="sticky top-0 z-30 flex justify-end items-center px-6 py-3 border-b border-borde bg-white">
-              <CartIcon />
-            </div>
-          )}
+          <HeaderBar
+            nombre={profile.nombre_completo}
+            rol={profile.rol}
+            mostrarBuscador={tieneCarrito}
+            mostrarCarrito={tieneCarrito}
+          />
           {children}
         </main>
       </div>

@@ -2,19 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 
 type Props = {
-  nombre: string;
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   pendientesAprobacion?: number;
 };
 
-export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
+export default function Nav({ rol, pendientesAprobacion = 0 }: Props) {
   const pathname = usePathname();
-  const router = useRouter();
   const [abierto, setAbierto] = useState(false);
 
   const links = [
@@ -33,19 +30,12 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
     { href: '/admin', label: 'Administración', roles: ['admin'] },
   ].filter((l) => l.roles.includes(rol));
 
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
-  }
-
   return (
     <>
       {/* Botón hamburguesa: solo en móvil */}
       <button
         onClick={() => setAbierto(true)}
-        className="md:hidden fixed top-3 left-3 z-50 w-10 h-10 rounded-full bg-grafito text-white flex items-center justify-center shadow-lg"
+        className="md:hidden fixed top-3 left-3 z-50 w-10 h-10 rounded-full bg-marcaOscuro text-white flex items-center justify-center shadow-lg"
         aria-label="Abrir menú"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -62,15 +52,14 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
 
       <nav
         className={clsx(
-          'fixed md:sticky md:top-0 inset-y-0 left-0 z-50 w-64 shrink-0 bg-grafito text-white flex flex-col h-screen transform transition-transform duration-200 md:translate-x-0',
+          'fixed md:sticky md:top-0 inset-y-0 left-0 z-50 w-64 shrink-0 bg-gradient-to-b from-marcaOscuro to-marcaOscuro2 text-white flex flex-col h-screen transform transition-transform duration-200 md:translate-x-0',
           abierto ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="px-5 py-6 border-b border-white/10 flex items-center justify-between">
-          <div>
-            <p className="text-xs tracking-wide text-white/60">TECMELEC</p>
-            <p className="font-semibold">Solicitud de materiales</p>
-          </div>
+          <p className="text-2xl font-bold tracking-tight text-white">
+            TECMELEC<span className="text-marca">.</span>
+          </p>
           <button onClick={() => setAbierto(false)} className="md:hidden text-white/60 hover:text-white text-xl">
             ✕
           </button>
@@ -84,7 +73,7 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
               onClick={() => setAbierto(false)}
               className={clsx(
                 'flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium',
-                pathname.startsWith(l.href) ? 'bg-acero text-white' : 'text-white/80 hover:bg-white/10'
+                pathname.startsWith(l.href) ? 'bg-marca text-white' : 'text-white/80 hover:bg-white/10'
               )}
             >
               <span>{l.label}</span>
@@ -97,11 +86,17 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
           ))}
         </div>
 
-        <div className="px-5 py-4 border-t border-white/10">
-          <p className="text-sm text-white/90 truncate">{nombre}</p>
-          <button onClick={handleLogout} className="text-xs text-white/60 hover:text-white mt-1">
-            Cerrar sesión
-          </button>
+        <div className="p-4">
+          <div className="rounded-lg border border-white/15 bg-white/5 p-4">
+            <p className="text-sm font-medium text-white mb-1">¿Necesitas ayuda?</p>
+            <p className="text-xs text-white/60 mb-3">Contacta con nuestro equipo de compras.</p>
+            <a
+              href="mailto:compras@tecmelec.es"
+              className="block text-center text-xs font-medium border border-marca text-marca rounded-md py-2 hover:bg-marca hover:text-white transition-colors"
+            >
+              Contactar
+            </a>
+          </div>
         </div>
       </nav>
     </>

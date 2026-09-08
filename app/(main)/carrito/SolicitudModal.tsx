@@ -251,7 +251,7 @@ export default function SolicitudModal({
                         <label
                           key={p.id}
                           className={`flex items-center gap-2 p-2.5 text-sm cursor-pointer ${
-                            proyectoId === p.id ? 'bg-aceroClaro' : 'hover:bg-fondo'
+                            proyectoId === p.id ? 'bg-marcaClaro' : 'hover:bg-fondo'
                           }`}
                         >
                           <input
@@ -292,7 +292,7 @@ export default function SolicitudModal({
                     <label
                       key={d.id}
                       className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer ${
-                        direccionId === d.id ? 'border-acero bg-aceroClaro' : 'border-borde'
+                        direccionId === d.id ? 'border-marca bg-marcaClaro' : 'border-borde'
                       }`}
                     >
                       <input
@@ -317,7 +317,7 @@ export default function SolicitudModal({
                               e.preventDefault();
                               setEditandoId(d.id);
                             }}
-                            className="text-xs text-acero hover:underline"
+                            className="text-xs text-marca hover:underline"
                           >
                             Editar
                           </button>
@@ -349,7 +349,7 @@ export default function SolicitudModal({
                 <button
                   type="button"
                   onClick={() => setCreandoDireccion(true)}
-                  className="text-sm text-acero hover:underline"
+                  className="text-sm text-marca hover:underline"
                 >
                   + Nueva dirección
                 </button>

@@ -14,6 +14,10 @@ const config: Config = {
         rojo: '#B54A4A',
         slate: '#5B6470',
         borde: '#DDE1E0',
+        marca: '#178A4C',
+        marcaOscuro: '#0B3B26',
+        marcaOscuro2: '#0F5233',
+        marcaClaro: '#E7F5EC',
       },
       fontFamily: {
         sans: ['var(--font-plex-sans)'],

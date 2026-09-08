@@ -24,7 +24,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
 
   return (
     <div className="p-8 max-w-2xl">
-      <p className="font-mono text-sm text-acero">{p.numero_app}</p>
+      <p className="font-mono text-sm text-marca">{p.numero_app}</p>
       <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
 
       <div className="bg-white border border-borde rounded-lg p-4 mb-6 grid grid-cols-2 gap-3 text-sm">

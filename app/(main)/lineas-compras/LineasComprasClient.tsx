@@ -117,7 +117,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
   return (
     <div>
       {hayFiltrosActivos && (
-        <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-acero hover:underline mb-3">
+        <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline mb-3">
           ✕ Borrar filtros
         </button>
       )}
@@ -281,7 +281,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             ) : (
               ordenadas.map((f, idx) => (
                 <tr key={idx} className="hover:bg-fondo">
-                  <td className="px-4 py-3 font-mono text-acero">{f.numero_app}</td>
+                  <td className="px-4 py-3 font-mono text-marca">{f.numero_app}</td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.numero_tecmelec || '—'}</td>
                   <td className="px-4 py-3 text-grafito">{f.articulo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.cantidad}</td>
@@ -334,7 +334,7 @@ function Columna({
       <span className="inline-flex items-center gap-1">
         <button
           onClick={() => onOrdenar(campoOrden)}
-          className={`hover:underline ${ordenActivo ? 'text-acero' : ''}`}
+          className={`hover:underline ${ordenActivo ? 'text-marca' : ''}`}
         >
           {titulo}
           {ordenActivo && <span className="ml-1">{orden!.asc ? '↑' : '↓'}</span>}
@@ -344,10 +344,10 @@ function Columna({
             e.stopPropagation();
             setColumnaAbierta(abierta ? null : columnaId);
           }}
-          className={activo ? 'text-acero' : ''}
+          className={activo ? 'text-marca' : ''}
         >
           <span className="text-xs">▾</span>
-          {activo && <span className="w-1.5 h-1.5 rounded-full bg-acero inline-block ml-0.5" />}
+          {activo && <span className="w-1.5 h-1.5 rounded-full bg-marca inline-block ml-0.5" />}
         </button>
       </span>
 

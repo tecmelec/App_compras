@@ -119,7 +119,7 @@ export default function SolicitudesFiltrables({
       {hayFiltrosActivos && (
         <button
           onClick={() => setFiltros(FILTROS_VACIOS)}
-          className="text-sm text-acero hover:underline mb-3"
+          className="text-sm text-marca hover:underline mb-3"
         >
           ✕ Borrar filtros
         </button>
@@ -284,7 +284,7 @@ export default function SolicitudesFiltrables({
               filtrados.map((p) => (
                 <tr key={p.id} className="hover:bg-fondo">
                   <td className="px-4 py-3">
-                    <Link href={`${linkBase}/${p.id}`} className="font-mono text-acero">
+                    <Link href={`${linkBase}/${p.id}`} className="font-mono text-marca">
                       {p.numero_app}
                     </Link>
                   </td>
@@ -338,11 +338,11 @@ function ColumnaFiltro({
           e.stopPropagation();
           setColumnaAbierta(abierta ? null : columnaId);
         }}
-        className={`flex items-center gap-1 ${activo ? 'text-acero' : ''}`}
+        className={`flex items-center gap-1 ${activo ? 'text-marca' : ''}`}
       >
         {titulo}
         <span className="text-xs">▾</span>
-        {activo && <span className="w-1.5 h-1.5 rounded-full bg-acero" />}
+        {activo && <span className="w-1.5 h-1.5 rounded-full bg-marca" />}
       </button>
 
       {abierta && (

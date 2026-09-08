@@ -91,7 +91,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => setEditandoId(editandoId === u.id ? null : u.id)}
-                      className="text-acero text-sm hover:underline"
+                      className="text-marca text-sm hover:underline"
                     >
                       {editandoId === u.id ? 'Cerrar' : 'Editar'}
                     </button>

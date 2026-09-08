@@ -14,7 +14,7 @@ export default async function ProyectosAdminPage() {
       <h1 className="text-2xl font-semibold text-grafito mb-1">Proyectos</h1>
       <p className="text-slate text-sm mb-6">
         Proyectos/obras sincronizados desde Business Central. Para asignarlos a un usuario, ve a{' '}
-        <a href="/proyectos-equipo" className="text-acero underline">
+        <a href="/proyectos-equipo" className="text-marca underline">
           Proyectos de equipo
         </a>
         .

@@ -67,7 +67,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => setEditandoId(editandoId === p.id ? null : p.id)}
-                      className="text-acero text-sm hover:underline"
+                      className="text-marca text-sm hover:underline"
                     >
                       {editandoId === p.id ? 'Cerrar' : 'Editar'}
                     </button>

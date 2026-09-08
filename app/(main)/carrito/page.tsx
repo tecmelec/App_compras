@@ -46,7 +46,7 @@ export default function CarritoPage() {
       {items.length === 0 ? (
         <p className="text-slate text-sm">
           Tu carrito está vacío. Ve a la{' '}
-          <a href="/tienda" className="text-acero underline">
+          <a href="/tienda" className="text-marca underline">
             tienda
           </a>{' '}
           para añadir artículos.

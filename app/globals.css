@@ -36,20 +36,20 @@ body {
   background-color: white;
 }
 .input:focus {
-  outline: 2px solid #2F6690;
+  outline: 2px solid #178A4C;
   outline-offset: 1px;
 }
 
 .btn-primary {
-  background-color: #2F6690;
+  background-color: #178A4C;
   color: white;
   border-radius: 0.5rem;
   padding: 0.625rem 1.25rem;
   font-weight: 500;
   font-size: 0.9375rem;
 }
-.btn-primary:hover { background-color: #285875; }
-.btn-primary:disabled { background-color: #9FB4C0; cursor: not-allowed; }
+.btn-primary:hover { background-color: #12703D; }
+.btn-primary:disabled { background-color: #9CC7AC; cursor: not-allowed; }
 
 .btn-secondary {
   background-color: white;
@@ -61,6 +61,22 @@ body {
   font-size: 0.9375rem;
 }
 .btn-secondary:hover { background-color: #F5F6F4; }
+
+.btn-stepper {
+  width: 2rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #DDE1E0;
+  background-color: white;
+  color: #1C2126;
+  font-size: 1rem;
+  line-height: 1;
+}
+.btn-stepper:hover { background-color: #F5F6F4; }
+.btn-stepper:first-child { border-radius: 0.5rem 0 0 0.5rem; }
+.btn-stepper:last-child { border-radius: 0 0.5rem 0.5rem 0; }
 
 .btn-aprobar {
   background-color: #3F7D58;

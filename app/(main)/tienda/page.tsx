@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
+import { Suspense } from 'react';
 import TiendaClient from './TiendaClient';
+import HeroTienda from '@/components/HeroTienda';
 
 export default async function TiendaPage() {
   const supabase = createClient();
@@ -18,23 +20,20 @@ export default async function TiendaPage() {
 
   const { data: productos } = await supabase
     .from('productos')
-    .select('id, nombre, descripcion, imagen_url, categoria, precio')
+    .select('id, nombre, descripcion, imagen_url, categoria, precio, bc_item_no, unidad_medida')
     .eq('visible', true)
     .order('categoria');
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-grafito">Tienda Tecmelec</h1>
-        <p className="text-slate text-sm mt-1">
-          Selecciona los artículos que necesitas y añádelos al carrito.
-        </p>
-      </div>
+      <HeroTienda />
 
       {!productos || productos.length === 0 ? (
         <p className="text-slate text-sm">Todavía no hay productos publicados.</p>
       ) : (
-        <TiendaClient productos={productos} mostrarPrecio={mostrarPrecio} />
+        <Suspense fallback={<p className="text-slate text-sm">Cargando…</p>}>
+          <TiendaClient productos={productos} mostrarPrecio={mostrarPrecio} />
+        </Suspense>
       )}
     </div>
   );

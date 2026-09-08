@@ -51,7 +51,7 @@ export default async function MisPedidosPage({
               {pedidos.map((p: any) => (
                 <tr key={p.id} className="hover:bg-fondo">
                   <td className="px-4 py-3">
-                    <Link href={`/mis-pedidos/${p.id}`} className="font-mono text-acero">
+                    <Link href={`/mis-pedidos/${p.id}`} className="font-mono text-marca">
                       {p.numero_app}
                     </Link>
                   </td>
