@@ -40,48 +40,52 @@ export default function ProductRow({
   }
 
   return (
-    <div className="flex items-center gap-4 p-3">
-      <div className="w-14 h-14 bg-fondo rounded relative shrink-0 overflow-hidden">
-        {producto.imagen_url ? (
-          <Image src={producto.imagen_url} alt={producto.nombre} fill className="object-contain" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate text-[10px]">Sin foto</div>
+    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="w-14 h-14 bg-fondo rounded relative shrink-0 overflow-hidden">
+          {producto.imagen_url ? (
+            <Image src={producto.imagen_url} alt={producto.nombre} fill className="object-contain" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-slate text-[10px]">Sin foto</div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          {producto.categoria && <p className="text-xs text-marca font-medium">{producto.categoria}</p>}
+          <p className="font-medium text-grafito truncate">{producto.nombre}</p>
+          {producto.bc_item_no && <p className="text-xs text-slate">Ref. {producto.bc_item_no}</p>}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+        {mostrarPrecio && producto.precio !== undefined && (
+          <p className="text-sm font-semibold text-grafito whitespace-nowrap">
+            {formatoPrecio(producto.precio)} €
+            <span className="text-xs font-normal text-slate"> /{producto.unidad_medida || 'ud.'}</span>
+          </p>
         )}
-      </div>
 
-      <div className="flex-1 min-w-0">
-        {producto.categoria && <p className="text-xs text-marca font-medium">{producto.categoria}</p>}
-        <p className="font-medium text-grafito truncate">{producto.nombre}</p>
-        {producto.bc_item_no && <p className="text-xs text-slate">Ref. {producto.bc_item_no}</p>}
-      </div>
+        <div className="flex items-center shrink-0">
+          <button type="button" onClick={() => setCantidad((c) => Math.max(1, c - 1))} className="btn-stepper" aria-label="Restar">
+            −
+          </button>
+          <input
+            type="number"
+            min={1}
+            value={cantidad}
+            onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
+            onFocus={(e) => e.target.select()}
+            className="w-10 h-9 text-center border-y border-borde text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+          <button type="button" onClick={() => setCantidad((c) => c + 1)} className="btn-stepper" aria-label="Sumar">
+            +
+          </button>
+        </div>
 
-      {mostrarPrecio && producto.precio !== undefined && (
-        <p className="text-sm font-semibold text-grafito w-28 shrink-0 text-right">
-          {formatoPrecio(producto.precio)} €
-          <span className="text-xs font-normal text-slate"> /{producto.unidad_medida || 'ud.'}</span>
-        </p>
-      )}
-
-      <div className="flex items-center shrink-0">
-        <button type="button" onClick={() => setCantidad((c) => Math.max(1, c - 1))} className="btn-stepper" aria-label="Restar">
-          −
-        </button>
-        <input
-          type="number"
-          min={1}
-          value={cantidad}
-          onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
-          onFocus={(e) => e.target.select()}
-          className="w-10 h-9 text-center border-y border-borde text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-        <button type="button" onClick={() => setCantidad((c) => c + 1)} className="btn-stepper" aria-label="Sumar">
-          +
+        <button onClick={handleAdd} className="btn-primary shrink-0 whitespace-nowrap px-4">
+          {agregado ? '✓ Añadido' : 'Añadir'}
         </button>
       </div>
-
-      <button onClick={handleAdd} className="btn-primary shrink-0 w-32">
-        {agregado ? '✓ Añadido' : 'Añadir'}
-      </button>
     </div>
   );
 }

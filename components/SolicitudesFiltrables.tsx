@@ -130,6 +130,7 @@ export default function SolicitudesFiltrables({
       )}
 
       <div className="bg-white border border-borde rounded-lg overflow-visible">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-fondo text-slate text-left">
             <tr>
@@ -309,6 +310,7 @@ export default function SolicitudesFiltrables({
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

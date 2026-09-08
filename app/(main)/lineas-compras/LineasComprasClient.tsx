@@ -125,6 +125,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
       {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
 
       <div className="bg-white border border-borde rounded-lg overflow-visible">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-fondo text-slate text-left">
             <tr>
@@ -300,6 +301,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
