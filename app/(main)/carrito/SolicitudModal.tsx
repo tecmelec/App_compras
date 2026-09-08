@@ -270,7 +270,7 @@ export default function SolicitudModal({
             </div>
 
             <div>
-              <h3 className="font-medium text-grafito mb-2">¿Dónde quieres recibir tu pedido?</h3>
+              <h3 className="font-medium text-grafito mb-2">¿Dónde quieres recibir tu pedido? *</h3>
 
               {direcciones.length === 0 && !creandoDireccion && (
                 <p className="text-sm text-slate mb-2">Todavía no tienes direcciones guardadas.</p>
