@@ -42,7 +42,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <Nav nombre={profile.nombre_completo} rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
         <main className="flex-1 min-h-screen">
           {tieneCarrito && (
-            <div className="flex justify-end items-center px-6 py-3 border-b border-borde bg-white">
+            <div className="sticky top-0 z-30 flex justify-end items-center px-6 py-3 border-b border-borde bg-white">
               <CartIcon />
             </div>
           )}

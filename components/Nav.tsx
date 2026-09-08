@@ -62,7 +62,7 @@ export default function Nav({ nombre, rol, pendientesAprobacion = 0 }: Props) {
 
       <nav
         className={clsx(
-          'fixed md:static inset-y-0 left-0 z-50 w-64 shrink-0 bg-grafito text-white flex flex-col min-h-screen transform transition-transform duration-200 md:translate-x-0',
+          'fixed md:sticky md:top-0 inset-y-0 left-0 z-50 w-64 shrink-0 bg-grafito text-white flex flex-col h-screen transform transition-transform duration-200 md:translate-x-0',
           abierto ? 'translate-x-0' : '-translate-x-full'
         )}
       >
