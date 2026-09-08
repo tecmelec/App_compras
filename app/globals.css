@@ -99,3 +99,11 @@ body {
   font-size: 0.9375rem;
 }
 .btn-rechazar:hover { background-color: #F6E9E9; }
+
+.logo-tecmelec {
+  font-family: var(--font-plex-mono);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #6EE7A8;
+  text-shadow: 0 0 12px rgba(110, 231, 168, 0.55), 0 0 2px rgba(110, 231, 168, 0.9);
+}

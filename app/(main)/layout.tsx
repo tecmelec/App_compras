@@ -41,12 +41,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       <div className="flex">
         <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
         <main className="flex-1 min-h-screen">
-          <HeaderBar
-            nombre={profile.nombre_completo}
-            rol={profile.rol}
-            mostrarBuscador={tieneCarrito}
-            mostrarCarrito={tieneCarrito}
-          />
+          <HeaderBar nombre={profile.nombre_completo} rol={profile.rol} mostrarCarrito={tieneCarrito} />
           {children}
         </main>
       </div>
