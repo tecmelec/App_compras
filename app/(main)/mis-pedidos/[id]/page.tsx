@@ -88,8 +88,8 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
         {p.pedido_items.map((item: any, idx: number) => (
           <div key={idx} className="flex items-center gap-4 p-4">
             <div className="flex-1">
-              <p className="text-sm font-medium text-grafito">{item.productos.nombre}</p>
-              {item.productos.descripcion && (
+              <p className="text-sm font-medium text-grafito">{item.productos?.nombre || 'Producto no disponible'}</p>
+              {item.productos?.descripcion && (
                 <p className="text-xs text-slate mt-0.5">{item.productos.descripcion}</p>
               )}
             </div>

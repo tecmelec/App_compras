@@ -68,9 +68,9 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
       <div className="bg-white border border-borde rounded-lg divide-y divide-borde mb-6">
         {p.pedido_items.map((item: any, idx: number) => (
           <div key={idx} className="flex items-center justify-between p-4 text-sm">
-            <p className="text-grafito">{item.productos.nombre}</p>
+            <p className="text-grafito">{item.productos?.nombre || 'Producto no disponible'}</p>
             <p className="font-mono text-slate">{item.numero_tecmelec || '—'}</p>
-            <p className="font-mono text-slate">{item.productos.precio?.toFixed(2)} € c/u</p>
+            <p className="font-mono text-slate">{item.productos?.precio?.toFixed(2) || '0.00'} € c/u</p>
             <p className="font-mono text-grafito">x{item.cantidad}</p>
           </div>
         ))}

@@ -68,8 +68,8 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         pedidoId={p.id}
         items={p.pedido_items.map((item: any) => ({
           id: item.id,
-          nombre: item.productos.nombre,
-          precio: item.productos.precio,
+          nombre: item.productos?.nombre || 'Producto no disponible',
+          precio: item.productos?.precio || 0,
           cantidad: item.cantidad,
           numeroTecmelec: item.numero_tecmelec || '',
         }))}
