@@ -28,15 +28,15 @@ export default function TiendaClient({
   const [vista, setVista] = useState<'grid' | 'list'>('grid');
 
   const filtrados = useMemo(() => {
-    const texto = busqueda.trim().toLowerCase();
-    if (!texto) return productos;
-    return productos.filter(
-      (p) =>
-        p.nombre.toLowerCase().includes(texto) ||
-        (p.descripcion || '').toLowerCase().includes(texto) ||
-        (p.categoria || '').toLowerCase().includes(texto) ||
-        (p.bc_item_no || '').toLowerCase().includes(texto)
-    );
+    const palabras = busqueda.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (palabras.length === 0) return productos;
+    return productos.filter((p) => {
+      const texto = [p.nombre, p.descripcion, p.categoria, p.bc_item_no]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return palabras.every((palabra) => texto.includes(palabra));
+    });
   }, [productos, busqueda]);
 
   return (
