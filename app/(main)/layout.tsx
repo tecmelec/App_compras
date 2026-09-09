@@ -41,7 +41,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     <CartProvider userId={user.id}>
       <div className="flex">
         <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
-        <main className="flex-1 min-h-screen">
+        <main className="flex-1 min-w-0 min-h-screen">
           <Suspense fallback={<div className="h-[57px] border-b border-borde bg-white" />}>
             <HeaderBar nombre={profile.nombre_completo} rol={profile.rol} mostrarCarrito={tieneCarrito} />
           </Suspense>
