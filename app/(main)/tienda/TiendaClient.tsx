@@ -24,7 +24,7 @@ export default function TiendaClient({
   mostrarPrecio: boolean;
 }) {
   const searchParams = useSearchParams();
-  const [busqueda, setBusqueda] = useState(searchParams.get('q') || '');
+  const busqueda = searchParams.get('q') || '';
   const [vista, setVista] = useState<'grid' | 'list'>('grid');
 
   const filtrados = useMemo(() => {
@@ -41,15 +41,8 @@ export default function TiendaClient({
 
   return (
     <div>
-      <div className="mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
-        <input
-          className="input sm:max-w-md"
-          placeholder="Buscar por referencia, nombre, descripción o categoría..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-        />
-
-        <div className="self-end sm:self-auto sm:ml-auto flex items-center border border-borde rounded-lg overflow-hidden shrink-0">
+      <div className="mb-5 flex justify-end">
+        <div className="flex items-center border border-borde rounded-lg overflow-hidden shrink-0">
           <button
             onClick={() => setVista('grid')}
             className={`w-9 h-9 flex items-center justify-center ${vista === 'grid' ? 'bg-marcaClaro text-marca' : 'text-slate hover:bg-fondo'}`}

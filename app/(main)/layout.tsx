@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { CartProvider } from '@/context/CartContext';
 import Nav from '@/components/Nav';
 import HeaderBar from '@/components/HeaderBar';
@@ -41,7 +42,9 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       <div className="flex">
         <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
         <main className="flex-1 min-h-screen">
-          <HeaderBar nombre={profile.nombre_completo} rol={profile.rol} mostrarCarrito={tieneCarrito} />
+          <Suspense fallback={<div className="h-[57px] border-b border-borde bg-white" />}>
+            <HeaderBar nombre={profile.nombre_completo} rol={profile.rol} mostrarCarrito={tieneCarrito} />
+          </Suspense>
           {children}
         </main>
       </div>
