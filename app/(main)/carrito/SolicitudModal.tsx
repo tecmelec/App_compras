@@ -158,6 +158,7 @@ export default function SolicitudModal({
       const { data: dirs } = await supabase
         .from('direcciones')
         .select('id, alias, direccion, codigo_postal, ciudad, provincia')
+        .eq('usuario_id', user.id)
         .order('created_at', { ascending: false });
 
       setDirecciones(dirs || []);
