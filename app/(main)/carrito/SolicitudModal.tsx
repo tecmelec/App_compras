@@ -24,6 +24,14 @@ const CODIGOS_PAIS = [
   { value: '+1', label: '+1 EE.UU./Canadá' },
 ];
 
+const PASOS = ['proyecto', 'direccion', 'contacto', 'fecha'] as const;
+const TITULOS_PASO: Record<(typeof PASOS)[number], string> = {
+  proyecto: 'Proyecto',
+  direccion: '¿Dónde quieres recibir tu pedido?',
+  contacto: 'Persona de contacto',
+  fecha: 'Fecha requerida de entrega',
+};
+
 function formatoFechaLocal(fecha: Date): string {
   const y = fecha.getFullYear();
   const m = String(fecha.getMonth() + 1).padStart(2, '0');
@@ -42,12 +50,11 @@ function proximaFechaHabilValida(): string {
   const diaSemana = ahora.getDay(); // 0 = domingo ... 6 = sábado
   const horaDecimal = ahora.getHours() + ahora.getMinutes() / 60;
 
-  // ¿La solicitud se hace fuera del horario de corte? En ese caso, el día siguiente tampoco es válido.
   const fueraDeHorario =
-    (diaSemana >= 1 && diaSemana <= 4 && horaDecimal >= 17) || // lunes a jueves después de las 17:00
-    (diaSemana === 5 && horaDecimal >= 13.5) || // viernes después de las 13:30
+    (diaSemana >= 1 && diaSemana <= 4 && horaDecimal >= 17) ||
+    (diaSemana === 5 && horaDecimal >= 13.5) ||
     diaSemana === 0 ||
-    diaSemana === 6; // sábado o domingo, a cualquier hora
+    diaSemana === 6;
 
   const fecha = new Date(ahora);
   fecha.setDate(fecha.getDate() + 1);
@@ -88,16 +95,17 @@ export default function SolicitudModal({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Comprador: bloqueado (asignado por admin) para "usuario"; seleccionable para admin/responsable
   const [rol, setRol] = useState<string>('usuario');
   const [compradorAsignadoId, setCompradorAsignadoId] = useState<string | null>(null);
   const [compradoresDisponibles, setCompradoresDisponibles] = useState<{ id: string; nombre_completo: string }[]>([]);
   const [compradorSeleccionado, setCompradorSeleccionado] = useState('');
 
-  // Proyecto: obligatorio para todos los roles
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [proyectoId, setProyectoId] = useState('');
   const [busquedaProyecto, setBusquedaProyecto] = useState('');
+
+  const [pasoIndex, setPasoIndex] = useState(0);
+  const paso = PASOS[pasoIndex];
 
   useEffect(() => {
     async function cargar() {
@@ -118,7 +126,6 @@ export default function SolicitudModal({
         setNombre(perfil.nombre_completo || '');
         setRol(perfil.rol);
         if (perfil.telefono) {
-          // separa el código de país si ya viene guardado como "+34 600111222"
           const partes = perfil.telefono.split(' ');
           if (partes.length > 1 && partes[0].startsWith('+')) {
             setCodigoPais(partes[0]);
@@ -131,7 +138,6 @@ export default function SolicitudModal({
         if (perfil.rol === 'usuario') {
           setCompradorAsignadoId(perfil.comprador_id || null);
         } else {
-          // admin o responsable: eligen el comprador manualmente
           const { data: compradores } = await supabase
             .from('profiles')
             .select('id, nombre_completo')
@@ -169,35 +175,57 @@ export default function SolicitudModal({
     cargar();
   }, []);
 
-  function validarYEnviar() {
-    setError(null);
-
-    if (!nombre.trim()) return setError('Falta el nombre de contacto.');
-    if (!/^\d{6,12}$/.test(telefono.trim())) {
-      return setError('El teléfono debe tener solo números (6 a 12 dígitos).');
-    }
-    if (!proyectoId) return setError('Selecciona el proyecto.');
-    if (!direccionId) return setError('Selecciona una dirección de entrega.');
-    if (!fecha) return setError('Selecciona la fecha requerida de entrega.');
-
-    if (rol !== 'usuario' && !compradorSeleccionado) {
-      return setError('Selecciona el comprador para esta solicitud.');
+  function validarPasoActual(): string | null {
+    if (paso === 'proyecto') {
+      if (!proyectoId) return 'Selecciona el proyecto.';
     }
 
-    const fechaSeleccionada = new Date(fecha + 'T00:00:00');
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    if (fechaSeleccionada <= hoy) return setError('La fecha debe ser posterior a hoy.');
-    const dia = fechaSeleccionada.getDay();
-    if (dia === 0 || dia === 6) return setError('La fecha no puede ser sábado ni domingo.');
+    if (paso === 'direccion') {
+      if (!direccionId) return 'Selecciona una dirección de entrega.';
+    }
 
-    const minimaPermitida = new Date(proximaFechaHabilValida() + 'T00:00:00');
-    if (fechaSeleccionada < minimaPermitida) {
-      return setError(
-        'Por el horario de corte, la fecha más próxima disponible es ' +
+    if (paso === 'contacto') {
+      if (rol !== 'usuario' && !compradorSeleccionado) return 'Selecciona el comprador para esta solicitud.';
+      if (!nombre.trim()) return 'Falta el nombre de contacto.';
+      if (!/^\d{6,12}$/.test(telefono.trim())) {
+        return 'El teléfono debe tener solo números (6 a 12 dígitos).';
+      }
+    }
+
+    if (paso === 'fecha') {
+      if (!fecha) return 'Selecciona la fecha requerida de entrega.';
+
+      const fechaSeleccionada = new Date(fecha + 'T00:00:00');
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      if (fechaSeleccionada <= hoy) return 'La fecha debe ser posterior a hoy.';
+      const dia = fechaSeleccionada.getDay();
+      if (dia === 0 || dia === 6) return 'La fecha no puede ser sábado ni domingo.';
+
+      const minimaPermitida = new Date(proximaFechaHabilValida() + 'T00:00:00');
+      if (fechaSeleccionada < minimaPermitida) {
+        return (
+          'Por el horario de corte, la fecha más próxima disponible es ' +
           minimaPermitida.toLocaleDateString('es-ES') +
           '.'
-      );
+        );
+      }
+    }
+
+    return null;
+  }
+
+  function siguiente() {
+    const err = validarPasoActual();
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+
+    if (pasoIndex < PASOS.length - 1) {
+      setPasoIndex((i) => i + 1);
+      return;
     }
 
     onConfirmar({
@@ -210,240 +238,278 @@ export default function SolicitudModal({
     });
   }
 
+  function atras() {
+    setError(null);
+    setPasoIndex((i) => Math.max(0, i - 1));
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto p-6">
         <h2 className="text-xl font-semibold text-grafito mb-1">Método de entrega</h2>
-        <p className="text-sm text-slate mb-5">
-          Completa estos datos para enviar tu solicitud de materiales.
+
+        {/* Indicador de pasos */}
+        <div className="flex items-center gap-2 mb-5">
+          {PASOS.map((p, i) => (
+            <div key={p} className="flex items-center gap-2 flex-1">
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                  i < pasoIndex
+                    ? 'bg-marca text-white'
+                    : i === pasoIndex
+                    ? 'bg-marcaClaro text-marca border-2 border-marca'
+                    : 'bg-fondo text-slate'
+                }`}
+              >
+                {i < pasoIndex ? '✓' : i + 1}
+              </div>
+              {i < PASOS.length - 1 && (
+                <div className={`h-0.5 flex-1 ${i < pasoIndex ? 'bg-marca' : 'bg-borde'}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-slate mb-1">
+          Paso {pasoIndex + 1} de {PASOS.length}
         </p>
+        <h3 className="font-medium text-grafito text-lg mb-4">{TITULOS_PASO[paso]}</h3>
 
         {cargando ? (
           <p className="text-sm text-slate">Cargando…</p>
         ) : (
-          <div className="space-y-5">
-            <div>
-              <h3 className="font-medium text-grafito mb-2">Proyecto</h3>
-
-              {proyectos.length === 0 ? (
-                <p className="text-sm text-slate">
-                  No tienes proyectos asignados. Contacta a tu administrador o responsable.
-                </p>
-              ) : (
-                <>
-                  <input
-                    className="input mb-2"
-                    placeholder="Buscar proyecto por número o descripción..."
-                    value={busquedaProyecto}
-                    onChange={(e) => setBusquedaProyecto(e.target.value)}
-                  />
-                  <div className="border border-borde rounded-lg divide-y divide-borde max-h-40 overflow-y-auto">
-                    {proyectos
-                      .filter((p) => {
-                        const texto = busquedaProyecto.trim().toLowerCase();
-                        if (!texto) return true;
-                        return (
-                          p.bc_job_no.toLowerCase().includes(texto) ||
-                          (p.descripcion || '').toLowerCase().includes(texto)
-                        );
-                      })
-                      .map((p) => (
-                        <label
-                          key={p.id}
-                          className={`flex items-center gap-2 p-2.5 text-sm cursor-pointer ${
-                            proyectoId === p.id ? 'bg-marcaClaro' : 'hover:bg-fondo'
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name="proyecto"
-                            checked={proyectoId === p.id}
-                            onChange={() => setProyectoId(p.id)}
-                          />
-                          <span className="font-mono text-grafito">{p.bc_job_no}</span>
-                          <span className="text-slate">{p.descripcion}</span>
-                        </label>
-                      ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div>
-              <h3 className="font-medium text-grafito mb-2">¿Dónde quieres recibir tu pedido? *</h3>
-
-              {direcciones.length === 0 && !creandoDireccion && (
-                <p className="text-sm text-slate mb-2">Todavía no tienes direcciones guardadas.</p>
-              )}
-
-              <div className="space-y-2 mb-2">
-                {direcciones.map((d) =>
-                  editandoId === d.id ? (
-                    <NuevaDireccionForm
-                      key={d.id}
-                      direccion={d}
-                      onCancel={() => setEditandoId(null)}
-                      onCreada={(dir) => {
-                        setDirecciones((prev) => prev.map((x) => (x.id === dir.id ? dir : x)));
-                        setEditandoId(null);
-                      }}
-                    />
-                  ) : (
-                    <label
-                      key={d.id}
-                      className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer ${
-                        direccionId === d.id ? 'border-marca bg-marcaClaro' : 'border-borde'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="direccion"
-                        className="mt-1"
-                        checked={direccionId === d.id}
-                        onChange={() => setDireccionId(d.id)}
-                      />
-                      <div className="flex-1 text-sm">
-                        <p className="font-medium text-grafito">{d.alias}</p>
-                        <p className="text-slate">
-                          {d.direccion}
-                          {d.codigo_postal ? ` — CP ${d.codigo_postal}` : ''}
-                          {d.ciudad ? `, ${d.ciudad}` : ''}
-                          {d.provincia ? ` (${d.provincia})` : ''}
-                        </p>
-                        <div className="flex gap-3 mt-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setEditandoId(d.id);
-                            }}
-                            className="text-xs text-marca hover:underline"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              if (!confirm(`¿Eliminar la dirección "${d.alias}"?`)) return;
-                              const resultado = await eliminarDireccion(d.id);
-                              if (resultado.error) {
-                                setError(resultado.error);
-                                return;
-                              }
-                              setDirecciones((prev) => prev.filter((x) => x.id !== d.id));
-                              if (direccionId === d.id) setDireccionId('');
-                            }}
-                            className="text-xs text-rojo hover:underline"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
-                    </label>
-                  )
-                )}
-              </div>
-
-              {!creandoDireccion ? (
-                <button
-                  type="button"
-                  onClick={() => setCreandoDireccion(true)}
-                  className="text-sm text-marca hover:underline"
-                >
-                  + Nueva dirección
-                </button>
-              ) : (
-                <NuevaDireccionForm
-                  onCancel={() => setCreandoDireccion(false)}
-                  onCreada={(dir) => {
-                    setDirecciones((prev) => [dir, ...prev]);
-                    setDireccionId(dir.id);
-                    setCreandoDireccion(false);
-                  }}
-                />
-              )}
-            </div>
-
-            {rol !== 'usuario' && (
+          <div>
+            {paso === 'proyecto' && (
               <div>
-                <h3 className="font-medium text-grafito mb-2">Comprador</h3>
-                <select
-                  className="input"
-                  value={compradorSeleccionado}
-                  onChange={(e) => setCompradorSeleccionado(e.target.value)}
-                >
-                  <option value="">Selecciona un comprador</option>
-                  {compradoresDisponibles.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre_completo}
-                    </option>
-                  ))}
-                </select>
+                {proyectos.length === 0 ? (
+                  <p className="text-sm text-slate">
+                    No tienes proyectos asignados. Contacta a tu administrador o responsable.
+                  </p>
+                ) : (
+                  <>
+                    <input
+                      className="input mb-2"
+                      placeholder="Buscar proyecto por número o descripción..."
+                      value={busquedaProyecto}
+                      onChange={(e) => setBusquedaProyecto(e.target.value)}
+                    />
+                    <div className="border border-borde rounded-lg divide-y divide-borde max-h-72 overflow-y-auto">
+                      {proyectos
+                        .filter((p) => {
+                          const texto = busquedaProyecto.trim().toLowerCase();
+                          if (!texto) return true;
+                          return (
+                            p.bc_job_no.toLowerCase().includes(texto) ||
+                            (p.descripcion || '').toLowerCase().includes(texto)
+                          );
+                        })
+                        .map((p) => (
+                          <label
+                            key={p.id}
+                            className={`flex items-center gap-2 p-2.5 text-sm cursor-pointer ${
+                              proyectoId === p.id ? 'bg-marcaClaro' : 'hover:bg-fondo'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="proyecto"
+                              checked={proyectoId === p.id}
+                              onChange={() => setProyectoId(p.id)}
+                            />
+                            <span className="font-mono text-grafito">{p.bc_job_no}</span>
+                            <span className="text-slate">{p.descripcion}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
-            <div>
-              <h3 className="font-medium text-grafito mb-2">Persona de contacto</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm text-slate mb-1">Nombre</label>
-                  <input className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            {paso === 'direccion' && (
+              <div>
+                {direcciones.length === 0 && !creandoDireccion && (
+                  <p className="text-sm text-slate mb-2">Todavía no tienes direcciones guardadas.</p>
+                )}
+
+                <div className="space-y-2 mb-2">
+                  {direcciones.map((d) =>
+                    editandoId === d.id ? (
+                      <NuevaDireccionForm
+                        key={d.id}
+                        direccion={d}
+                        onCancel={() => setEditandoId(null)}
+                        onCreada={(dir) => {
+                          setDirecciones((prev) => prev.map((x) => (x.id === dir.id ? dir : x)));
+                          setEditandoId(null);
+                        }}
+                      />
+                    ) : (
+                      <label
+                        key={d.id}
+                        className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer ${
+                          direccionId === d.id ? 'border-marca bg-marcaClaro' : 'border-borde'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="direccion"
+                          className="mt-1"
+                          checked={direccionId === d.id}
+                          onChange={() => setDireccionId(d.id)}
+                        />
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium text-grafito">{d.alias}</p>
+                          <p className="text-slate">
+                            {d.direccion}
+                            {d.codigo_postal ? ` — CP ${d.codigo_postal}` : ''}
+                            {d.ciudad ? `, ${d.ciudad}` : ''}
+                            {d.provincia ? ` (${d.provincia})` : ''}
+                          </p>
+                          <div className="flex gap-3 mt-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setEditandoId(d.id);
+                              }}
+                              className="text-xs text-marca hover:underline"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                if (!confirm(`¿Eliminar la dirección "${d.alias}"?`)) return;
+                                const resultado = await eliminarDireccion(d.id);
+                                if (resultado.error) {
+                                  setError(resultado.error);
+                                  return;
+                                }
+                                setDirecciones((prev) => prev.filter((x) => x.id !== d.id));
+                                if (direccionId === d.id) setDireccionId('');
+                              }}
+                              className="text-xs text-rojo hover:underline"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  )}
                 </div>
-                <div>
-                  <label className="block text-sm text-slate mb-1">Teléfono</label>
-                  <div className="flex gap-2">
+
+                {!creandoDireccion ? (
+                  <button
+                    type="button"
+                    onClick={() => setCreandoDireccion(true)}
+                    className="text-sm text-marca hover:underline"
+                  >
+                    + Nueva dirección
+                  </button>
+                ) : (
+                  <NuevaDireccionForm
+                    onCancel={() => setCreandoDireccion(false)}
+                    onCreada={(dir) => {
+                      setDirecciones((prev) => [dir, ...prev]);
+                      setDireccionId(dir.id);
+                      setCreandoDireccion(false);
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
+            {paso === 'contacto' && (
+              <div className="space-y-5">
+                {rol !== 'usuario' && (
+                  <div>
+                    <label className="block text-sm text-slate mb-1">Comprador</label>
                     <select
-                      className="input w-28"
-                      value={codigoPais}
-                      onChange={(e) => setCodigoPais(e.target.value)}
+                      className="input"
+                      value={compradorSeleccionado}
+                      onChange={(e) => setCompradorSeleccionado(e.target.value)}
                     >
-                      {CODIGOS_PAIS.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.value}
+                      <option value="">Selecciona un comprador</option>
+                      {compradoresDisponibles.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre_completo}
                         </option>
                       ))}
                     </select>
-                    <input
-                      className="input"
-                      value={telefono}
-                      onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
-                      placeholder="600111222"
-                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-slate mb-1">Nombre</label>
+                    <input className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-slate mb-1">Teléfono</label>
+                    <div className="flex gap-2">
+                      <select
+                        className="input w-28"
+                        value={codigoPais}
+                        onChange={(e) => setCodigoPais(e.target.value)}
+                      >
+                        {CODIGOS_PAIS.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.value}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="input"
+                        value={telefono}
+                        onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
+                        placeholder="600111222"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-sm font-medium text-grafito mb-1">
-                Fecha requerida de entrega
-              </label>
-              <input
-                type="date"
-                className="input"
-                value={fecha}
-                min={proximaFechaHabilValida()}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-              <p className="text-xs text-slate mt-1">
-                No se permiten sábados ni domingos. Fuera del horario de corte (L-J después de las
-                17:00, o V después de las 13:30), la fecha más próxima se ajusta automáticamente.
-              </p>
-            </div>
+            {paso === 'fecha' && (
+              <div>
+                <input
+                  type="date"
+                  className="input"
+                  value={fecha}
+                  min={proximaFechaHabilValida()}
+                  onChange={(e) => setFecha(e.target.value)}
+                />
+                <p className="text-xs text-slate mt-1">
+                  No se permiten sábados ni domingos. Fuera del horario de corte (L-J después de las
+                  17:00, o V después de las 13:30), la fecha más próxima se ajusta automáticamente.
+                </p>
+              </div>
+            )}
 
             {error && (
-              <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2">
+              <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mt-4">
                 {error}
               </p>
             )}
 
-            <div className="flex gap-2 pt-2">
-              <button onClick={validarYEnviar} disabled={enviando} className="btn-primary flex-1">
-                {enviando ? 'Enviando…' : 'Enviar solicitud'}
-              </button>
+            <div className="flex gap-2 pt-5">
+              {pasoIndex > 0 && (
+                <button onClick={atras} className="btn-secondary">
+                  Atrás
+                </button>
+              )}
               <button onClick={onCancel} className="btn-secondary">
                 Cancelar
+              </button>
+              <button onClick={siguiente} disabled={enviando} className="btn-primary flex-1">
+                {pasoIndex === PASOS.length - 1
+                  ? enviando
+                    ? 'Enviando…'
+                    : 'Enviar solicitud'
+                  : 'Siguiente'}
               </button>
             </div>
           </div>
