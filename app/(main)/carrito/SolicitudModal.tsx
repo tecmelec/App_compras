@@ -13,7 +13,15 @@ type Direccion = {
   provincia: string | null;
 };
 
-type Proyecto = { id: string; bc_job_no: string; descripcion: string | null };
+type Proyecto = {
+  id: string;
+  bc_job_no: string;
+  descripcion: string | null;
+  direccion?: string | null;
+  codigo_postal?: string | null;
+  ciudad?: string | null;
+  provincia?: string | null;
+};
 
 const CODIGOS_PAIS = [
   { value: '+34', label: '+34 España' },
@@ -158,13 +166,13 @@ export default function SolicitudModal({
       if (perfil?.rol === 'usuario') {
         const { data: asignados } = await supabase
           .from('usuario_proyectos')
-          .select('proyectos(id, bc_job_no, descripcion)')
+          .select('proyectos(id, bc_job_no, descripcion, direccion, codigo_postal, ciudad, provincia)')
           .eq('usuario_id', user.id);
         setProyectos(((asignados || []) as any).map((a: any) => a.proyectos).filter(Boolean));
       } else {
         const { data: abiertos } = await supabase
           .from('proyectos')
-          .select('id, bc_job_no, descripcion')
+          .select('id, bc_job_no, descripcion, direccion, codigo_postal, ciudad, provincia')
           .eq('estado', 'Open')
           .order('bc_job_no');
         setProyectos(abiertos || []);
@@ -224,6 +232,15 @@ export default function SolicitudModal({
     setError(null);
 
     if (pasoIndex < PASOS.length - 1) {
+      const siguientePaso = PASOS[pasoIndex + 1];
+      if (siguientePaso === 'direccion' && !direccionId) {
+        const proyectoSeleccionado = proyectos.find((p) => p.id === proyectoId);
+        if (proyectoSeleccionado?.direccion) {
+          setDireccionId('__predet__');
+        } else if (direcciones.length > 0) {
+          setDireccionId(direcciones[0].id);
+        }
+      }
       setPasoIndex((i) => i + 1);
       return;
     }
@@ -328,6 +345,37 @@ export default function SolicitudModal({
 
             {paso === 'direccion' && (
               <div>
+                {(() => {
+                  const proyectoSeleccionado = proyectos.find((p) => p.id === proyectoId);
+                  if (!proyectoSeleccionado?.direccion) return null;
+                  const seleccionada = direccionId === '__predet__';
+                  return (
+                    <label
+                      className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer mb-2 ${
+                        seleccionada ? 'border-marca bg-marcaClaro' : 'border-borde'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="direccion"
+                        className="mt-1"
+                        checked={seleccionada}
+                        onChange={() => setDireccionId('__predet__')}
+                      />
+                      <div className="flex-1 text-sm">
+                        <p className="font-medium text-grafito">Predet.</p>
+                        <p className="text-slate">
+                          {proyectoSeleccionado.direccion}
+                          {proyectoSeleccionado.codigo_postal ? ` — CP ${proyectoSeleccionado.codigo_postal}` : ''}
+                          {proyectoSeleccionado.ciudad ? `, ${proyectoSeleccionado.ciudad}` : ''}
+                          {proyectoSeleccionado.provincia ? ` (${proyectoSeleccionado.provincia})` : ''}
+                        </p>
+                        <p className="text-xs text-slate mt-0.5">Dirección del proyecto en Business Central</p>
+                      </div>
+                    </label>
+                  );
+                })()}
+
                 {direcciones.length === 0 && !creandoDireccion && (
                   <p className="text-sm text-slate mb-2">Todavía no tienes direcciones guardadas.</p>
                 )}

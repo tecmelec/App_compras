@@ -13,6 +13,10 @@ type ProyectoBC = {
   No: string;
   Description: string;
   Status: string;
+  Sell_to_Address: string;
+  Sell_to_Post_Code: string;
+  Sell_to_City: string;
+  Sell_to_County: string;
 };
 
 let tokenCache: { token: string; expira: number } | null = null;

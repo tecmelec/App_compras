@@ -82,7 +82,14 @@ export async function sincronizarProyectosBC() {
     if (idExistente) {
       const { error } = await supabase
         .from('proyectos')
-        .update({ descripcion: proyecto.Description, estado: proyecto.Status })
+        .update({
+          descripcion: proyecto.Description,
+          estado: proyecto.Status,
+          direccion: proyecto.Sell_to_Address,
+          codigo_postal: proyecto.Sell_to_Post_Code,
+          ciudad: proyecto.Sell_to_City,
+          provincia: proyecto.Sell_to_County,
+        })
         .eq('id', idExistente);
 
       if (error) errores.push(`${proyecto.No}: ${error.message}`);
@@ -92,6 +99,10 @@ export async function sincronizarProyectosBC() {
         bc_job_no: proyecto.No,
         descripcion: proyecto.Description,
         estado: proyecto.Status,
+        direccion: proyecto.Sell_to_Address,
+        codigo_postal: proyecto.Sell_to_Post_Code,
+        ciudad: proyecto.Sell_to_City,
+        provincia: proyecto.Sell_to_County,
       });
 
       if (error) errores.push(`${proyecto.No}: ${error.message}`);

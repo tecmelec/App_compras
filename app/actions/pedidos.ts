@@ -76,6 +76,52 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     return { error: 'Selecciona un comprador para esta solicitud.' };
   }
 
+  // "Predet." es una dirección virtual tomada de la ficha del proyecto en Business Central.
+  // La resolvemos a una fila real de "direcciones" (una sola por usuario, se actualiza cada vez).
+  let direccionEntregaId = datos.direccion_entrega_id;
+  if (direccionEntregaId === '__predet__') {
+    const { data: proyecto } = await supabase
+      .from('proyectos')
+      .select('direccion, codigo_postal, ciudad, provincia')
+      .eq('id', datos.proyecto_id)
+      .single();
+
+    if (!proyecto?.direccion) {
+      return { error: 'El proyecto seleccionado no tiene una dirección predeterminada en Business Central.' };
+    }
+
+    const { data: predetExistente } = await supabase
+      .from('direcciones')
+      .select('id')
+      .eq('usuario_id', user.id)
+      .eq('alias', 'Predet.')
+      .maybeSingle();
+
+    const datosDireccion = {
+      alias: 'Predet.',
+      direccion: proyecto.direccion,
+      codigo_postal: proyecto.codigo_postal,
+      ciudad: proyecto.ciudad,
+      provincia: proyecto.provincia,
+    };
+
+    if (predetExistente) {
+      await supabase.from('direcciones').update(datosDireccion).eq('id', predetExistente.id);
+      direccionEntregaId = predetExistente.id;
+    } else {
+      const { data: nuevaDireccion, error: errorDireccion } = await supabase
+        .from('direcciones')
+        .insert({ ...datosDireccion, usuario_id: user.id })
+        .select('id')
+        .single();
+
+      if (errorDireccion || !nuevaDireccion) {
+        return { error: 'No se pudo guardar la dirección predeterminada.' };
+      }
+      direccionEntregaId = nuevaDireccion.id;
+    }
+  }
+
   // Si el comprador o el responsable asignado tiene un sustituto activo (ej: vacaciones),
   // el pedido se asigna directamente a ese sustituto: así lo ve en sus listados y le llega el email.
   // Se resuelve con una función segura (RPC) para que funcione sin importar el rol de quien solicita.
@@ -122,7 +168,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
       responsable_id: responsableEfectivo,
       nombre_contacto: datos.nombre_contacto,
       telefono_contacto: datos.telefono_contacto,
-      direccion_entrega_id: datos.direccion_entrega_id,
+      direccion_entrega_id: direccionEntregaId,
       fecha_requerida: datos.fecha_requerida,
       total_estimado: totalEstimado,
       requiere_aprobacion: requiereAprobacion,
