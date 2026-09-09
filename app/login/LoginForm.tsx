@@ -34,7 +34,7 @@ export default function LoginForm({ error }: { error?: string }) {
               name="email"
               type="email"
               required
-              className="input pl-9"
+              className="input input-icon-left"
               placeholder="nombre@tecmelec.com"
             />
           </div>
@@ -54,7 +54,7 @@ export default function LoginForm({ error }: { error?: string }) {
               name="password"
               type={mostrarPassword ? 'text' : 'password'}
               required
-              className="input pl-9 pr-9"
+              className="input input-icon-left input-icon-right"
               placeholder="Introduce tu contraseña"
             />
             <button

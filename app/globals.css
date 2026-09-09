@@ -40,6 +40,13 @@ body {
   outline-offset: 1px;
 }
 
+.input-icon-left {
+  padding-left: 2.5rem;
+}
+.input-icon-right {
+  padding-right: 2.5rem;
+}
+
 .btn-primary {
   background-color: #178A4C;
   color: white;
