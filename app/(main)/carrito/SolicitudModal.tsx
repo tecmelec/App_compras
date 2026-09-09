@@ -161,7 +161,6 @@ export default function SolicitudModal({
         .order('created_at', { ascending: false });
 
       setDirecciones(dirs || []);
-      if (dirs && dirs.length > 0) setDireccionId(dirs[0].id);
 
       if (perfil?.rol === 'usuario') {
         const { data: asignados } = await supabase
