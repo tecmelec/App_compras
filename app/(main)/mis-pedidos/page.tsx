@@ -17,7 +17,7 @@ export default async function MisPedidosPage({
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, requiere_aprobacion, aprobado, estados_pedido(nombre), pedido_items(numero_tecmelec)'
+      'id, numero_app, created_at, fecha_requerida, requiere_aprobacion, aprobado, estados_pedido(nombre), proyectos(bc_job_no), pedido_items(numero_tecmelec)'
     )
     .eq('usuario_id', user?.id)
     .order('created_at', { ascending: false });
@@ -37,14 +37,17 @@ export default async function MisPedidosPage({
         <p className="text-slate text-sm">Todavía no has realizado ninguna solicitud.</p>
       ) : (
         <div className="bg-white border border-borde rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-fondo text-slate text-left">
               <tr>
                 <th className="px-4 py-3 font-medium">Nº pedido APP</th>
                 <th className="px-4 py-3 font-medium">Nº pedido Tecmelec</th>
+                <th className="px-4 py-3 font-medium">Nro. de obra</th>
                 <th className="px-4 py-3 font-medium">Aprobación</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium">Fecha</th>
+                <th className="px-4 py-3 font-medium">Fecha de solicitud</th>
+                <th className="px-4 py-3 font-medium">Fecha requerida</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borde">
@@ -57,6 +60,9 @@ export default async function MisPedidosPage({
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     {numerosTecmelecTexto(p.pedido_items)}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    {p.proyectos?.bc_job_no || '—'}
                   </td>
                   <td className="px-4 py-3">
                     {!p.requiere_aprobacion ? (
@@ -75,10 +81,16 @@ export default async function MisPedidosPage({
                   <td className="px-4 py-3 text-slate">
                     {new Date(p.created_at).toLocaleDateString('es-CL')}
                   </td>
+                  <td className="px-4 py-3 text-slate">
+                    {p.fecha_requerida
+                      ? new Date(p.fecha_requerida + 'T00:00:00').toLocaleDateString('es-CL')
+                      : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
