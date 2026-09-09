@@ -7,7 +7,7 @@ export default function LoginForm({ error }: { error?: string }) {
   const [mostrarPassword, setMostrarPassword] = useState(false);
 
   return (
-    <div className="bg-white border border-borde rounded-2xl shadow-sm p-8">
+    <div>
       <h1 className="text-2xl font-bold text-grafito mb-1">Iniciar sesión</h1>
       <p className="text-sm text-slate mb-6">
         Introduce tus credenciales para acceder al portal de solicitudes de material.
