@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
@@ -17,6 +17,11 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: 'Tienda Tecmelec',
   description: 'Plataforma interna de solicitud de materiales',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
