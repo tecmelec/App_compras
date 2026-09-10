@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { requireAdmin } from '@/lib/auth-guard';
-import { obtenerItemsComunesBC, obtenerProyectosBC } from '@/lib/business-central';
+import { obtenerItemsComunesBC, obtenerProyectosBC, obtenerProveedoresBC } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 
 export async function sincronizarProductosBC() {
@@ -114,4 +114,49 @@ export async function sincronizarProyectosBC() {
   revalidatePath('/proyectos-equipo');
 
   return { success: true, creados, actualizados, totalBC: proyectos.length, errores };
+}
+
+export async function sincronizarProveedoresBC() {
+  await requireAdmin();
+  const supabase = createClient();
+
+  let proveedores;
+  try {
+    proveedores = await obtenerProveedoresBC();
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo conectar con Business Central.' };
+  }
+
+  const { data: existentes } = await supabase.from('proveedores').select('id, bc_proveedor_no');
+  const existentesPorNo = new Map((existentes || []).map((p) => [p.bc_proveedor_no, p.id]));
+
+  let creados = 0;
+  let actualizados = 0;
+  const errores: string[] = [];
+
+  for (const proveedor of proveedores) {
+    const idExistente = existentesPorNo.get(proveedor.No);
+
+    if (idExistente) {
+      const { error } = await supabase
+        .from('proveedores')
+        .update({ nombre: proveedor.Name })
+        .eq('id', idExistente);
+
+      if (error) errores.push(`${proveedor.No}: ${error.message}`);
+      else actualizados++;
+    } else {
+      const { error } = await supabase.from('proveedores').insert({
+        bc_proveedor_no: proveedor.No,
+        nombre: proveedor.Name,
+      });
+
+      if (error) errores.push(`${proveedor.No}: ${error.message}`);
+      else creados++;
+    }
+  }
+
+  revalidatePath('/admin/proveedores');
+
+  return { success: true, creados, actualizados, totalBC: proveedores.length, errores };
 }

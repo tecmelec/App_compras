@@ -8,7 +8,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, productos(nombre, precio))'
+      'id, numero_app, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedor_id, productos(nombre, precio))'
     )
     .eq('id', params.id)
     .single();
@@ -17,6 +17,11 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     .from('estados_pedido')
     .select('id, nombre')
     .order('orden');
+
+  const { data: proveedores } = await supabase
+    .from('proveedores')
+    .select('id, bc_proveedor_no, nombre')
+    .order('nombre');
 
   if (!pedido) notFound();
 
@@ -75,11 +80,13 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           fechaEstimada: item.fecha_estimada_entrega || '',
           estadoId: item.estado_id,
           estadoRecepcion: item.estado_recepcion,
+          proveedorId: item.proveedor_id || '',
         }))}
         totalEstimado={p.total_estimado}
         estadoGeneral={p.estado_general}
         fechaEstimada={p.fecha_estimada_entrega || ''}
         estados={estados || []}
+        proveedores={proveedores || []}
       />
     </div>
   );

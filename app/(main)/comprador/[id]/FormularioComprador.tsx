@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedidos';
 
 type Estado = { id: number; nombre: string };
+type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
 type ItemForm = {
   id: string;
   nombre: string;
@@ -14,6 +15,7 @@ type ItemForm = {
   fechaEstimada: string;
   estadoId: number;
   estadoRecepcion: string;
+  proveedorId: string;
 };
 
 const ESTADOS_GENERALES = ['Pendiente de tramitar', 'Tramitado', 'Tramitado parcial', 'Anulado'];
@@ -26,6 +28,7 @@ export default function FormularioComprador({
   estadoGeneral,
   fechaEstimada,
   estados,
+  proveedores,
 }: {
   pedidoId: string;
   items: ItemForm[];
@@ -33,6 +36,7 @@ export default function FormularioComprador({
   estadoGeneral: string;
   fechaEstimada: string;
   estados: Estado[];
+  proveedores: Proveedor[];
 }) {
   const [numerosTecmelec, setNumerosTecmelec] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.numeroTecmelec]))
@@ -45,6 +49,9 @@ export default function FormularioComprador({
   );
   const [recepcionesLinea, setRecepcionesLinea] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.estadoRecepcion]))
+  );
+  const [proveedoresLinea, setProveedoresLinea] = useState<Record<string, string>>(
+    Object.fromEntries(items.map((i) => [i.id, i.proveedorId]))
   );
   const [estado, setEstado] = useState(estadoGeneral);
   const [fecha, setFecha] = useState(fechaEstimada);
@@ -69,6 +76,7 @@ export default function FormularioComprador({
           fecha_estimada_entrega: fechaFinal || null,
           estado_id: estadosLinea[i.id],
           estado_recepcion: recepcionesLinea[i.id],
+          proveedor_id: proveedoresLinea[i.id] || null,
         };
       })
     );
@@ -158,6 +166,23 @@ export default function FormularioComprador({
                   {ESTADOS_RECEPCION.map((e) => (
                     <option key={e} value={e}>
                       {e}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-48 shrink-0">
+                <label className="block text-xs text-slate mb-1">Nro. Proveedor</label>
+                <select
+                  className="input"
+                  value={proveedoresLinea[item.id]}
+                  onChange={(e) =>
+                    setProveedoresLinea((prev) => ({ ...prev, [item.id]: e.target.value }))
+                  }
+                >
+                  <option value="">Sin asignar</option>
+                  {proveedores.map((prov) => (
+                    <option key={prov.id} value={prov.id}>
+                      {prov.bc_proveedor_no} — {prov.nombre}
                     </option>
                   ))}
                 </select>

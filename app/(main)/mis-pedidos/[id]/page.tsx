@@ -20,7 +20,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -249,6 +249,9 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                       ? 'Pendiente de asignar a un pedido Tecmelec'
                       : `Pedido Tecmelec ${numeroTecmelec}`}
                   </p>
+                  {itemsGrupo[0].proveedores?.nombre && (
+                    <p className="text-sm text-grafito">Proveedor: {itemsGrupo[0].proveedores.nombre}</p>
+                  )}
                   <p className="text-sm text-slate">Puedes seguir el estado de esta parte de tu solicitud aquí.</p>
                 </div>
               </div>

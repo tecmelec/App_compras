@@ -5,6 +5,7 @@ const secciones = [
   { href: '/admin/usuarios', titulo: 'Usuarios', desc: 'Crear cuentas, asignar rol, comprador y responsable.' },
   { href: '/admin/productos', titulo: 'Productos', desc: 'Gestionar el catálogo de la Tienda Tecmelec.' },
   { href: '/admin/proyectos', titulo: 'Proyectos', desc: 'Sincronizar proyectos/obras desde Business Central.' },
+  { href: '/admin/proveedores', titulo: 'Proveedores', desc: 'Sincronizar proveedores desde Business Central.' },
   { href: '/proyectos-equipo', titulo: 'Proyectos de equipo', desc: 'Asignar proyectos a cada usuario.' },
   { href: '/admin/estados', titulo: 'Estados de pedido', desc: 'Definir los estados por los que pasa una solicitud.' },
   { href: '/admin/configuracion', titulo: 'Configuración', desc: 'Límite de aprobación automática y otros ajustes.' },

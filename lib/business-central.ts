@@ -19,6 +19,11 @@ type ProyectoBC = {
   Sell_to_County: string;
 };
 
+type ProveedorBC = {
+  No: string;
+  Name: string;
+};
+
 let tokenCache: { token: string; expira: number } | null = null;
 
 async function obtenerToken(): Promise<string> {
@@ -89,5 +94,10 @@ export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
 
 export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROYECTOS!);
+  return consultarBC(base);
+}
+
+export async function obtenerProveedoresBC(): Promise<ProveedorBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROVEEDORES!);
   return consultarBC(base);
 }
