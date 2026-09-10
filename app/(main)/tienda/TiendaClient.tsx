@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
 import ProductRow from '@/components/ProductRow';
+import { marcarFavorito, quitarFavorito } from '@/app/actions/favoritos';
 
 type Producto = {
   id: string;
@@ -19,13 +20,31 @@ type Producto = {
 export default function TiendaClient({
   productos,
   mostrarPrecio,
+  favoritosIniciales,
 }: {
   productos: Producto[];
   mostrarPrecio: boolean;
+  favoritosIniciales: string[];
 }) {
   const searchParams = useSearchParams();
   const busqueda = searchParams.get('q') || '';
   const [vista, setVista] = useState<'grid' | 'list'>('grid');
+  const [favoritos, setFavoritos] = useState<Set<string>>(new Set(favoritosIniciales));
+
+  function alternarFavorito(productoId: string) {
+    const esFavorito = favoritos.has(productoId);
+
+    // Actualización optimista: se ve al instante, sin esperar al servidor
+    setFavoritos((prev) => {
+      const nuevo = new Set(prev);
+      if (esFavorito) nuevo.delete(productoId);
+      else nuevo.add(productoId);
+      return nuevo;
+    });
+
+    if (esFavorito) quitarFavorito(productoId);
+    else marcarFavorito(productoId);
+  }
 
   const filtrados = useMemo(() => {
     const palabras = busqueda.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -38,6 +57,15 @@ export default function TiendaClient({
       return palabras.every((palabra) => texto.includes(palabra));
     });
   }, [productos, busqueda]);
+
+  // Los favoritos van siempre primero, conservando el resto del orden
+  const ordenados = useMemo(() => {
+    return [...filtrados].sort((a, b) => {
+      const favA = favoritos.has(a.id) ? 0 : 1;
+      const favB = favoritos.has(b.id) ? 0 : 1;
+      return favA - favB;
+    });
+  }, [filtrados, favoritos]);
 
   return (
     <div>
@@ -69,18 +97,30 @@ export default function TiendaClient({
         </div>
       </div>
 
-      {filtrados.length === 0 ? (
+      {ordenados.length === 0 ? (
         <p className="text-slate text-sm">No hay productos que coincidan con la búsqueda.</p>
       ) : vista === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtrados.map((p) => (
-            <ProductCard key={p.id} producto={p} mostrarPrecio={mostrarPrecio} />
+          {ordenados.map((p) => (
+            <ProductCard
+              key={p.id}
+              producto={p}
+              mostrarPrecio={mostrarPrecio}
+              esFavorito={favoritos.has(p.id)}
+              onToggleFavorito={() => alternarFavorito(p.id)}
+            />
           ))}
         </div>
       ) : (
         <div className="bg-white border border-borde rounded-lg divide-y divide-borde">
-          {filtrados.map((p) => (
-            <ProductRow key={p.id} producto={p} mostrarPrecio={mostrarPrecio} />
+          {ordenados.map((p) => (
+            <ProductRow
+              key={p.id}
+              producto={p}
+              mostrarPrecio={mostrarPrecio}
+              esFavorito={favoritos.has(p.id)}
+              onToggleFavorito={() => alternarFavorito(p.id)}
+            />
           ))}
         </div>
       )}

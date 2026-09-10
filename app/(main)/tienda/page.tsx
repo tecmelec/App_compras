@@ -24,6 +24,13 @@ export default async function TiendaPage() {
     .eq('visible', true)
     .order('categoria');
 
+  const { data: favoritos } = await supabase
+    .from('favoritos')
+    .select('producto_id')
+    .eq('usuario_id', user?.id);
+
+  const favoritosIds = (favoritos || []).map((f) => f.producto_id);
+
   return (
     <div className="p-8">
       <HeroTienda />
@@ -32,7 +39,7 @@ export default async function TiendaPage() {
         <p className="text-slate text-sm">Todavía no hay productos publicados.</p>
       ) : (
         <Suspense fallback={<p className="text-slate text-sm">Cargando…</p>}>
-          <TiendaClient productos={productos} mostrarPrecio={mostrarPrecio} />
+          <TiendaClient productos={productos} mostrarPrecio={mostrarPrecio} favoritosIniciales={favoritosIds} />
         </Suspense>
       )}
     </div>

@@ -22,9 +22,13 @@ function formatoPrecio(precio: number): string {
 export default function ProductCard({
   producto,
   mostrarPrecio,
+  esFavorito,
+  onToggleFavorito,
 }: {
   producto: Producto;
   mostrarPrecio?: boolean;
+  esFavorito?: boolean;
+  onToggleFavorito?: () => void;
 }) {
   const { addItem } = useCart();
   const [cantidad, setCantidad] = useState(1);
@@ -40,7 +44,28 @@ export default function ProductCard({
   }
 
   return (
-    <div className="bg-white border border-borde rounded-lg overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+    <div className="bg-white border border-borde rounded-lg overflow-hidden flex flex-col hover:shadow-md transition-shadow relative">
+      {onToggleFavorito && (
+        <button
+          onClick={onToggleFavorito}
+          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white/90 shadow-sm flex items-center justify-center hover:bg-white"
+          aria-label={esFavorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill={esFavorito ? '#178A4C' : 'none'}
+            stroke={esFavorito ? '#178A4C' : '#5B6470'}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+        </button>
+      )}
+
       <div className="h-28 bg-fondo relative">
         {producto.imagen_url ? (
           <Image src={producto.imagen_url} alt={producto.nombre} fill className="object-contain" />
