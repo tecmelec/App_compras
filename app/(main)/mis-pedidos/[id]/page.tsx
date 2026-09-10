@@ -32,6 +32,25 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const p = pedido as any;
   const estadosPorId = new Map((estados || []).map((e: any) => [e.id, e.nombre]));
 
+  // Estados de la secuencia que representan "recibido parcial" y "recibido completo"
+  // (se buscan por nombre, sea cual sea el id real que tengan configurados).
+  const estadoParcial = (estados || []).find((e: any) => e.nombre.toLowerCase().includes('parcial'));
+  const estadoCompleto = (estados || []).find(
+    (e: any) => e.nombre.toLowerCase().includes('recib') && !e.nombre.toLowerCase().includes('parcial')
+  );
+
+  function estadoEfectivoDelGrupo(itemsGrupo: any[]): number {
+    const recepciones = itemsGrupo.map((i) => i.estado_recepcion);
+    const todosRecibido = recepciones.every((r) => r === 'Recibido');
+    const algunoParcialOMixto =
+      recepciones.some((r) => r === 'Recibido parcial') ||
+      (recepciones.some((r) => r === 'Recibido') && !todosRecibido);
+
+    if (todosRecibido && estadoCompleto) return estadoCompleto.id;
+    if (algunoParcialOMixto && estadoParcial) return estadoParcial.id;
+    return itemsGrupo[0].estado_id;
+  }
+
   // Agrupa las líneas por Nº pedido Tecmelec (las que todavía no tienen uno van juntas aparte)
   const grupos = new Map<string, any[]>();
   for (const item of p.pedido_items) {
@@ -185,7 +204,8 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
       </div>
 
       {gruposOrdenados.map(([numeroTecmelec, itemsGrupo]) => {
-        const nombreEstadoGrupo = estadosPorId.get(itemsGrupo[0].estado_id);
+        const estadoIdEfectivo = estadoEfectivoDelGrupo(itemsGrupo);
+        const nombreEstadoGrupo = estadosPorId.get(estadoIdEfectivo);
         return (
           <div key={numeroTecmelec} className="bg-white border border-borde rounded-xl p-6 mb-6">
             <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
@@ -208,7 +228,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
               <EstadoBadge estado={nombreEstadoGrupo} />
             </div>
 
-            <ProgresoEstado estados={estados || []} estadoActualId={itemsGrupo[0].estado_id} />
+            <ProgresoEstado estados={estados || []} estadoActualId={estadoIdEfectivo} />
 
             <h3 className="font-medium text-grafito mt-6 mb-3 flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marca">
