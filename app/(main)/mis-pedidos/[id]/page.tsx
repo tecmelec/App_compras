@@ -68,7 +68,14 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
       return { anulado: false, id: secuencia[0]?.id ?? null };
     }
 
-    return { anulado: false, id: estadoEfectivoDelGrupo(itemsGrupo) };
+    // Aprobación automática o ya aprobada por el responsable: el 2do paso
+    // queda garantizado como mínimo, aunque el comprador no haya tocado nada más.
+    const idManual = estadoEfectivoDelGrupo(itemsGrupo);
+    const indiceManual = secuencia.findIndex((e: any) => e.id === idManual);
+    const indiceMinimo = Math.min(1, secuencia.length - 1);
+    const indiceFinal = Math.max(indiceManual, indiceMinimo);
+
+    return { anulado: false, id: secuencia[indiceFinal]?.id ?? idManual };
   }
 
   // Agrupa las líneas por Nº pedido Tecmelec (las que todavía no tienen uno van juntas aparte)
