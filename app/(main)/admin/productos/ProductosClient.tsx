@@ -1,10 +1,11 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { crearProducto, actualizarProducto, eliminarProducto } from '@/app/actions/catalogo';
+import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 
 type Producto = {
   id: string;
@@ -18,77 +19,332 @@ type Producto = {
   bc_item_no: string | null;
 };
 
+type Filtros = {
+  nombre: string;
+  bcItemNo: string;
+  unidades: string[];
+  categorias: string[];
+  precioMin: string;
+  precioMax: string;
+  visibles: string[];
+};
+
+const FILTROS_VACIOS: Filtros = {
+  nombre: '',
+  bcItemNo: '',
+  unidades: [],
+  categorias: [],
+  precioMin: '',
+  precioMax: '',
+  visibles: [],
+};
+
+type CampoOrden = 'nombre' | 'bc_item_no' | 'unidad_medida' | 'categoria' | 'precio' | 'visible';
+
 export default function ProductosClient({ productos }: { productos: Producto[] }) {
   const [creando, setCreando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const router = useRouter();
 
+  const [busqueda, setBusqueda] = useState('');
+  const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
+  const [columnaAbierta, setColumnaAbierta] = useState<string | null>(null);
+  const [orden, setOrden] = useState<{ campo: CampoOrden; asc: boolean } | null>(null);
+
+  const unidadesUnicas = useMemo(
+    () => Array.from(new Set(productos.map((p) => p.unidad_medida).filter(Boolean))).sort() as string[],
+    [productos]
+  );
+  const categoriasUnicas = useMemo(
+    () => Array.from(new Set(productos.map((p) => p.categoria).filter(Boolean))).sort() as string[],
+    [productos]
+  );
+
+  const hayFiltrosActivos = busqueda !== '' || JSON.stringify(filtros) !== JSON.stringify(FILTROS_VACIOS);
+
+  function actualizar<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
+    setFiltros((prev) => ({ ...prev, [campo]: valor }));
+  }
+
+  function alternarLista(campo: 'unidades' | 'categorias' | 'visibles', valor: string) {
+    setFiltros((prev) => {
+      const lista = prev[campo];
+      const nueva = lista.includes(valor) ? lista.filter((v) => v !== valor) : [...lista, valor];
+      return { ...prev, [campo]: nueva };
+    });
+  }
+
+  function ordenarPor(campo: CampoOrden, asc: boolean) {
+    setOrden({ campo, asc });
+  }
+
+  const filtrados = productos.filter((p) => {
+    if (busqueda) {
+      const texto = busqueda.toLowerCase();
+      const campo = [p.nombre, p.descripcion, p.categoria, p.bc_item_no].filter(Boolean).join(' ').toLowerCase();
+      if (!campo.includes(texto)) return false;
+    }
+    if (filtros.nombre && !p.nombre.toLowerCase().includes(filtros.nombre.toLowerCase())) return false;
+    if (filtros.bcItemNo && !(p.bc_item_no || '').toLowerCase().includes(filtros.bcItemNo.toLowerCase())) return false;
+    if (filtros.unidades.length > 0 && !filtros.unidades.includes(p.unidad_medida || '')) return false;
+    if (filtros.categorias.length > 0 && !filtros.categorias.includes(p.categoria || '')) return false;
+    if (filtros.precioMin && p.precio < Number(filtros.precioMin)) return false;
+    if (filtros.precioMax && p.precio > Number(filtros.precioMax)) return false;
+    if (filtros.visibles.length > 0 && !filtros.visibles.includes(p.visible ? 'Sí' : 'No')) return false;
+    return true;
+  });
+
+  const ordenados = useMemo(() => {
+    if (!orden) return filtrados;
+    const copia = [...filtrados];
+    copia.sort((a, b) => {
+      let va: any = orden.campo === 'visible' ? (a.visible ? 1 : 0) : (a as any)[orden.campo] || '';
+      let vb: any = orden.campo === 'visible' ? (b.visible ? 1 : 0) : (b as any)[orden.campo] || '';
+      if (va < vb) return orden.asc ? -1 : 1;
+      if (va > vb) return orden.asc ? 1 : -1;
+      return 0;
+    });
+    return copia;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtrados, orden]);
+
   return (
     <div>
-      <button onClick={() => setCreando(true)} className="btn-primary mb-4">
-        + Nuevo producto
-      </button>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <button onClick={() => setCreando(true)} className="btn-primary">
+          + Nuevo producto
+        </button>
+        <input
+          className="input max-w-xs"
+          placeholder="Buscar por nombre, referencia, categoría..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+        {hayFiltrosActivos && (
+          <button
+            onClick={() => {
+              setBusqueda('');
+              setFiltros(FILTROS_VACIOS);
+            }}
+            className="text-sm text-marca hover:underline"
+          >
+            ✕ Borrar filtros
+          </button>
+        )}
+      </div>
 
       {creando && (
         <ProductoForm onCancel={() => setCreando(false)} onSuccess={() => { setCreando(false); router.refresh(); }} />
       )}
 
-      <div className="bg-white border border-borde rounded-lg overflow-hidden">
+      {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
+
+      <div className="bg-white border border-borde rounded-lg overflow-visible">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-fondo text-slate text-left">
             <tr>
               <th className="px-4 py-3"></th>
-              <th className="px-4 py-3 font-medium">Nombre</th>
-              <th className="px-4 py-3 font-medium">Nº BC</th>
-              <th className="px-4 py-3 font-medium">Unidad</th>
-              <th className="px-4 py-3 font-medium">Categoría</th>
-              <th className="px-4 py-3 font-medium">Precio</th>
-              <th className="px-4 py-3 font-medium">Visible</th>
+              <ColumnaFiltroOrden
+                titulo="Nombre"
+                campoOrden="nombre"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="nombre"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={!!filtros.nombre}
+              >
+                <input
+                  className="input"
+                  placeholder="Buscar..."
+                  value={filtros.nombre}
+                  onChange={(e) => actualizar('nombre', e.target.value)}
+                  autoFocus
+                />
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Nº BC"
+                campoOrden="bc_item_no"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="bcItemNo"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={!!filtros.bcItemNo}
+              >
+                <input
+                  className="input"
+                  placeholder="Buscar..."
+                  value={filtros.bcItemNo}
+                  onChange={(e) => actualizar('bcItemNo', e.target.value)}
+                  autoFocus
+                />
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Unidad"
+                campoOrden="unidad_medida"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="unidad"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={filtros.unidades.length > 0}
+              >
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {unidadesUnicas.length === 0 ? (
+                    <p className="text-sm text-slate">Sin opciones.</p>
+                  ) : (
+                    unidadesUnicas.map((u) => (
+                      <label key={u} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filtros.unidades.includes(u)}
+                          onChange={() => alternarLista('unidades', u)}
+                        />
+                        {u}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Categoría"
+                campoOrden="categoria"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="categoria"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={filtros.categorias.length > 0}
+              >
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {categoriasUnicas.length === 0 ? (
+                    <p className="text-sm text-slate">Sin opciones.</p>
+                  ) : (
+                    categoriasUnicas.map((c) => (
+                      <label key={c} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filtros.categorias.includes(c)}
+                          onChange={() => alternarLista('categorias', c)}
+                        />
+                        {c}
+                      </label>
+                    ))
+                  )}
+                </div>
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Precio"
+                campoOrden="precio"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="precio"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={!!filtros.precioMin || !!filtros.precioMax}
+              >
+                <div className="flex flex-col gap-2">
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Mínimo"
+                    value={filtros.precioMin}
+                    onChange={(e) => actualizar('precioMin', e.target.value)}
+                  />
+                  <input
+                    className="input"
+                    type="number"
+                    placeholder="Máximo"
+                    value={filtros.precioMax}
+                    onChange={(e) => actualizar('precioMax', e.target.value)}
+                  />
+                </div>
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Visible"
+                campoOrden="visible"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="visible"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={filtros.visibles.length > 0}
+              >
+                <div className="space-y-1">
+                  {['Sí', 'No'].map((v) => (
+                    <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filtros.visibles.includes(v)}
+                        onChange={() => alternarLista('visibles', v)}
+                      />
+                      {v}
+                    </label>
+                  ))}
+                </div>
+              </ColumnaFiltroOrden>
+
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-borde">
-            {productos.map((p) => (
-              <Fragment key={p.id}>
-                <tr className="hover:bg-fondo">
-                  <td className="px-4 py-3">
-                    <div className="w-10 h-10 bg-fondo rounded relative overflow-hidden">
-                      {p.imagen_url && (
-                        <Image src={p.imagen_url} alt={p.nombre} fill className="object-cover" />
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-grafito">{p.nombre}</td>
-                  <td className="px-4 py-3 font-mono text-slate">{p.bc_item_no || '—'}</td>
-                  <td className="px-4 py-3 text-slate">{p.unidad_medida || '—'}</td>
-                  <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
-                  <td className="px-4 py-3 font-mono text-grafito">{p.precio?.toFixed(2)} €</td>
-                  <td className="px-4 py-3 text-slate">{p.visible ? 'Sí' : 'No'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setEditandoId(editandoId === p.id ? null : p.id)}
-                      className="text-marca text-sm hover:underline"
-                    >
-                      {editandoId === p.id ? 'Cerrar' : 'Editar'}
-                    </button>
-                  </td>
-                </tr>
-                {editandoId === p.id && (
-                  <tr>
-                    <td colSpan={8} className="bg-fondo p-4">
-                      <ProductoForm
-                        producto={p}
-                        onCancel={() => setEditandoId(null)}
-                        onSuccess={() => { setEditandoId(null); router.refresh(); }}
-                        onDelete={() => { setEditandoId(null); router.refresh(); }}
-                      />
+            {ordenados.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-slate text-sm">
+                  No hay productos que coincidan con los filtros.
+                </td>
+              </tr>
+            ) : (
+              ordenados.map((p) => (
+                <Fragment key={p.id}>
+                  <tr className="hover:bg-fondo">
+                    <td className="px-4 py-3">
+                      <div className="w-10 h-10 bg-fondo rounded relative overflow-hidden">
+                        {p.imagen_url && (
+                          <Image src={p.imagen_url} alt={p.nombre} fill className="object-cover" />
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-grafito">{p.nombre}</td>
+                    <td className="px-4 py-3 font-mono text-slate">{p.bc_item_no || '—'}</td>
+                    <td className="px-4 py-3 text-slate">{p.unidad_medida || '—'}</td>
+                    <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-grafito">{p.precio?.toFixed(2)} €</td>
+                    <td className="px-4 py-3 text-slate">{p.visible ? 'Sí' : 'No'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setEditandoId(editandoId === p.id ? null : p.id)}
+                        className="text-marca text-sm hover:underline"
+                      >
+                        {editandoId === p.id ? 'Cerrar' : 'Editar'}
+                      </button>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
+                  {editandoId === p.id && (
+                    <tr>
+                      <td colSpan={8} className="bg-fondo p-4">
+                        <ProductoForm
+                          producto={p}
+                          onCancel={() => setEditandoId(null)}
+                          onSuccess={() => { setEditandoId(null); router.refresh(); }}
+                          onDelete={() => { setEditandoId(null); router.refresh(); }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))
+            )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
