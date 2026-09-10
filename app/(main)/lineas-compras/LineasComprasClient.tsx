@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 
 export type LineaFila = {
   numero_app: string;
@@ -62,8 +63,8 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
     }));
   }
 
-  function alternarOrden(campo: CampoOrden) {
-    setOrden((prev) => (prev?.campo === campo ? { campo, asc: !prev.asc } : { campo, asc: true }));
+  function ordenarPor(campo: CampoOrden, asc: boolean) {
+    setOrden({ campo, asc });
   }
 
   const filtradas = filas.filter((f) => {
@@ -129,15 +130,15 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
         <table className="w-full text-sm">
           <thead className="bg-fondo text-slate text-left">
             <tr>
-              <Columna
+              <ColumnaFiltroOrden
                 titulo="Nº pedido APP"
                 campoOrden="numero_app"
-                orden={orden}
-                onOrdenar={alternarOrden}
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
                 columnaId="numeroApp"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activo={!!filtros.numeroApp}
+                activoFiltro={!!filtros.numeroApp}
               >
                 <input
                   className="input"
@@ -146,17 +147,17 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                   onChange={(e) => actualizar('numeroApp', e.target.value)}
                   autoFocus
                 />
-              </Columna>
+              </ColumnaFiltroOrden>
 
-              <Columna
+              <ColumnaFiltroOrden
                 titulo="Nº pedido Tecmelec"
                 campoOrden="numero_tecmelec"
-                orden={orden}
-                onOrdenar={alternarOrden}
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
                 columnaId="numeroTecmelec"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activo={!!filtros.numeroTecmelec}
+                activoFiltro={!!filtros.numeroTecmelec}
               >
                 <input
                   className="input"
@@ -165,17 +166,17 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                   onChange={(e) => actualizar('numeroTecmelec', e.target.value)}
                   autoFocus
                 />
-              </Columna>
+              </ColumnaFiltroOrden>
 
-              <Columna
+              <ColumnaFiltroOrden
                 titulo="Artículo solicitado"
                 campoOrden="articulo"
-                orden={orden}
-                onOrdenar={alternarOrden}
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
                 columnaId="articulo"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activo={filtros.articulos.length > 0}
+                activoFiltro={filtros.articulos.length > 0}
               >
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {articulosUnicos.map((a) => (
@@ -189,17 +190,17 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     </label>
                   ))}
                 </div>
-              </Columna>
+              </ColumnaFiltroOrden>
 
-              <Columna
+              <ColumnaFiltroOrden
                 titulo="Cantidad"
                 campoOrden="cantidad"
-                orden={orden}
-                onOrdenar={alternarOrden}
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
                 columnaId="cantidad"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activo={!!filtros.cantidadMin || !!filtros.cantidadMax}
+                activoFiltro={!!filtros.cantidadMin || !!filtros.cantidadMax}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -217,17 +218,17 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     onChange={(e) => actualizar('cantidadMax', e.target.value)}
                   />
                 </div>
-              </Columna>
+              </ColumnaFiltroOrden>
 
-              <Columna
+              <ColumnaFiltroOrden
                 titulo="Fecha requerida"
                 campoOrden="fecha_requerida"
-                orden={orden}
-                onOrdenar={alternarOrden}
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
                 columnaId="requerida"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activo={!!filtros.requeridaDesde || !!filtros.requeridaHasta}
+                activoFiltro={!!filtros.requeridaDesde || !!filtros.requeridaHasta}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -243,17 +244,17 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     onChange={(e) => actualizar('requeridaHasta', e.target.value)}
                   />
                 </div>
-              </Columna>
+              </ColumnaFiltroOrden>
 
-              <Columna
+              <ColumnaFiltroOrden
                 titulo="Fecha estimada de entrega"
                 campoOrden="fecha_estimada_entrega"
-                orden={orden}
-                onOrdenar={alternarOrden}
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
                 columnaId="entrega"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activo={!!filtros.entregaDesde || !!filtros.entregaHasta}
+                activoFiltro={!!filtros.entregaDesde || !!filtros.entregaHasta}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -269,7 +270,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     onChange={(e) => actualizar('entregaHasta', e.target.value)}
                   />
                 </div>
-              </Columna>
+              </ColumnaFiltroOrden>
             </tr>
           </thead>
           <tbody className="divide-y divide-borde">
@@ -307,60 +308,3 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
   );
 }
 
-function Columna({
-  titulo,
-  campoOrden,
-  orden,
-  onOrdenar,
-  columnaId,
-  columnaAbierta,
-  setColumnaAbierta,
-  activo,
-  children,
-}: {
-  titulo: string;
-  campoOrden: CampoOrden;
-  orden: { campo: CampoOrden; asc: boolean } | null;
-  onOrdenar: (campo: CampoOrden) => void;
-  columnaId: string;
-  columnaAbierta: string | null;
-  setColumnaAbierta: (v: string | null) => void;
-  activo: boolean;
-  children: React.ReactNode;
-}) {
-  const abierta = columnaAbierta === columnaId;
-  const ordenActivo = orden?.campo === campoOrden;
-
-  return (
-    <th className="px-4 py-3 font-medium relative whitespace-nowrap">
-      <span className="inline-flex items-center gap-1">
-        <button
-          onClick={() => onOrdenar(campoOrden)}
-          className={`hover:underline ${ordenActivo ? 'text-marca' : ''}`}
-        >
-          {titulo}
-          {ordenActivo && <span className="ml-1">{orden!.asc ? '↑' : '↓'}</span>}
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setColumnaAbierta(abierta ? null : columnaId);
-          }}
-          className={activo ? 'text-marca' : ''}
-        >
-          <span className="text-xs">▾</span>
-          {activo && <span className="w-1.5 h-1.5 rounded-full bg-marca inline-block ml-0.5" />}
-        </button>
-      </span>
-
-      {abierta && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute z-20 top-full left-0 mt-1 bg-white border border-borde rounded-lg shadow-lg p-3 w-56 font-normal normal-case"
-        >
-          {children}
-        </div>
-      )}
-    </th>
-  );
-}

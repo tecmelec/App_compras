@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
+import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 
 export type MiPedidoFila = {
   id: string;
@@ -79,8 +80,8 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
     });
   }
 
-  function alternarOrden(campo: CampoOrden) {
-    setOrden((prev) => (prev?.campo === campo ? { campo, asc: !prev.asc } : { campo, asc: true }));
+  function ordenarPor(campo: CampoOrden, asc: boolean) {
+    setOrden({ campo, asc });
   }
 
   const filtrados = pedidos.filter((p) => {
@@ -136,15 +137,15 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
           <table className="w-full text-sm">
             <thead className="bg-fondo text-slate text-left">
               <tr>
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Nº pedido APP"
                   campoOrden="numero_app"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="numeroApp"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={!!filtros.numeroApp}
+                  activoFiltro={!!filtros.numeroApp}
                 >
                   <input
                     className="input"
@@ -153,17 +154,17 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                     onChange={(e) => actualizar('numeroApp', e.target.value)}
                     autoFocus
                   />
-                </Columna>
+                </ColumnaFiltroOrden>
 
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Nº pedido Tecmelec"
                   campoOrden="numero_tecmelec"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="numeroTecmelec"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={!!filtros.numeroTecmelec}
+                  activoFiltro={!!filtros.numeroTecmelec}
                 >
                   <input
                     className="input"
@@ -172,17 +173,17 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                     onChange={(e) => actualizar('numeroTecmelec', e.target.value)}
                     autoFocus
                   />
-                </Columna>
+                </ColumnaFiltroOrden>
 
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Nro. de obra"
                   campoOrden="nro_obra"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="nroObra"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={!!filtros.nroObra}
+                  activoFiltro={!!filtros.nroObra}
                 >
                   <input
                     className="input"
@@ -191,17 +192,17 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                     onChange={(e) => actualizar('nroObra', e.target.value)}
                     autoFocus
                   />
-                </Columna>
+                </ColumnaFiltroOrden>
 
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Aprobación"
                   campoOrden="aprobacion"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="aprobacion"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={filtros.aprobaciones.length > 0}
+                  activoFiltro={filtros.aprobaciones.length > 0}
                 >
                   <div className="space-y-1">
                     {OPCIONES_APROBACION.map((o) => (
@@ -215,17 +216,17 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                       </label>
                     ))}
                   </div>
-                </Columna>
+                </ColumnaFiltroOrden>
 
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Estado"
                   campoOrden="estado"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="estado"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={filtros.estados.length > 0}
+                  activoFiltro={filtros.estados.length > 0}
                 >
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {estadosUnicos.length === 0 ? (
@@ -243,17 +244,17 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                       ))
                     )}
                   </div>
-                </Columna>
+                </ColumnaFiltroOrden>
 
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Fecha de solicitud"
                   campoOrden="fecha_solicitud"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="fechaSolicitud"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={!!filtros.solicitudDesde || !!filtros.solicitudHasta}
+                  activoFiltro={!!filtros.solicitudDesde || !!filtros.solicitudHasta}
                 >
                   <div className="flex flex-col gap-2">
                     <input
@@ -269,17 +270,17 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                       onChange={(e) => actualizar('solicitudHasta', e.target.value)}
                     />
                   </div>
-                </Columna>
+                </ColumnaFiltroOrden>
 
-                <Columna
+                <ColumnaFiltroOrden
                   titulo="Fecha requerida"
                   campoOrden="fecha_requerida"
-                  orden={orden}
-                  onOrdenar={alternarOrden}
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
                   columnaId="fechaRequerida"
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
-                  activo={!!filtros.requeridaDesde || !!filtros.requeridaHasta}
+                  activoFiltro={!!filtros.requeridaDesde || !!filtros.requeridaHasta}
                 >
                   <div className="flex flex-col gap-2">
                     <input
@@ -295,7 +296,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                       onChange={(e) => actualizar('requeridaHasta', e.target.value)}
                     />
                   </div>
-                </Columna>
+                </ColumnaFiltroOrden>
               </tr>
             </thead>
             <tbody className="divide-y divide-borde">
@@ -343,57 +344,3 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
   );
 }
 
-function Columna({
-  titulo,
-  campoOrden,
-  orden,
-  onOrdenar,
-  columnaId,
-  columnaAbierta,
-  setColumnaAbierta,
-  activo,
-  children,
-}: {
-  titulo: string;
-  campoOrden: CampoOrden;
-  orden: { campo: CampoOrden; asc: boolean } | null;
-  onOrdenar: (campo: CampoOrden) => void;
-  columnaId: string;
-  columnaAbierta: string | null;
-  setColumnaAbierta: (v: string | null) => void;
-  activo: boolean;
-  children: React.ReactNode;
-}) {
-  const abierta = columnaAbierta === columnaId;
-  const ordenActivo = orden?.campo === campoOrden;
-
-  return (
-    <th className="px-4 py-3 font-medium relative whitespace-nowrap">
-      <span className="inline-flex items-center gap-1">
-        <button onClick={() => onOrdenar(campoOrden)} className={`hover:underline ${ordenActivo ? 'text-marca' : ''}`}>
-          {titulo}
-          {ordenActivo && <span className="ml-1">{orden!.asc ? '↑' : '↓'}</span>}
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setColumnaAbierta(abierta ? null : columnaId);
-          }}
-          className={activo ? 'text-marca' : ''}
-        >
-          <span className="text-xs">▾</span>
-          {activo && <span className="w-1.5 h-1.5 rounded-full bg-marca inline-block ml-0.5" />}
-        </button>
-      </span>
-
-      {abierta && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute z-20 top-full left-0 mt-1 bg-white border border-borde rounded-lg shadow-lg p-3 w-56 font-normal normal-case"
-        >
-          {children}
-        </div>
-      )}
-    </th>
-  );
-}
