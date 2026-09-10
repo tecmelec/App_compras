@@ -12,6 +12,7 @@ type ItemForm = {
   cantidad: number;
   numeroTecmelec: string;
   fechaEstimada: string;
+  estadoId: number;
 };
 
 export default function FormularioComprador({
@@ -35,6 +36,9 @@ export default function FormularioComprador({
   const [fechasLinea, setFechasLinea] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.fechaEstimada]))
   );
+  const [estadosLinea, setEstadosLinea] = useState<Record<string, number>>(
+    Object.fromEntries(items.map((i) => [i.id, i.estadoId]))
+  );
   const [estado, setEstado] = useState(estadoId);
   const [fecha, setFecha] = useState(fechaEstimada);
   const [asignarVacios, setAsignarVacios] = useState(false);
@@ -56,6 +60,7 @@ export default function FormularioComprador({
           id: i.id,
           numero_tecmelec: numerosTecmelec[i.id] || '',
           fecha_estimada_entrega: fechaFinal || null,
+          estado_id: estadosLinea[i.id],
         };
       })
     );
@@ -95,7 +100,7 @@ export default function FormularioComprador({
                   {item.precio?.toFixed(2)} € c/u — x{item.cantidad}
                 </p>
               </div>
-              <div className="w-44 shrink-0">
+              <div className="w-40 shrink-0">
                 <label className="block text-xs text-slate mb-1">Nº pedido Tecmelec</label>
                 <input
                   className="input font-mono"
@@ -106,7 +111,7 @@ export default function FormularioComprador({
                   placeholder="Ej: TM-2026-0451"
                 />
               </div>
-              <div className="w-44 shrink-0">
+              <div className="w-40 shrink-0">
                 <label className="block text-xs text-slate mb-1">Fecha estimada de entrega</label>
                 <input
                   type="date"
@@ -117,6 +122,22 @@ export default function FormularioComprador({
                   }
                 />
               </div>
+              <div className="w-40 shrink-0">
+                <label className="block text-xs text-slate mb-1">Estado</label>
+                <select
+                  className="input"
+                  value={estadosLinea[item.id]}
+                  onChange={(e) =>
+                    setEstadosLinea((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))
+                  }
+                >
+                  {estados.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>
@@ -126,10 +147,14 @@ export default function FormularioComprador({
       </div>
 
       <div className="bg-white border border-borde rounded-lg p-5 space-y-4">
-        <h2 className="font-medium text-grafito">Gestión del pedido</h2>
+        <h2 className="font-medium text-grafito">Gestión general del pedido</h2>
+        <p className="text-xs text-slate -mt-2">
+          Esto es un resumen general (se usa en los listados). El detalle real que ve el
+          solicitante se arma por línea, según el Nº pedido Tecmelec de cada artículo.
+        </p>
 
         <div>
-          <label className="block text-sm font-medium text-grafito mb-1">Estado</label>
+          <label className="block text-sm font-medium text-grafito mb-1">Estado general</label>
           <select
             className="input"
             value={estado}
