@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import EstadoBadge from '@/components/EstadoBadge';
-import { numerosTecmelecTexto } from '@/lib/pedidos-utils';
+import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
 
 export default async function DetalleAdminPedidoPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -17,7 +17,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
        solicitante:profiles!pedidos_usuario_id_fkey(nombre_completo, email),
        comprador:profiles!pedidos_comprador_id_fkey(nombre_completo, email),
        responsable:profiles!pedidos_responsable_id_fkey(nombre_completo, email),
-       pedido_items(cantidad, numero_tecmelec, productos(nombre, precio))`
+       pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre, precio))`
     )
     .eq('id', params.id)
     .single();
@@ -57,11 +57,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
         </div>
         <div>
           <p className="text-slate mb-0.5">Fecha estimada de entrega</p>
-          <p className="text-grafito">
-            {p.fecha_estimada_entrega
-              ? new Date(p.fecha_estimada_entrega).toLocaleDateString('es-ES')
-              : 'Por definir'}
-          </p>
+          <p className="text-grafito">{fechasEstimadasTexto(p.pedido_items)}</p>
         </div>
         <div>
           <p className="text-slate mb-0.5">Contacto</p>
@@ -97,6 +93,11 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
           <div key={idx} className="flex items-center justify-between p-4 text-sm">
             <p className="text-grafito">{item.productos?.nombre || 'Producto no disponible'}</p>
             <p className="font-mono text-slate">{item.numero_tecmelec || '—'}</p>
+            <p className="text-xs text-slate">
+              {item.fecha_estimada_entrega
+                ? new Date(item.fecha_estimada_entrega + 'T00:00:00').toLocaleDateString('es-ES')
+                : 'Por definir'}
+            </p>
             <p className="font-mono text-slate">{item.productos?.precio?.toFixed(2) || '0.00'} € c/u</p>
             <p className="font-mono text-grafito">x{item.cantidad}</p>
           </div>

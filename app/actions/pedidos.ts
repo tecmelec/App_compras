@@ -244,17 +244,22 @@ export async function actualizarPedido(
   return { success: true };
 }
 
-export async function actualizarLineasTecmelec(items: { id: string; numero_tecmelec: string }[]) {
+export async function actualizarLineasTecmelec(
+  items: { id: string; numero_tecmelec: string; fecha_estimada_entrega: string | null }[]
+) {
   const supabase = createClient();
 
   for (const item of items) {
     const { error } = await supabase
       .from('pedido_items')
-      .update({ numero_tecmelec: item.numero_tecmelec || null })
+      .update({
+        numero_tecmelec: item.numero_tecmelec || null,
+        fecha_estimada_entrega: item.fecha_estimada_entrega || null,
+      })
       .eq('id', item.id);
 
     if (error) {
-      return { error: 'No se pudo guardar el número de pedido Tecmelec de una de las líneas.' };
+      return { error: 'No se pudo guardar los datos de una de las líneas.' };
     }
   }
 

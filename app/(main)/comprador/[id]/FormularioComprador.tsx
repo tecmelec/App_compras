@@ -11,6 +11,7 @@ type ItemForm = {
   precio: number;
   cantidad: number;
   numeroTecmelec: string;
+  fechaEstimada: string;
 };
 
 export default function FormularioComprador({
@@ -31,8 +32,12 @@ export default function FormularioComprador({
   const [numerosTecmelec, setNumerosTecmelec] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.numeroTecmelec]))
   );
+  const [fechasLinea, setFechasLinea] = useState<Record<string, string>>(
+    Object.fromEntries(items.map((i) => [i.id, i.fechaEstimada]))
+  );
   const [estado, setEstado] = useState(estadoId);
   const [fecha, setFecha] = useState(fechaEstimada);
+  const [asignarVacios, setAsignarVacios] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +49,15 @@ export default function FormularioComprador({
     setError(null);
 
     const resultadoLineas = await actualizarLineasTecmelec(
-      items.map((i) => ({ id: i.id, numero_tecmelec: numerosTecmelec[i.id] || '' }))
+      items.map((i) => {
+        const fechaLinea = fechasLinea[i.id] || '';
+        const fechaFinal = !fechaLinea && asignarVacios && fecha ? fecha : fechaLinea;
+        return {
+          id: i.id,
+          numero_tecmelec: numerosTecmelec[i.id] || '',
+          fecha_estimada_entrega: fechaFinal || null,
+        };
+      })
     );
 
     if (resultadoLineas.error) {
@@ -75,14 +88,14 @@ export default function FormularioComprador({
         <h2 className="font-medium text-grafito mb-3">Artículos solicitados</h2>
         <div className="bg-white border border-borde rounded-lg divide-y divide-borde">
           {items.map((item) => (
-            <div key={item.id} className="flex items-center gap-4 p-4 text-sm">
-              <div className="flex-1">
+            <div key={item.id} className="flex flex-wrap items-end gap-4 p-4 text-sm">
+              <div className="flex-1 min-w-[10rem]">
                 <p className="text-grafito">{item.nombre}</p>
                 <p className="font-mono text-slate text-xs">
                   {item.precio?.toFixed(2)} € c/u — x{item.cantidad}
                 </p>
               </div>
-              <div className="w-48 shrink-0">
+              <div className="w-44 shrink-0">
                 <label className="block text-xs text-slate mb-1">Nº pedido Tecmelec</label>
                 <input
                   className="input font-mono"
@@ -91,6 +104,17 @@ export default function FormularioComprador({
                     setNumerosTecmelec((prev) => ({ ...prev, [item.id]: e.target.value }))
                   }
                   placeholder="Ej: TM-2026-0451"
+                />
+              </div>
+              <div className="w-44 shrink-0">
+                <label className="block text-xs text-slate mb-1">Fecha estimada de entrega</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={fechasLinea[item.id]}
+                  onChange={(e) =>
+                    setFechasLinea((prev) => ({ ...prev, [item.id]: e.target.value }))
+                  }
                 />
               </div>
             </div>
@@ -123,12 +147,26 @@ export default function FormularioComprador({
           <label className="block text-sm font-medium text-grafito mb-1">
             Fecha estimada de entrega
           </label>
-          <input
-            type="date"
-            className="input"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-          />
+          <div className="flex items-center gap-3 flex-wrap">
+            <input
+              type="date"
+              className="input w-48"
+              value={fecha}
+              onChange={(e) => setFecha(e.target.value)}
+            />
+            <label className="flex items-center gap-2 text-sm text-grafito">
+              <input
+                type="checkbox"
+                checked={asignarVacios}
+                onChange={(e) => setAsignarVacios(e.target.checked)}
+              />
+              Asignar a campos vacíos
+            </label>
+          </div>
+          <p className="text-xs text-slate mt-1">
+            Si la marcas, esta fecha se aplica a cada línea de artículo que no tenga su propia
+            fecha estimada asignada (sin sobrescribir las que ya tengan una).
+          </p>
         </div>
 
         {error && (

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import EstadoBadge from '@/components/EstadoBadge';
-import { numerosTecmelecTexto } from '@/lib/pedidos-utils';
+import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
 
 export default async function DetallePedidoPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -9,7 +9,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, productos(nombre, descripcion, imagen_url))'
+      'numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre, descripcion, imagen_url))'
     )
     .eq('id', params.id)
     .single();
@@ -41,11 +41,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
         </div>
         <div>
           <p className="text-slate mb-1">Fecha estimada de entrega</p>
-          <p className="text-grafito">
-            {p.fecha_estimada_entrega
-              ? new Date(p.fecha_estimada_entrega).toLocaleDateString('es-CL')
-              : 'Por definir'}
-          </p>
+          <p className="text-grafito">{fechasEstimadasTexto(p.pedido_items)}</p>
         </div>
         <div>
           <p className="text-slate mb-1">Fecha requerida</p>
@@ -94,6 +90,11 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
               )}
             </div>
             <p className="text-xs font-mono text-slate">{item.numero_tecmelec || '—'}</p>
+            <p className="text-xs text-slate">
+              {item.fecha_estimada_entrega
+                ? new Date(item.fecha_estimada_entrega + 'T00:00:00').toLocaleDateString('es-CL')
+                : 'Por definir'}
+            </p>
             <p className="text-sm font-mono text-grafito">x{item.cantidad}</p>
           </div>
         ))}
