@@ -51,6 +51,26 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
     return itemsGrupo[0].estado_id;
   }
 
+  const secuencia = (estados || [])
+    .filter((e: any) => !e.nombre.toLowerCase().includes('anulado'))
+    .sort((a: any, b: any) => a.orden - b.orden);
+
+  // El 1er y 2do paso de la barra son automáticos según la aprobación:
+  // el 1ro se cumple solo por haber enviado la solicitud, el 2do solo si
+  // la aprobación es automática o el responsable ya aprobó. Si la rechazó,
+  // todo el grupo pasa a "Anulado".
+  function calcularEstadoGrupo(itemsGrupo: any[]): { anulado: boolean; id: number | null } {
+    if (p.aprobado === false) return { anulado: true, id: null };
+
+    if (p.requiere_aprobacion && p.aprobado === null) {
+      // Todavía pendiente de aprobación: no puede pasar del primer paso,
+      // sin importar lo que el comprador haya adelantado.
+      return { anulado: false, id: secuencia[0]?.id ?? null };
+    }
+
+    return { anulado: false, id: estadoEfectivoDelGrupo(itemsGrupo) };
+  }
+
   // Agrupa las líneas por Nº pedido Tecmelec (las que todavía no tienen uno van juntas aparte)
   const grupos = new Map<string, any[]>();
   for (const item of p.pedido_items) {
@@ -204,8 +224,8 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
       </div>
 
       {gruposOrdenados.map(([numeroTecmelec, itemsGrupo]) => {
-        const estadoIdEfectivo = estadoEfectivoDelGrupo(itemsGrupo);
-        const nombreEstadoGrupo = estadosPorId.get(estadoIdEfectivo);
+        const resultado = calcularEstadoGrupo(itemsGrupo);
+        const nombreEstadoGrupo = resultado.anulado ? 'Anulado' : estadosPorId.get(resultado.id!);
         return (
           <div key={numeroTecmelec} className="bg-white border border-borde rounded-xl p-6 mb-6">
             <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
@@ -228,7 +248,16 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
               <EstadoBadge estado={nombreEstadoGrupo} />
             </div>
 
-            <ProgresoEstado estados={estados || []} estadoActualId={estadoIdEfectivo} />
+            {resultado.anulado ? (
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-rojo inline-block" />
+                <span className="font-medium text-rojo">
+                  Solicitud rechazada por el responsable — este grupo queda anulado.
+                </span>
+              </div>
+            ) : (
+              <ProgresoEstado estados={estados || []} estadoActualId={resultado.id!} />
+            )}
 
             <h3 className="font-medium text-grafito mt-6 mb-3 flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marca">
