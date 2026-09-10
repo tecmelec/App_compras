@@ -238,8 +238,8 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                       <p className="text-xs text-slate mt-0.5">{item.productos.descripcion}</p>
                     )}
                   </div>
-                  <div className="text-xs text-slate w-28">
-                    <p className="text-slate/70 mb-0.5">Fecha entrega</p>
+                  <div className="text-xs text-slate w-36">
+                    <p className="text-slate/70 mb-0.5">Fecha estimada de entrega</p>
                     <p className="text-grafito">
                       {item.fecha_estimada_entrega
                         ? new Date(item.fecha_estimada_entrega + 'T00:00:00').toLocaleDateString('es-ES')
