@@ -3,6 +3,7 @@ const estilos: Record<string, string> = {
   parcial: 'badge-pendiente',
   anulado: 'badge-cancelado',
   cancelado: 'badge-cancelado',
+  recibido: 'badge-entregado',
   entregado: 'badge-entregado',
   tramitado: 'badge-entregado',
 };

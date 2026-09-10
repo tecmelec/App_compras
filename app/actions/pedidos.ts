@@ -250,6 +250,7 @@ export async function actualizarLineasTecmelec(
     numero_tecmelec: string;
     fecha_estimada_entrega: string | null;
     estado_id: number;
+    estado_recepcion: string;
   }[]
 ) {
   const supabase = createClient();
@@ -261,6 +262,7 @@ export async function actualizarLineasTecmelec(
         numero_tecmelec: item.numero_tecmelec || null,
         fecha_estimada_entrega: item.fecha_estimada_entrega || null,
         estado_id: item.estado_id,
+        estado_recepcion: item.estado_recepcion,
       })
       .eq('id', item.id);
 

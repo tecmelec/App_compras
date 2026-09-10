@@ -20,7 +20,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -249,7 +249,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                   <div className="text-sm font-mono text-grafito w-16 text-right">
                     {item.cantidad} {item.productos?.unidad_medida || 'ud.'}
                   </div>
-                  <EstadoBadge estado={estadosPorId.get(item.estado_id)} />
+                  <EstadoBadge estado={item.estado_recepcion} />
                 </div>
               ))}
             </div>

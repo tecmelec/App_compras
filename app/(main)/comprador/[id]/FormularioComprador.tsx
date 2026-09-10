@@ -13,9 +13,11 @@ type ItemForm = {
   numeroTecmelec: string;
   fechaEstimada: string;
   estadoId: number;
+  estadoRecepcion: string;
 };
 
 const ESTADOS_GENERALES = ['Pendiente de tramitar', 'Tramitado', 'Tramitado parcial', 'Anulado'];
+const ESTADOS_RECEPCION = ['Pendiente de recibir', 'Recibido parcial', 'Recibido', 'Anulado'];
 
 export default function FormularioComprador({
   pedidoId,
@@ -41,6 +43,9 @@ export default function FormularioComprador({
   const [estadosLinea, setEstadosLinea] = useState<Record<string, number>>(
     Object.fromEntries(items.map((i) => [i.id, i.estadoId]))
   );
+  const [recepcionesLinea, setRecepcionesLinea] = useState<Record<string, string>>(
+    Object.fromEntries(items.map((i) => [i.id, i.estadoRecepcion]))
+  );
   const [estado, setEstado] = useState(estadoGeneral);
   const [fecha, setFecha] = useState(fechaEstimada);
   const [asignarVacios, setAsignarVacios] = useState(false);
@@ -63,6 +68,7 @@ export default function FormularioComprador({
           numero_tecmelec: numerosTecmelec[i.id] || '',
           fecha_estimada_entrega: fechaFinal || null,
           estado_id: estadosLinea[i.id],
+          estado_recepcion: recepcionesLinea[i.id],
         };
       })
     );
@@ -136,6 +142,22 @@ export default function FormularioComprador({
                   {estados.map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-40 shrink-0">
+                <label className="block text-xs text-slate mb-1">Estado de recepción</label>
+                <select
+                  className="input"
+                  value={recepcionesLinea[item.id]}
+                  onChange={(e) =>
+                    setRecepcionesLinea((prev) => ({ ...prev, [item.id]: e.target.value }))
+                  }
+                >
+                  {ESTADOS_RECEPCION.map((e) => (
+                    <option key={e} value={e}>
+                      {e}
                     </option>
                   ))}
                 </select>
