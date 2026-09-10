@@ -15,18 +15,20 @@ type ItemForm = {
   estadoId: number;
 };
 
+const ESTADOS_GENERALES = ['Pendiente de tramitar', 'Tramitado', 'Tramitado parcial', 'Anulado'];
+
 export default function FormularioComprador({
   pedidoId,
   items,
   totalEstimado,
-  estadoId,
+  estadoGeneral,
   fechaEstimada,
   estados,
 }: {
   pedidoId: string;
   items: ItemForm[];
   totalEstimado: number;
-  estadoId: number;
+  estadoGeneral: string;
   fechaEstimada: string;
   estados: Estado[];
 }) {
@@ -39,7 +41,7 @@ export default function FormularioComprador({
   const [estadosLinea, setEstadosLinea] = useState<Record<string, number>>(
     Object.fromEntries(items.map((i) => [i.id, i.estadoId]))
   );
-  const [estado, setEstado] = useState(estadoId);
+  const [estado, setEstado] = useState(estadoGeneral);
   const [fecha, setFecha] = useState(fechaEstimada);
   const [asignarVacios, setAsignarVacios] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -72,7 +74,7 @@ export default function FormularioComprador({
     }
 
     const resultadoPedido = await actualizarPedido(pedidoId, {
-      estado_id: estado,
+      estado_general: estado,
       fecha_estimada_entrega: fecha || null,
     });
 
@@ -158,11 +160,11 @@ export default function FormularioComprador({
           <select
             className="input"
             value={estado}
-            onChange={(e) => setEstado(Number(e.target.value))}
+            onChange={(e) => setEstado(e.target.value)}
           >
-            {estados.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nombre}
+            {ESTADOS_GENERALES.map((e) => (
+              <option key={e} value={e}>
+                {e}
               </option>
             ))}
           </select>

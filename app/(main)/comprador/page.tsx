@@ -15,7 +15,7 @@ export default async function CompradorPage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
+      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
     )
     .in('comprador_id', ids)
     .order('created_at', { ascending: false });
@@ -68,7 +68,7 @@ export default async function CompradorPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <EstadoBadge estado={p.estados_pedido?.nombre} />
+                    <EstadoBadge estado={p.estado_general} />
                   </td>
                   <td className="px-4 py-3 text-slate">
                     {new Date(p.created_at).toLocaleDateString('es-CL')}

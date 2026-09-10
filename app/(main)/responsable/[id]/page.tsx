@@ -10,7 +10,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre, precio))'
+      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre, precio))'
     )
     .eq('id', params.id)
     .single();
@@ -26,7 +26,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
           <p className="font-mono text-sm text-marca">{p.numero_app}</p>
           <h1 className="text-2xl font-semibold text-grafito">Solicitud de {p.profiles?.nombre_completo}</h1>
         </div>
-        <EstadoBadge estado={p.estados_pedido?.nombre} />
+        <EstadoBadge estado={p.estado_general} />
       </div>
 
       <div className="bg-white border border-borde rounded-lg p-4 mb-6 grid grid-cols-2 gap-3 text-sm">

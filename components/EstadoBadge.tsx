@@ -1,7 +1,10 @@
 const estilos: Record<string, string> = {
   pendiente: 'badge-pendiente',
-  entregado: 'badge-entregado',
+  parcial: 'badge-pendiente',
+  anulado: 'badge-cancelado',
   cancelado: 'badge-cancelado',
+  entregado: 'badge-entregado',
+  tramitado: 'badge-entregado',
 };
 
 export default function EstadoBadge({ estado }: { estado?: string }) {

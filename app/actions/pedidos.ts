@@ -224,14 +224,14 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
 export async function actualizarPedido(
   pedidoId: string,
-  datos: { estado_id: number; fecha_estimada_entrega: string | null }
+  datos: { estado_general: string; fecha_estimada_entrega: string | null }
 ) {
   const supabase = createClient();
 
   const { error } = await supabase
     .from('pedidos')
     .update({
-      estado_id: datos.estado_id,
+      estado_general: datos.estado_general,
       fecha_estimada_entrega: datos.fecha_estimada_entrega || null,
       updated_at: new Date().toISOString(),
     })

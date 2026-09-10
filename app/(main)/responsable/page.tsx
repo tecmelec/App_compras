@@ -14,7 +14,7 @@ export default async function ResponsablePage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estados_pedido(nombre), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
+      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
     )
     .in('responsable_id', ids)
     .order('created_at', { ascending: false });
@@ -27,7 +27,7 @@ export default async function ResponsablePage() {
     total_estimado: p.total_estimado || 0,
     requiere_aprobacion: p.requiere_aprobacion,
     aprobado: p.aprobado,
-    estado: p.estados_pedido?.nombre || null,
+    estado: p.estado_general || null,
     created_at: p.created_at,
   }));
 
