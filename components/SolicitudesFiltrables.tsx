@@ -95,7 +95,12 @@ export default function SolicitudesFiltrables({
       !(p.numero_tecmelec || '').toLowerCase().includes(filtros.numeroTecmelec.toLowerCase())
     )
       return false;
-    if (filtros.nroObra && !(p.nro_obra || '').toLowerCase().includes(filtros.nroObra.toLowerCase())) return false;
+    if (filtros.nroObra) {
+      const texto = filtros.nroObra.toLowerCase();
+      const coincideNumero = (p.nro_obra || '').toLowerCase().includes(texto);
+      const coincideNombre = (p.nombre_obra || '').toLowerCase().includes(texto);
+      if (!coincideNumero && !coincideNombre) return false;
+    }
     if (filtros.solicitantes.length > 0 && !filtros.solicitantes.includes(p.solicitante)) return false;
     if (mostrarComprador && filtros.compradores.length > 0 && !filtros.compradores.includes(p.comprador || ''))
       return false;
@@ -211,7 +216,7 @@ export default function SolicitudesFiltrables({
               >
                 <input
                   className="input"
-                  placeholder="Buscar..."
+                  placeholder="Número o nombre..."
                   value={filtros.nroObra}
                   onChange={(e) => actualizar('nroObra', e.target.value)}
                   autoFocus

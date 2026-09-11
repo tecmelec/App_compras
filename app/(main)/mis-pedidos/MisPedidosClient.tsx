@@ -90,7 +90,12 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
     if (filtros.numeroApp && !p.numero_app.toLowerCase().includes(filtros.numeroApp.toLowerCase())) return false;
     if (filtros.numeroTecmelec && !p.numero_tecmelec.toLowerCase().includes(filtros.numeroTecmelec.toLowerCase()))
       return false;
-    if (filtros.nroObra && !p.nro_obra.toLowerCase().includes(filtros.nroObra.toLowerCase())) return false;
+    if (filtros.nroObra) {
+      const texto = filtros.nroObra.toLowerCase();
+      const coincideNumero = p.nro_obra.toLowerCase().includes(texto);
+      const coincideNombre = (p.nombre_obra || '').toLowerCase().includes(texto);
+      if (!coincideNumero && !coincideNombre) return false;
+    }
     if (filtros.aprobaciones.length > 0 && !filtros.aprobaciones.includes(aprobacionDe(p))) return false;
     if (filtros.estados.length > 0 && !filtros.estados.includes(p.estado || '')) return false;
     if (filtros.solicitudDesde && new Date(p.fecha_solicitud) < new Date(filtros.solicitudDesde)) return false;
@@ -189,7 +194,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                 >
                   <input
                     className="input"
-                    placeholder="Buscar..."
+                    placeholder="Número o nombre..."
                     value={filtros.nroObra}
                     onChange={(e) => actualizar('nroObra', e.target.value)}
                     autoFocus
