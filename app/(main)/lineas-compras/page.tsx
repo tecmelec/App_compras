@@ -18,7 +18,7 @@ export default async function LineasCompraPage() {
   let query = supabase
     .from('pedidos')
     .select(
-      'numero_app, fecha_requerida, created_at, pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre))'
+      'id, numero_app, fecha_requerida, created_at, pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre))'
     )
     .order('created_at', { ascending: false });
 
@@ -35,9 +35,19 @@ export default async function LineasCompraPage() {
 
   const { data: pedidos } = await query;
 
+  // Según el rol, la página de detalle del pedido vive en una ruta distinta.
+  const rutaDetalle: Record<string, string> = {
+    usuario: '/mis-pedidos',
+    comprador: '/comprador',
+    responsable: '/responsable',
+    admin: '/admin/pedidos',
+  };
+  const base = rutaDetalle[perfil?.rol || 'usuario'] || '/mis-pedidos';
+
   const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
+      pedido_href: `${base}/${p.id}`,
       numero_tecmelec: item.numero_tecmelec,
       articulo: item.productos?.nombre || '—',
       cantidad: item.cantidad,

@@ -1,10 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 
 export type LineaFila = {
   numero_app: string;
+  pedido_href: string;
   numero_tecmelec: string | null;
   articulo: string;
   cantidad: number;
@@ -289,7 +291,11 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             ) : (
               ordenadas.map((f, idx) => (
                 <tr key={idx} className="hover:bg-fondo">
-                  <td className="px-4 py-3 font-mono text-marca">{f.numero_app}</td>
+                  <td className="px-4 py-3 font-mono text-marca">
+                    <Link href={f.pedido_href} className="hover:underline underline-offset-2">
+                      {f.numero_app}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.numero_tecmelec || '—'}</td>
                   <td className="px-4 py-3 text-grafito">{f.articulo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.cantidad}</td>
