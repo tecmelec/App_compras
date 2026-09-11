@@ -17,11 +17,34 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nombre_completo, rol')
+    .select('nombre_completo, rol, comprador_id')
     .eq('id', user.id)
     .single();
 
   if (!profile) redirect('/login');
+
+  let comprador: { nombre_completo: string; email: string; telefono: string | null } | null = null;
+  if (profile.rol === 'usuario' && profile.comprador_id) {
+    const { data: compradorAsignado } = await supabase
+      .from('profiles')
+      .select('nombre_completo, email, telefono, sustituto_id, sustituto_activo')
+      .eq('id', profile.comprador_id)
+      .single();
+
+    if (compradorAsignado) {
+      // Si el comprador tiene un sustituto activo (p.ej. vacaciones), contactamos con el sustituto.
+      if (compradorAsignado.sustituto_activo && compradorAsignado.sustituto_id) {
+        const { data: sustituto } = await supabase
+          .from('profiles')
+          .select('nombre_completo, email, telefono')
+          .eq('id', compradorAsignado.sustituto_id)
+          .single();
+        comprador = sustituto || compradorAsignado;
+      } else {
+        comprador = compradorAsignado;
+      }
+    }
+  }
 
   let pendientesAprobacion = 0;
   if (profile.rol === 'responsable' || profile.rol === 'admin') {
@@ -40,7 +63,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   return (
     <CartProvider userId={user.id}>
       <div className="flex">
-        <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} />
+        <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} comprador={comprador} />
         <main className="flex-1 min-h-screen">
           <Suspense fallback={<div className="h-[57px] border-b border-borde bg-white" />}>
             <HeaderBar nombre={profile.nombre_completo} rol={profile.rol} mostrarCarrito={tieneCarrito} />
