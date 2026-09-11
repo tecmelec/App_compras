@@ -154,6 +154,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.nombre}
+                onLimpiarFiltro={() => actualizar('nombre', '')}
               >
                 <input
                   className="input"
@@ -173,6 +174,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.bcItemNo}
+                onLimpiarFiltro={() => actualizar('bcItemNo', '')}
               >
                 <input
                   className="input"
@@ -192,6 +194,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={filtros.unidades.length > 0}
+                onLimpiarFiltro={() => actualizar('unidades', [])}
               >
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {unidadesUnicas.length === 0 ? (
@@ -220,6 +223,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={filtros.categorias.length > 0}
+                onLimpiarFiltro={() => actualizar('categorias', [])}
               >
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {categoriasUnicas.length === 0 ? (
@@ -248,6 +252,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.precioMin || !!filtros.precioMax}
+                onLimpiarFiltro={() => { actualizar('precioMin', ''); actualizar('precioMax', ''); }}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -276,6 +281,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={filtros.visibles.length > 0}
+                onLimpiarFiltro={() => actualizar('visibles', [])}
               >
                 <div className="space-y-1">
                   {['Sí', 'No'].map((v) => (

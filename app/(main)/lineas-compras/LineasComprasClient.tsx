@@ -139,6 +139,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.numeroApp}
+                onLimpiarFiltro={() => actualizar('numeroApp', '')}
               >
                 <input
                   className="input"
@@ -158,6 +159,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.numeroTecmelec}
+                onLimpiarFiltro={() => actualizar('numeroTecmelec', '')}
               >
                 <input
                   className="input"
@@ -177,6 +179,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={filtros.articulos.length > 0}
+                onLimpiarFiltro={() => actualizar('articulos', [])}
               >
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {articulosUnicos.map((a) => (
@@ -201,6 +204,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.cantidadMin || !!filtros.cantidadMax}
+                onLimpiarFiltro={() => { actualizar('cantidadMin', ''); actualizar('cantidadMax', ''); }}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -229,6 +233,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.requeridaDesde || !!filtros.requeridaHasta}
+                onLimpiarFiltro={() => { actualizar('requeridaDesde', ''); actualizar('requeridaHasta', ''); }}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -255,6 +260,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activoFiltro={!!filtros.entregaDesde || !!filtros.entregaHasta}
+                onLimpiarFiltro={() => { actualizar('entregaDesde', ''); actualizar('entregaHasta', ''); }}
               >
                 <div className="flex flex-col gap-2">
                   <input

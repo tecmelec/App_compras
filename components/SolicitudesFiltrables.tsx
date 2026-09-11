@@ -151,6 +151,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={!!filtros.numeroApp}
+                onLimpiar={() => actualizar('numeroApp', '')}
               >
                 <input
                   className="input"
@@ -167,6 +168,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={filtros.solicitantes.length > 0}
+                onLimpiar={() => actualizar('solicitantes', [])}
               >
                 <ListaChecks
                   opciones={solicitantesUnicos}
@@ -182,6 +184,7 @@ export default function SolicitudesFiltrables({
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activo={filtros.compradores.length > 0}
+                  onLimpiar={() => actualizar('compradores', [])}
                 >
                   <ListaChecks
                     opciones={compradoresUnicos}
@@ -197,6 +200,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={!!filtros.numeroTecmelec}
+                onLimpiar={() => actualizar('numeroTecmelec', '')}
               >
                 <input
                   className="input"
@@ -213,6 +217,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={!!filtros.nroObra}
+                onLimpiar={() => actualizar('nroObra', '')}
               >
                 <input
                   className="input"
@@ -229,6 +234,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={!!filtros.precioMin || !!filtros.precioMax}
+                onLimpiar={() => { actualizar('precioMin', ''); actualizar('precioMax', ''); }}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -254,6 +260,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={filtros.aprobaciones.length > 0}
+                onLimpiar={() => actualizar('aprobaciones', [])}
               >
                 <ListaChecks
                   opciones={OPCIONES_APROBACION.map((o) => o.value)}
@@ -269,6 +276,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={filtros.estados.length > 0}
+                onLimpiar={() => actualizar('estados', [])}
               >
                 <ListaChecks
                   opciones={estadosUnicos}
@@ -283,6 +291,7 @@ export default function SolicitudesFiltrables({
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
                 activo={!!filtros.fechaDesde || !!filtros.fechaHasta}
+                onLimpiar={() => { actualizar('fechaDesde', ''); actualizar('fechaHasta', ''); }}
               >
                 <div className="flex flex-col gap-2">
                   <input
@@ -352,6 +361,7 @@ function ColumnaFiltro({
   columnaAbierta,
   setColumnaAbierta,
   activo,
+  onLimpiar,
   children,
 }: {
   titulo: string;
@@ -359,6 +369,7 @@ function ColumnaFiltro({
   columnaAbierta: string | null;
   setColumnaAbierta: (v: string | null) => void;
   activo: boolean;
+  onLimpiar?: () => void;
   children: React.ReactNode;
 }) {
   const abierta = columnaAbierta === columnaId;
@@ -383,6 +394,17 @@ function ColumnaFiltro({
           className="absolute z-20 top-full left-0 mt-1 bg-white border border-borde rounded-lg shadow-lg p-3 w-56 font-normal normal-case"
         >
           {children}
+          {activo && onLimpiar && (
+            <button
+              onClick={() => {
+                onLimpiar();
+                setColumnaAbierta(null);
+              }}
+              className="text-xs text-marca hover:underline mt-2"
+            >
+              ✕ Borrar filtro de esta columna
+            </button>
+          )}
         </div>
       )}
     </th>

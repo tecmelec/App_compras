@@ -11,6 +11,7 @@ export default function ColumnaFiltroOrden<T extends string>({
   columnaAbierta,
   setColumnaAbierta,
   activoFiltro,
+  onLimpiarFiltro,
   children,
 }: {
   titulo: string;
@@ -21,6 +22,7 @@ export default function ColumnaFiltroOrden<T extends string>({
   columnaAbierta: string | null;
   setColumnaAbierta: (v: string | null) => void;
   activoFiltro: boolean;
+  onLimpiarFiltro?: () => void;
   children: React.ReactNode;
 }) {
   const abierta = columnaAbierta === columnaId;
@@ -111,6 +113,17 @@ export default function ColumnaFiltroOrden<T extends string>({
               </button>
               <p className="text-xs text-slate mb-2">Filtrar lista por:</p>
               {children}
+              {activoFiltro && onLimpiarFiltro && (
+                <button
+                  onClick={() => {
+                    onLimpiarFiltro();
+                    setColumnaAbierta(null);
+                  }}
+                  className="text-xs text-marca hover:underline mt-2"
+                >
+                  ✕ Borrar filtro de esta columna
+                </button>
+              )}
             </div>
           )}
         </div>

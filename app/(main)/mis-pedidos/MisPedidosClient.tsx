@@ -153,6 +153,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={!!filtros.numeroApp}
+                  onLimpiarFiltro={() => actualizar('numeroApp', '')}
                 >
                   <input
                     className="input"
@@ -172,6 +173,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={!!filtros.numeroTecmelec}
+                  onLimpiarFiltro={() => actualizar('numeroTecmelec', '')}
                 >
                   <input
                     className="input"
@@ -191,6 +193,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={!!filtros.nroObra}
+                  onLimpiarFiltro={() => actualizar('nroObra', '')}
                 >
                   <input
                     className="input"
@@ -210,6 +213,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={filtros.aprobaciones.length > 0}
+                  onLimpiarFiltro={() => actualizar('aprobaciones', [])}
                 >
                   <div className="space-y-1">
                     {OPCIONES_APROBACION.map((o) => (
@@ -234,6 +238,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={filtros.estados.length > 0}
+                  onLimpiarFiltro={() => actualizar('estados', [])}
                 >
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {estadosUnicos.length === 0 ? (
@@ -262,6 +267,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={!!filtros.solicitudDesde || !!filtros.solicitudHasta}
+                  onLimpiarFiltro={() => { actualizar('solicitudDesde', ''); actualizar('solicitudHasta', ''); }}
                 >
                   <div className="flex flex-col gap-2">
                     <input
@@ -288,6 +294,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                   columnaAbierta={columnaAbierta}
                   setColumnaAbierta={setColumnaAbierta}
                   activoFiltro={!!filtros.requeridaDesde || !!filtros.requeridaHasta}
+                  onLimpiarFiltro={() => { actualizar('requeridaDesde', ''); actualizar('requeridaHasta', ''); }}
                 >
                   <div className="flex flex-col gap-2">
                     <input
