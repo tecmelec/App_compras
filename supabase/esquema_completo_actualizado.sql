@@ -205,6 +205,23 @@ create policy "responsable ve perfiles de sus asignados" on public.profiles
 create policy "responsable ve lista de compradores" on public.profiles
   for select using (rol = 'comprador' and public.get_my_role() = 'responsable');
 
+create or replace function public.get_my_comprador_id()
+returns uuid language sql security definer stable as $$
+  select comprador_id from public.profiles where id = auth.uid();
+$$;
+
+create or replace function public.get_sustituto_de_mi_comprador()
+returns uuid language sql security definer stable as $$
+  select sustituto_id from public.profiles
+  where id = public.get_my_comprador_id() and sustituto_activo = true;
+$$;
+
+create policy "usuario ve su comprador asignado" on public.profiles
+  for select using (id = public.get_my_comprador_id());
+
+create policy "usuario ve sustituto de su comprador" on public.profiles
+  for select using (id = public.get_sustituto_de_mi_comprador());
+
 -- PRODUCTOS (nombre/precio no es sensible; "visible" solo filtra el catálogo de la tienda)
 create policy "ver productos" on public.productos
   for select using (auth.role() = 'authenticated');
