@@ -15,6 +15,7 @@ export type LineaFila = {
 };
 
 type Filtros = {
+  busqueda: string;
   numeroApp: string;
   numeroTecmelec: string;
   articulos: string[];
@@ -27,6 +28,7 @@ type Filtros = {
 };
 
 const FILTROS_VACIOS: Filtros = {
+  busqueda: '',
   numeroApp: '',
   numeroTecmelec: '',
   articulos: [],
@@ -70,6 +72,14 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
   }
 
   const filtradas = filas.filter((f) => {
+    if (filtros.busqueda) {
+      const texto = filtros.busqueda.toLowerCase();
+      const coincide =
+        f.numero_app.toLowerCase().includes(texto) ||
+        (f.numero_tecmelec || '').toLowerCase().includes(texto) ||
+        f.articulo.toLowerCase().includes(texto);
+      if (!coincide) return false;
+    }
     if (filtros.numeroApp && !f.numero_app.toLowerCase().includes(filtros.numeroApp.toLowerCase())) return false;
     if (
       filtros.numeroTecmelec &&
@@ -119,11 +129,36 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
 
   return (
     <div>
-      {hayFiltrosActivos && (
-        <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline mb-3">
-          ✕ Borrar filtros
-        </button>
-      )}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative w-full max-w-md">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            className="input pl-9 w-full"
+            placeholder="Buscar por Nº pedido APP, Nº pedido Tecmelec o artículo..."
+            value={filtros.busqueda}
+            onChange={(e) => actualizar('busqueda', e.target.value)}
+          />
+        </div>
+
+        {hayFiltrosActivos && (
+          <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline">
+            ✕ Borrar filtros
+          </button>
+        )}
+      </div>
 
       {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
 
