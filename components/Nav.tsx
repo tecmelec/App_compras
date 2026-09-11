@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
@@ -14,6 +14,18 @@ type Props = {
 export default function Nav({ rol, pendientesAprobacion = 0, comprador = null }: Props) {
   const pathname = usePathname();
   const [abierto, setAbierto] = useState(false);
+  const [contactoAbierto, setContactoAbierto] = useState(false);
+  const contactoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickFuera(e: MouseEvent) {
+      if (contactoRef.current && !contactoRef.current.contains(e.target as Node)) {
+        setContactoAbierto(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickFuera);
+    return () => document.removeEventListener('mousedown', onClickFuera);
+  }, []);
 
   const links = [
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'responsable'] },
@@ -105,27 +117,43 @@ export default function Nav({ rol, pendientesAprobacion = 0, comprador = null }:
             </div>
 
             {comprador ? (
-              <div className="space-y-2">
-                <a
-                  href={`mailto:${comprador.email}`}
-                  className="flex items-center justify-center gap-2 text-sm font-medium bg-marca text-white rounded-full py-2 hover:bg-[#12703D] transition-colors"
+              <div className="relative" ref={contactoRef}>
+                <button
+                  type="button"
+                  onClick={() => setContactoAbierto((v) => !v)}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-medium bg-marca text-white rounded-full py-2 hover:bg-[#12703D] transition-colors"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 4h16v16H4z" />
-                    <path d="m4 6 8 7 8-7" />
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="M22 6 12 13 2 6" />
                   </svg>
-                  Email
-                </a>
-                {comprador.telefono && (
-                  <a
-                    href={`tel:${comprador.telefono}`}
-                    className="flex items-center justify-center gap-2 text-sm font-medium bg-white/10 text-white rounded-full py-2 hover:bg-white/20 transition-colors"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                    </svg>
-                    Llamar · {comprador.telefono}
-                  </a>
+                  Contactar
+                </button>
+
+                {contactoAbierto && (
+                  <div className="absolute bottom-full left-0 mb-2 w-full rounded-lg border border-borde bg-white shadow-lg overflow-hidden text-sm z-30">
+                    <a
+                      href={`mailto:${comprador.email}`}
+                      className="flex items-center gap-2 px-4 py-3 text-grafito hover:bg-marcaClaro"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="4" width="20" height="16" rx="2" />
+                        <path d="M22 6 12 13 2 6" />
+                      </svg>
+                      Email
+                    </a>
+                    {comprador.telefono && (
+                      <a
+                        href={`tel:${comprador.telefono}`}
+                        className="flex items-center gap-2 px-4 py-3 text-grafito hover:bg-marcaClaro border-t border-borde"
+                      >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                        </svg>
+                        Llamar · {comprador.telefono}
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
             ) : (
