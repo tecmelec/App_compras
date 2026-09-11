@@ -16,7 +16,7 @@ export default async function MisPedidosPage({
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, fecha_requerida, estado_general, requiere_aprobacion, aprobado, proyectos(bc_job_no), pedido_items(numero_tecmelec)'
+      'id, numero_app, created_at, fecha_requerida, estado_general, requiere_aprobacion, aprobado, proyectos(bc_job_no, descripcion), pedido_items(numero_tecmelec)'
     )
     .eq('usuario_id', user?.id)
     .order('created_at', { ascending: false });
@@ -26,6 +26,7 @@ export default async function MisPedidosPage({
     numero_app: p.numero_app,
     numero_tecmelec: numerosTecmelecTexto(p.pedido_items),
     nro_obra: p.proyectos?.bc_job_no || '',
+    nombre_obra: p.proyectos?.descripcion || '',
     requiere_aprobacion: p.requiere_aprobacion,
     aprobado: p.aprobado,
     estado: p.estado_general || null,

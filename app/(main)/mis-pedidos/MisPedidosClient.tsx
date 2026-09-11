@@ -4,12 +4,14 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
+import ObraCelda from '@/components/ObraCelda';
 
 export type MiPedidoFila = {
   id: string;
   numero_app: string;
   numero_tecmelec: string;
   nro_obra: string;
+  nombre_obra?: string;
   requiere_aprobacion: boolean;
   aprobado: boolean | null;
   estado: string | null;
@@ -315,7 +317,9 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
                       </Link>
                     </td>
                     <td className="px-4 py-3 font-mono text-grafito">{p.numero_tecmelec || '—'}</td>
-                    <td className="px-4 py-3 font-mono text-grafito">{p.nro_obra || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-grafito">
+                      <ObraCelda numero={p.nro_obra} nombre={p.nombre_obra} />
+                    </td>
                     <td className="px-4 py-3">
                       {aprobacionDe(p) === 'automatica' && <span className="badge badge-entregado">Automática</span>}
                       {aprobacionDe(p) === 'pendiente' && <span className="badge badge-pendiente">Pendiente</span>}
