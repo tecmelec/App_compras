@@ -159,6 +159,7 @@ export default function SolicitudModal({
         .from('direcciones')
         .select('id, alias, direccion, codigo_postal, ciudad, provincia')
         .eq('usuario_id', user.id)
+        .eq('oculta', false)
         .order('created_at', { ascending: false });
 
       setDirecciones(dirs || []);

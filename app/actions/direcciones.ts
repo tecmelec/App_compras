@@ -69,7 +69,27 @@ export async function eliminarDireccion(id: string) {
     .eq('id', id)
     .eq('usuario_id', user.id);
 
-  if (error) return { error: 'No se pudo eliminar la dirección (puede estar en uso en algún pedido).' };
+  if (error) {
+    // Código 23503 = violación de clave foránea: la dirección está siendo
+    // usada en algún pedido ya creado. No se puede borrar sin perder ese
+    // histórico, así que en su lugar la ocultamos del listado del usuario
+    // (deja de poder elegirse en nuevas solicitudes, pero los pedidos que
+    // ya la usaban la siguen mostrando con normalidad).
+    if (error.code === '23503') {
+      const { error: errorOcultar } = await supabase
+        .from('direcciones')
+        .update({ oculta: true })
+        .eq('id', id)
+        .eq('usuario_id', user.id);
+
+      if (errorOcultar) return { error: 'No se pudo eliminar la dirección.' };
+
+      revalidatePath('/carrito');
+      return { success: true };
+    }
+
+    return { error: 'No se pudo eliminar la dirección.' };
+  }
 
   revalidatePath('/carrito');
   return { success: true };

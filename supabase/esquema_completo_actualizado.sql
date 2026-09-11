@@ -76,6 +76,7 @@ create table public.direcciones (
   codigo_postal text,
   ciudad text,
   provincia text,
+  oculta boolean not null default false,
   created_at timestamptz not null default now()
 );
 
