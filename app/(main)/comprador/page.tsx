@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
+import ObraCelda from '@/components/ObraCelda';
 import { numerosTecmelecTexto, idsEfectivos } from '@/lib/pedidos-utils';
 
 export default async function CompradorPage() {
@@ -15,7 +16,7 @@ export default async function CompradorPage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
+      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
     )
     .in('comprador_id', ids)
     .order('created_at', { ascending: false });
@@ -35,6 +36,7 @@ export default async function CompradorPage() {
                 <th className="px-4 py-3 font-medium">Nº pedido APP</th>
                 <th className="px-4 py-3 font-medium">Solicitante</th>
                 <th className="px-4 py-3 font-medium">Nº pedido Tecmelec</th>
+                <th className="px-4 py-3 font-medium">Nro. de obra</th>
                 <th className="px-4 py-3 font-medium">Total</th>
                 <th className="px-4 py-3 font-medium">Aprobación</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
@@ -52,6 +54,9 @@ export default async function CompradorPage() {
                   <td className="px-4 py-3 text-grafito">{p.profiles?.nombre_completo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     {numerosTecmelecTexto(p.pedido_items)}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    <ObraCelda numero={p.proyectos?.bc_job_no || ''} nombre={p.proyectos?.descripcion} />
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     {p.total_estimado?.toFixed(2)} €

@@ -8,7 +8,7 @@ export default async function TodasLasSolicitudesPage() {
   const { data: pedidos } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, profiles!pedidos_usuario_id_fkey(nombre_completo), comprador:profiles!pedidos_comprador_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
+      'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), comprador:profiles!pedidos_comprador_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
     )
     .order('created_at', { ascending: false });
 
@@ -16,6 +16,8 @@ export default async function TodasLasSolicitudesPage() {
     id: p.id,
     numero_app: p.numero_app,
     numero_tecmelec: numerosTecmelecTexto(p.pedido_items),
+    nro_obra: p.proyectos?.bc_job_no || '',
+    nombre_obra: p.proyectos?.descripcion || '',
     solicitante: p.profiles?.nombre_completo || '—',
     comprador: p.comprador?.nombre_completo || '—',
     total_estimado: p.total_estimado || 0,

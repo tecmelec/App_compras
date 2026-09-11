@@ -3,11 +3,14 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
+import ObraCelda from '@/components/ObraCelda';
 
 export type PedidoFila = {
   id: string;
   numero_app: string;
   numero_tecmelec: string | null;
+  nro_obra?: string;
+  nombre_obra?: string;
   solicitante: string;
   comprador?: string | null;
   total_estimado: number;
@@ -20,6 +23,7 @@ export type PedidoFila = {
 type Filtros = {
   numeroApp: string;
   numeroTecmelec: string;
+  nroObra: string;
   solicitantes: string[];
   compradores: string[];
   aprobaciones: string[];
@@ -33,6 +37,7 @@ type Filtros = {
 const FILTROS_VACIOS: Filtros = {
   numeroApp: '',
   numeroTecmelec: '',
+  nroObra: '',
   solicitantes: [],
   compradores: [],
   aprobaciones: [],
@@ -90,6 +95,7 @@ export default function SolicitudesFiltrables({
       !(p.numero_tecmelec || '').toLowerCase().includes(filtros.numeroTecmelec.toLowerCase())
     )
       return false;
+    if (filtros.nroObra && !(p.nro_obra || '').toLowerCase().includes(filtros.nroObra.toLowerCase())) return false;
     if (filtros.solicitantes.length > 0 && !filtros.solicitantes.includes(p.solicitante)) return false;
     if (mostrarComprador && filtros.compradores.length > 0 && !filtros.compradores.includes(p.comprador || ''))
       return false;
@@ -197,6 +203,22 @@ export default function SolicitudesFiltrables({
               </ColumnaFiltro>
 
               <ColumnaFiltro
+                titulo="Nro. de obra"
+                columnaId="nroObra"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activo={!!filtros.nroObra}
+              >
+                <input
+                  className="input"
+                  placeholder="Buscar..."
+                  value={filtros.nroObra}
+                  onChange={(e) => actualizar('nroObra', e.target.value)}
+                  autoFocus
+                />
+              </ColumnaFiltro>
+
+              <ColumnaFiltro
                 titulo="Precio"
                 columnaId="precio"
                 columnaAbierta={columnaAbierta}
@@ -277,7 +299,7 @@ export default function SolicitudesFiltrables({
           <tbody className="divide-y divide-borde">
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={9} className="px-4 py-6 text-center text-slate text-sm">
                   No hay solicitudes que coincidan con los filtros.
                 </td>
               </tr>
@@ -292,6 +314,9 @@ export default function SolicitudesFiltrables({
                   <td className="px-4 py-3 text-grafito">{p.solicitante}</td>
                   {mostrarComprador && <td className="px-4 py-3 text-grafito">{p.comprador || '—'}</td>}
                   <td className="px-4 py-3 font-mono text-grafito">{p.numero_tecmelec || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    <ObraCelda numero={p.nro_obra || ''} nombre={p.nombre_obra} />
+                  </td>
                   <td className="px-4 py-3 font-mono text-grafito">{p.total_estimado?.toFixed(2)} €</td>
                   <td className="px-4 py-3">
                     {aprobacionDe(p) === 'automatica' && <span className="badge badge-entregado">Automática</span>}
