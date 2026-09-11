@@ -73,11 +73,9 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
 
   const filtradas = filas.filter((f) => {
     if (filtros.busqueda) {
-      const texto = filtros.busqueda.toLowerCase();
-      const coincide =
-        f.numero_app.toLowerCase().includes(texto) ||
-        (f.numero_tecmelec || '').toLowerCase().includes(texto) ||
-        f.articulo.toLowerCase().includes(texto);
+      const palabras = filtros.busqueda.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const texto = `${f.numero_app} ${f.numero_tecmelec || ''} ${f.articulo}`.toLowerCase();
+      const coincide = palabras.every((palabra) => texto.includes(palabra));
       if (!coincide) return false;
     }
     if (filtros.numeroApp && !f.numero_app.toLowerCase().includes(filtros.numeroApp.toLowerCase())) return false;
@@ -146,7 +144,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input
-            className="input pl-9 w-full"
+            className="input input-icon-left w-full"
             placeholder="Buscar por Nº pedido APP, Nº pedido Tecmelec o artículo..."
             value={filtros.busqueda}
             onChange={(e) => actualizar('busqueda', e.target.value)}
