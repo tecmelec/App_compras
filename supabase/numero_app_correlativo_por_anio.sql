@@ -13,9 +13,16 @@ create table if not exists public.secuencias_numero_app (
   ultimo int not null default 0
 );
 
+-- Nadie necesita leer/escribir esta tabla directamente: solo la usa la
+-- función de abajo (con SECURITY DEFINER, así que sigue funcionando
+-- aunque no haya ninguna política para clientes anon/authenticated).
+alter table public.secuencias_numero_app enable row level security;
+
 create or replace function public.generar_numero_app()
 returns text
 language plpgsql
+security definer
+set search_path = public
 as $$
 declare
   anio_actual int := extract(year from now())::int;
