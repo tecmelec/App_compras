@@ -31,6 +31,39 @@ export function rangoFechasEstimadas(
   return `${formatear(unicas[0])} – ${formatear(unicas[unicas.length - 1])}`;
 }
 
+export type ContactoComprador = { nombre_completo: string; email: string; telefono: string | null };
+
+// Comprador asignado del usuario logueado (o su sustituto, si tiene uno activo).
+// Se usa para el botón "Contactar con Compras": email y teléfono reales en vez
+// del buzón genérico compras@tecmelec.es.
+export async function obtenerContactoComprador(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<ContactoComprador | null> {
+  const { data: perfil } = await supabase.from('profiles').select('comprador_id').eq('id', userId).single();
+
+  if (!perfil?.comprador_id) return null;
+
+  const { data: compradorAsignado } = await supabase
+    .from('profiles')
+    .select('nombre_completo, email, telefono, sustituto_id, sustituto_activo')
+    .eq('id', perfil.comprador_id)
+    .single();
+
+  if (!compradorAsignado) return null;
+
+  if (compradorAsignado.sustituto_activo && compradorAsignado.sustituto_id) {
+    const { data: sustituto } = await supabase
+      .from('profiles')
+      .select('nombre_completo, email, telefono')
+      .eq('id', compradorAsignado.sustituto_id)
+      .single();
+    return sustituto || compradorAsignado;
+  }
+
+  return compradorAsignado;
+}
+
 // Devuelve [miPropioId, ...idsDeQuienesSustituyoActivamente]
 export async function idsEfectivos(supabase: SupabaseClient, userId: string): Promise<string[]> {
   const { data } = await supabase

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import ProgresoEstado from '@/components/ProgresoEstado';
 import EstadoBadge from '@/components/EstadoBadge';
-import { rangoFechasEstimadas } from '@/lib/pedidos-utils';
+import ContactarComprasBoton from '@/components/ContactarComprasBoton';
+import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +17,12 @@ function IconoDato({ children }: { children: React.ReactNode }) {
 
 export default async function DetallePedidoPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const comprador = user ? await obtenerContactoComprador(supabase, user.id) : null;
 
   const { data: pedido } = await supabase
     .from('pedidos')
@@ -108,13 +115,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
             Proyecto: {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
           </p>
         </div>
-        <a href="mailto:compras@tecmelec.es" className="btn-secondary flex items-center gap-2 whitespace-nowrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <path d="M22 6 12 13 2 6" />
-          </svg>
-          Contactar con Compras
-        </a>
+        <ContactarComprasBoton comprador={comprador} />
       </div>
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">

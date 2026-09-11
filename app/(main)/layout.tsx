@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { CartProvider } from '@/context/CartContext';
 import Nav from '@/components/Nav';
 import HeaderBar from '@/components/HeaderBar';
-import { idsEfectivos } from '@/lib/pedidos-utils';
+import { idsEfectivos, obtenerContactoComprador } from '@/lib/pedidos-utils';
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -17,34 +17,13 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nombre_completo, rol, comprador_id')
+    .select('nombre_completo, rol')
     .eq('id', user.id)
     .single();
 
   if (!profile) redirect('/login');
 
-  let comprador: { nombre_completo: string; email: string; telefono: string | null } | null = null;
-  if (profile.rol === 'usuario' && profile.comprador_id) {
-    const { data: compradorAsignado } = await supabase
-      .from('profiles')
-      .select('nombre_completo, email, telefono, sustituto_id, sustituto_activo')
-      .eq('id', profile.comprador_id)
-      .single();
-
-    if (compradorAsignado) {
-      // Si el comprador tiene un sustituto activo (p.ej. vacaciones), contactamos con el sustituto.
-      if (compradorAsignado.sustituto_activo && compradorAsignado.sustituto_id) {
-        const { data: sustituto } = await supabase
-          .from('profiles')
-          .select('nombre_completo, email, telefono')
-          .eq('id', compradorAsignado.sustituto_id)
-          .single();
-        comprador = sustituto || compradorAsignado;
-      } else {
-        comprador = compradorAsignado;
-      }
-    }
-  }
+  const comprador = profile.rol === 'usuario' ? await obtenerContactoComprador(supabase, user.id) : null;
 
   let pendientesAprobacion = 0;
   if (profile.rol === 'responsable' || profile.rol === 'admin') {
