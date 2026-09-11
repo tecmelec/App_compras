@@ -121,11 +121,32 @@ insert into public.configuracion (id, limite_aprobacion) values (1, 200);
 
 -- 8. PEDIDOS
 -- ------------------------------------------------------------
-create sequence public.pedido_numero_seq start 1;
+create table public.secuencias_numero_app (
+  anio int primary key,
+  ultimo int not null default 0
+);
+
+create or replace function public.generar_numero_app()
+returns text
+language plpgsql
+as $$
+declare
+  anio_actual int := extract(year from now())::int;
+  yy text := to_char(now(), 'YY');
+  siguiente int;
+begin
+  insert into public.secuencias_numero_app (anio, ultimo)
+  values (anio_actual, 1)
+  on conflict (anio) do update set ultimo = public.secuencias_numero_app.ultimo + 1
+  returning ultimo into siguiente;
+
+  return 'APP-' || yy || lpad(siguiente::text, 5, '0');
+end;
+$$;
 
 create table public.pedidos (
   id uuid primary key default gen_random_uuid(),
-  numero_app text not null unique default ('APP-' || lpad(nextval('public.pedido_numero_seq')::text, 6, '0')),
+  numero_app text not null unique default public.generar_numero_app(),
   usuario_id uuid not null references public.profiles(id),
   comprador_id uuid references public.profiles(id),
   responsable_id uuid references public.profiles(id),
