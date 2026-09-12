@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 
+import EstadoBadge from '@/components/EstadoBadge';
+
 export type LineaFila = {
   numero_app: string;
   pedido_href: string;
@@ -12,6 +14,7 @@ export type LineaFila = {
   cantidad: number;
   fecha_requerida: string | null;
   fecha_estimada_entrega: string | null;
+  estado_recepcion: string | null;
 };
 
 type Filtros = {
@@ -25,6 +28,7 @@ type Filtros = {
   requeridaHasta: string;
   entregaDesde: string;
   entregaHasta: string;
+  estados: string[];
 };
 
 const FILTROS_VACIOS: Filtros = {
@@ -38,9 +42,10 @@ const FILTROS_VACIOS: Filtros = {
   requeridaHasta: '',
   entregaDesde: '',
   entregaHasta: '',
+  estados: [],
 };
 
-type CampoOrden = 'numero_app' | 'numero_tecmelec' | 'articulo' | 'cantidad' | 'fecha_requerida' | 'fecha_estimada_entrega';
+type CampoOrden = 'numero_app' | 'numero_tecmelec' | 'articulo' | 'cantidad' | 'fecha_requerida' | 'fecha_estimada_entrega' | 'estado_recepcion';
 
 export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
@@ -49,6 +54,11 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
 
   const articulosUnicos = useMemo(
     () => Array.from(new Set(filas.map((f) => f.articulo))).sort(),
+    [filas]
+  );
+
+  const estadosUnicos = useMemo(
+    () => Array.from(new Set(filas.map((f) => f.estado_recepcion).filter(Boolean))).sort() as string[],
     [filas]
   );
 
@@ -64,6 +74,15 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
       articulos: prev.articulos.includes(valor)
         ? prev.articulos.filter((v) => v !== valor)
         : [...prev.articulos, valor],
+    }));
+  }
+
+  function alternarEstado(valor: string) {
+    setFiltros((prev) => ({
+      ...prev,
+      estados: prev.estados.includes(valor)
+        ? prev.estados.filter((v) => v !== valor)
+        : [...prev.estados, valor],
     }));
   }
 
@@ -101,6 +120,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
       (!f.fecha_estimada_entrega || new Date(f.fecha_estimada_entrega) > new Date(filtros.entregaHasta))
     )
       return false;
+    if (filtros.estados.length > 0 && !filtros.estados.includes(f.estado_recepcion || '')) return false;
     return true;
   });
 
@@ -312,12 +332,37 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                   />
                 </div>
               </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Estado"
+                campoOrden="estado_recepcion"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="estado"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={filtros.estados.length > 0}
+                onLimpiarFiltro={() => actualizar('estados', [])}
+              >
+                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+                  {estadosUnicos.map((e) => (
+                    <label key={e} className="flex items-center gap-2 text-sm text-grafito">
+                      <input
+                        type="checkbox"
+                        checked={filtros.estados.includes(e)}
+                        onChange={() => alternarEstado(e)}
+                      />
+                      {e}
+                    </label>
+                  ))}
+                </div>
+              </ColumnaFiltroOrden>
             </tr>
           </thead>
           <tbody className="divide-y divide-borde">
             {ordenadas.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={7} className="px-4 py-6 text-center text-slate text-sm">
                   No hay líneas que coincidan con los filtros.
                 </td>
               </tr>
@@ -341,6 +386,9 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     {f.fecha_estimada_entrega
                       ? new Date(f.fecha_estimada_entrega).toLocaleDateString('es-ES')
                       : 'Por definir'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <EstadoBadge estado={f.estado_recepcion || undefined} />
                   </td>
                 </tr>
               ))

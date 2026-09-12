@@ -18,7 +18,7 @@ export default async function LineasCompraPage() {
   let query = supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, created_at, pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre))'
+      'id, numero_app, fecha_requerida, created_at, pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_recepcion, productos(nombre))'
     )
     .order('created_at', { ascending: false });
 
@@ -53,6 +53,7 @@ export default async function LineasCompraPage() {
       cantidad: item.cantidad,
       fecha_requerida: p.fecha_requerida,
       fecha_estimada_entrega: item.fecha_estimada_entrega,
+      estado_recepcion: item.estado_recepcion,
     }))
   );
 
