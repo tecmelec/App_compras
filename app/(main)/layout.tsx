@@ -37,7 +37,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     pendientesAprobacion = count || 0;
   }
 
-  const tieneCarrito = profile.rol === 'admin' || profile.rol === 'usuario' || profile.rol === 'responsable';
+  const tieneCarrito =
+    profile.rol === 'admin' || profile.rol === 'usuario' || profile.rol === 'comprador' || profile.rol === 'responsable';
 
   return (
     <CartProvider userId={user.id}>
