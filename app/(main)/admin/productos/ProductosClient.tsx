@@ -373,6 +373,7 @@ function ProductoForm({
   const [descripcion, setDescripcion] = useState(producto?.descripcion || '');
   const [categoria, setCategoria] = useState(producto?.categoria || '');
   const [precio, setPrecio] = useState(producto?.precio?.toString() || '0');
+  const [bcItemNo, setBcItemNo] = useState(producto?.bc_item_no || '');
   const [visible, setVisible] = useState(producto?.visible ?? true);
   const [imagenUrl, setImagenUrl] = useState(producto?.imagen_url || '');
   const [subiendo, setSubiendo] = useState(false);
@@ -408,7 +409,14 @@ function ProductoForm({
     setGuardando(true);
     setError(null);
 
-    const datos = { nombre, descripcion, categoria, imagen_url: imagenUrl || null, precio: Number(precio) || 0 };
+    const datos = {
+      nombre,
+      descripcion,
+      categoria,
+      imagen_url: imagenUrl || null,
+      precio: Number(precio) || 0,
+      bc_item_no: bcItemNo.trim() || null,
+    };
 
     const resultado = esEdicion
       ? await actualizarProducto(producto!.id, { ...datos, visible })
@@ -466,12 +474,21 @@ function ProductoForm({
           />
         </div>
 
-        {producto?.bc_item_no && (
-          <p className="col-span-2 text-xs text-slate bg-fondo rounded-md px-3 py-2">
-            Vinculado a Business Central (Nº {producto.bc_item_no}, unidad {producto.unidad_medida || '—'}).
-            El nombre y el precio se actualizan solos en cada sincronización.
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-grafito mb-1">Código de artículo (Business Central)</label>
+          <input
+            className="input font-mono"
+            placeholder="Ej: GPQM0017"
+            value={bcItemNo}
+            onChange={(e) => setBcItemNo(e.target.value)}
+          />
+          <p className="text-xs text-slate mt-1">
+            Vincula este producto con el artículo de BC. Si BC cambia el código de un artículo, edítalo aquí en vez
+            de dejar que la sincronización cree uno duplicado
+            {producto?.unidad_medida ? ` (unidad actual: ${producto.unidad_medida})` : ''}. El nombre y el precio se
+            siguen actualizando solos en cada sincronización mientras el código coincida.
           </p>
-        )}
+        </div>
 
         <div className="col-span-2">
           <label className="block text-sm font-medium text-grafito mb-1">Imagen</label>

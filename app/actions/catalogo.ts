@@ -10,12 +10,18 @@ export async function crearProducto(datos: {
   imagen_url: string | null;
   categoria: string;
   precio: number;
+  bc_item_no?: string | null;
 }) {
   await requireAdmin();
   const supabase = createClient();
 
   const { error } = await supabase.from('productos').insert(datos);
-  if (error) return { error: 'No se pudo crear el producto.' };
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'Ese código de Business Central ya está en uso por otro producto.' };
+    }
+    return { error: 'No se pudo crear el producto.' };
+  }
 
   revalidatePath('/admin/productos');
   revalidatePath('/tienda');
@@ -31,13 +37,19 @@ export async function actualizarProducto(
     categoria: string;
     visible: boolean;
     precio: number;
+    bc_item_no?: string | null;
   }
 ) {
   await requireAdmin();
   const supabase = createClient();
 
   const { error } = await supabase.from('productos').update(datos).eq('id', id);
-  if (error) return { error: 'No se pudo actualizar el producto.' };
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'Ese código de Business Central ya está en uso por otro producto.' };
+    }
+    return { error: 'No se pudo actualizar el producto.' };
+  }
 
   revalidatePath('/admin/productos');
   revalidatePath('/tienda');
