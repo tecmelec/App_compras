@@ -8,6 +8,7 @@ import {
   obtenerProyectosBC,
   obtenerProveedoresBC,
   obtenerPedidoCompraBC,
+  obtenerLineasPedidoCompraBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 
@@ -177,6 +178,20 @@ const MAPA_ESTADO_BC: Record<string, string> = {
   Released: 'Pedido lanzado',
 };
 
+// El estado de recepción es un texto fijo (no usa la tabla estados_pedido),
+// así que su "orden" para la regla de no-retroceso se define aquí.
+const ORDEN_RECEPCION: Record<string, number> = {
+  'Pendiente de recibir': 0,
+  'Recibido parcial': 1,
+  Recibido: 2,
+};
+
+function calcularEstadoRecepcion(cantidadPedida: number, cantidadRecibida: number): string {
+  if (cantidadRecibida <= 0) return 'Pendiente de recibir';
+  if (cantidadRecibida < cantidadPedida) return 'Recibido parcial';
+  return 'Recibido';
+}
+
 // Núcleo de la sincronización de un pedido, independiente de quién lo invoque
 // (botón manual con el cliente de sesión del comprador, o el cron con el
 // cliente admin). No hace comprobaciones de autenticación: eso lo decide
@@ -210,7 +225,18 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     proveedorId = proveedor?.id || null;
   }
 
-  const { data: items } = await supabase.from('pedido_items').select('id, estado_id').eq('pedido_id', pedidoId);
+  let lineasBC: { No: string; Quantity: number; Quantity_Received: number }[] = [];
+  let errorLineas: string | null = null;
+  try {
+    lineasBC = await obtenerLineasPedidoCompraBC(pedidoBC.No);
+  } catch (e: any) {
+    errorLineas = e.message || 'No se pudieron obtener las líneas del pedido de compra.';
+  }
+
+  const { data: items } = await supabase
+    .from('pedido_items')
+    .select('id, estado_id, estado_recepcion, cantidad, productos(bc_item_no)')
+    .eq('pedido_id', pedidoId);
 
   let actualizados = 0;
   const avisos: string[] = [];
@@ -227,11 +253,35 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
       }
     }
 
+    // Estado de recepción: se cruza por artículo BC (bc_item_no) + cantidad exacta,
+    // ya que Document_No por sí solo no identifica una línea concreta.
+    if (item.estado_recepcion !== 'Anulado') {
+      const bcItemNo = item.productos?.bc_item_no;
+      const lineaBC = bcItemNo
+        ? lineasBC.find((l) => l.No === bcItemNo && l.Quantity === item.cantidad)
+        : undefined;
+
+      if (lineaBC) {
+        const recepcionNueva = calcularEstadoRecepcion(lineaBC.Quantity, lineaBC.Quantity_Received);
+        const ordenActual = ORDEN_RECEPCION[item.estado_recepcion || ''] ?? -1;
+        const ordenNuevo = ORDEN_RECEPCION[recepcionNueva];
+        // Misma regla de no-retroceso que el estado general.
+        if (ordenNuevo > ordenActual) {
+          cambios.estado_recepcion = recepcionNueva;
+        }
+      } else if (!errorLineas) {
+        avisos.push(
+          `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No}.`
+        );
+      }
+    }
+
     const { error } = await supabase.from('pedido_items').update(cambios).eq('id', item.id);
     if (error) avisos.push(error.message);
     else actualizados++;
   }
 
+  if (errorLineas) avisos.push(errorLineas);
   if (!proveedorId && pedidoBC.Buy_from_Vendor_No) {
     avisos.push(
       `El proveedor "${pedidoBC.Buy_from_Vendor_No}" de Business Central no está sincronizado en /admin/proveedores.`

@@ -31,6 +31,13 @@ type PedidoCompraBC = {
   Your_Reference: string;
 };
 
+type LineaPedidoCompraBC = {
+  Document_No: string;
+  No: string;
+  Quantity: number;
+  Quantity_Received: number;
+};
+
 let tokenCache: { token: string; expira: number } | null = null;
 
 async function obtenerToken(): Promise<string> {
@@ -118,4 +125,13 @@ export async function obtenerPedidoCompraBC(numeroApp: string): Promise<PedidoCo
   const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
   const resultados: PedidoCompraBC[] = await consultarBC(url);
   return resultados[0] || null;
+}
+
+// Líneas de un pedido de compra concreto en BC (por Nº pedido Tecmelec / Document_No),
+// para calcular el estado de recepción de cada artículo (Quantity vs Quantity_Received).
+export async function obtenerLineasPedidoCompraBC(documentNo: string): Promise<LineaPedidoCompraBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_COMPRA!);
+  const filtro = `Document_No eq '${documentNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  return consultarBC(url);
 }
