@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import SolicitudesFiltrables, { type PedidoFila } from '@/components/SolicitudesFiltrables';
 import { numerosTecmelecTexto, idsEfectivos } from '@/lib/pedidos-utils';
+import SincronizarTodasBCBoton from './SincronizarTodasBCBoton';
 
 export default async function CompradorPage() {
   const supabase = createClient();
@@ -37,6 +38,8 @@ export default async function CompradorPage() {
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitudes por comprar</h1>
       <p className="text-slate text-sm mb-6">Pedidos de los usuarios que tienes asignados.</p>
+
+      <SincronizarTodasBCBoton />
 
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No tienes solicitudes pendientes.</p>

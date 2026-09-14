@@ -11,6 +11,7 @@ import {
   obtenerLineasPedidoCompraBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
+import { idsEfectivos } from '@/lib/pedidos-utils';
 
 export async function sincronizarProductosBC() {
   await requireAdmin();
@@ -349,4 +350,49 @@ export async function sincronizarPedidosAbiertosConBC() {
   revalidatePath('/responsable');
 
   return { revisados: pedidos?.length || 0, resumen };
+}
+
+// Botón "Sincronizar todas" en /comprador: repasa, con la sesión del propio
+// comprador (o admin, que las ve todas), únicamente sus solicitudes que
+// siguen abiertas — misma carga incremental que el cron, pero a demanda.
+export async function sincronizarMisSolicitudesConBC() {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Debes iniciar sesión.' };
+
+  const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
+
+  let query = supabase
+    .from('pedidos')
+    .select('id, numero_app')
+    .in('estado_general', ['Pendiente de tramitar', 'Tramitado parcial']);
+
+  if (perfil?.rol !== 'admin') {
+    const ids = await idsEfectivos(supabase, user.id);
+    query = query.in('comprador_id', ids);
+  }
+
+  const { data: pedidos } = await query;
+
+  let actualizados = 0;
+  let conError = 0;
+  const avisos: string[] = [];
+
+  for (const pedido of pedidos || []) {
+    const resultado = await sincronizarPedidoConBCInterno(supabase, pedido.id, pedido.numero_app);
+    if (resultado.error) {
+      // "No encontrado en BC" es normal para pedidos aún no lanzados: no cuenta como error.
+      if (!resultado.sinCambios) conError++;
+    } else {
+      actualizados++;
+    }
+  }
+
+  revalidatePath('/comprador');
+
+  return { revisados: pedidos?.length || 0, actualizados, conError };
 }
