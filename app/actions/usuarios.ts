@@ -38,7 +38,7 @@ export async function crearUsuario(datos: {
     telefono: datos.telefono || null,
     rol: datos.rol,
     comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
-    responsable_id: datos.rol === 'usuario' ? datos.responsable_id : null,
+    responsable_id: datos.rol === 'usuario' || datos.rol === 'comprador' ? datos.responsable_id : null,
     sustituto_id: esComprablesOResponsable ? datos.sustituto_id : null,
     sustituto_activo: esComprablesOResponsable ? datos.sustituto_activo : false,
   });
@@ -77,7 +77,7 @@ export async function actualizarUsuario(
       telefono: datos.telefono || null,
       rol: datos.rol,
       comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
-      responsable_id: datos.rol === 'usuario' ? datos.responsable_id : null,
+      responsable_id: datos.rol === 'usuario' || datos.rol === 'comprador' ? datos.responsable_id : null,
       sustituto_id: esComprablesOResponsable ? datos.sustituto_id : null,
       sustituto_activo: esComprablesOResponsable ? datos.sustituto_activo : false,
     })

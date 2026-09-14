@@ -28,8 +28,8 @@ export default function Nav({ rol, pendientesAprobacion = 0, comprador = null }:
   }, []);
 
   const links = [
-    { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'responsable'] },
-    { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'responsable'] },
+    { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
+    { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/comprador', label: 'Solicitudes por comprar', roles: ['admin', 'comprador'] },
     {

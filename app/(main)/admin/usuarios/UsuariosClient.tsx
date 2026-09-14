@@ -30,6 +30,8 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
 
   const compradores = usuarios.filter((u) => u.rol === 'comprador');
   const responsables = usuarios.filter((u) => u.rol === 'responsable');
+  // Un admin también puede actuar como responsable asignado de un usuario/comprador.
+  const responsablesDisponibles = usuarios.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
 
   function nombrePorId(id: string | null) {
     if (!id) return '—';
@@ -46,6 +48,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
         <UsuarioForm
           compradores={compradores}
           responsables={responsables}
+          responsablesDisponibles={responsablesDisponibles}
           onCancel={() => setCreando(false)}
           onSuccess={() => {
             setCreando(false);
@@ -126,12 +129,14 @@ function UsuarioForm({
   usuario,
   compradores,
   responsables,
+  responsablesDisponibles,
   onCancel,
   onSuccess,
 }: {
   usuario?: Usuario;
   compradores: Usuario[];
   responsables: Usuario[];
+  responsablesDisponibles: Usuario[];
   onCancel: () => void;
   onSuccess: () => void;
 }) {
@@ -159,7 +164,7 @@ function UsuarioForm({
       telefono,
       rol,
       comprador_id: rol === 'usuario' ? compradorId || null : null,
-      responsable_id: rol === 'usuario' ? responsableId || null : null,
+      responsable_id: rol === 'usuario' || rol === 'comprador' ? responsableId || null : null,
       sustituto_id: rol === 'comprador' || rol === 'responsable' ? sustitutoId || null : null,
       sustituto_activo: rol === 'comprador' || rol === 'responsable' ? sustitutoActivo : false,
     };
@@ -251,31 +256,31 @@ function UsuarioForm({
         </div>
 
         {rol === 'usuario' && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-grafito mb-1">Comprador asignado</label>
-              <select className="input" value={compradorId} onChange={(e) => setCompradorId(e.target.value)}>
-                <option value="">Sin asignar</option>
-                {compradores.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-grafito mb-1">Comprador asignado</label>
+            <select className="input" value={compradorId} onChange={(e) => setCompradorId(e.target.value)}>
+              <option value="">Sin asignar</option>
+              {compradores.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre_completo}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-            <div>
-              <label className="block text-sm font-medium text-grafito mb-1">Responsable asignado</label>
-              <select className="input" value={responsableId} onChange={(e) => setResponsableId(e.target.value)}>
-                <option value="">Sin asignar</option>
-                {responsables.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
+        {(rol === 'usuario' || rol === 'comprador') && (
+          <div>
+            <label className="block text-sm font-medium text-grafito mb-1">Responsable asignado</label>
+            <select className="input" value={responsableId} onChange={(e) => setResponsableId(e.target.value)}>
+              <option value="">Sin asignar</option>
+              {responsablesDisponibles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre_completo} {r.rol === 'admin' ? '(admin)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         {(rol === 'comprador' || rol === 'responsable') && (

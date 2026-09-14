@@ -69,8 +69,14 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
   // El usuario normal siempre usa su comprador/responsable asignado.
   // Admin y responsable eligen el comprador manualmente al solicitar (no tienen uno fijo).
+  // Un comprador que pide para sí mismo se autoasigna como comprador de su propio pedido,
+  // pero sigue necesitando la aprobación de su responsable si supera el límite (como un usuario más).
   const puedeElegirComprador = perfil.rol === 'admin' || perfil.rol === 'responsable';
-  const compradorFinal = puedeElegirComprador ? datos.comprador_id || null : perfil.comprador_id;
+  const compradorFinal = puedeElegirComprador
+    ? datos.comprador_id || null
+    : perfil.rol === 'comprador'
+      ? user.id
+      : perfil.comprador_id;
 
   if (puedeElegirComprador && !compradorFinal) {
     return { error: 'Selecciona un comprador para esta solicitud.' };
