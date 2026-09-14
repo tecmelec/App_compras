@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guard';
 import {
   obtenerItemsComunesBC,
@@ -176,35 +177,28 @@ const MAPA_ESTADO_BC: Record<string, string> = {
   Released: 'Pedido lanzado',
 };
 
-export async function sincronizarPedidoConBC(pedidoId: string) {
-  const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { error: 'Debes iniciar sesión.' };
-
-  const { data: pedido } = await supabase.from('pedidos').select('id, numero_app').eq('id', pedidoId).single();
-
-  if (!pedido) return { error: 'Pedido no encontrado.' };
-
+// Núcleo de la sincronización de un pedido, independiente de quién lo invoque
+// (botón manual con el cliente de sesión del comprador, o el cron con el
+// cliente admin). No hace comprobaciones de autenticación: eso lo decide
+// quien llama a esta función.
+async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, numeroApp: string) {
   let pedidoBC;
   try {
-    pedidoBC = await obtenerPedidoCompraBC(pedido.numero_app);
+    pedidoBC = await obtenerPedidoCompraBC(numeroApp);
   } catch (e: any) {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }
 
   if (!pedidoBC) {
     return {
-      error: `No se encontró en Business Central ningún pedido de compra con "Su Referencia" = ${pedido.numero_app}.`,
+      error: `No se encontró en Business Central ningún pedido de compra con "Su Referencia" = ${numeroApp}.`,
+      sinCambios: true,
     };
   }
 
   const { data: estados } = await supabase.from('estados_pedido').select('id, nombre, orden');
   const nombreEstadoNuevo = MAPA_ESTADO_BC[pedidoBC.Status];
-  const estadoNuevo = nombreEstadoNuevo ? estados?.find((e) => e.nombre === nombreEstadoNuevo) : null;
+  const estadoNuevo = nombreEstadoNuevo ? estados?.find((e: any) => e.nombre === nombreEstadoNuevo) : null;
 
   let proveedorId: string | null = null;
   if (pedidoBC.Buy_from_Vendor_No) {
@@ -226,7 +220,7 @@ export async function sincronizarPedidoConBC(pedidoId: string) {
     if (proveedorId) cambios.proveedor_id = proveedorId;
 
     if (estadoNuevo) {
-      const ordenActual = estados?.find((e) => e.id === item.estado_id)?.orden ?? 0;
+      const ordenActual = estados?.find((e: any) => e.id === item.estado_id)?.orden ?? 0;
       // Nunca retrocede: si en BC el pedido "vuelve" a un estado anterior, se ignora.
       if (estadoNuevo.orden > ordenActual) {
         cambios.estado_id = estadoNuevo.id;
@@ -249,13 +243,53 @@ export async function sincronizarPedidoConBC(pedidoId: string) {
     );
   }
 
+  return { success: true, numeroTecmelec: pedidoBC.No, actualizados, avisos };
+}
+
+// Botón manual desde /comprador/[id]: usa el cliente con la sesión del
+// comprador (RLS aplica con normalidad).
+export async function sincronizarPedidoConBC(pedidoId: string) {
+  const supabase = createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Debes iniciar sesión.' };
+
+  const { data: pedido } = await supabase.from('pedidos').select('id, numero_app').eq('id', pedidoId).single();
+
+  if (!pedido) return { error: 'Pedido no encontrado.' };
+
+  const resultado = await sincronizarPedidoConBCInterno(supabase, pedidoId, pedido.numero_app);
+
   revalidatePath(`/comprador/${pedidoId}`);
   revalidatePath(`/admin/pedidos/${pedidoId}`);
 
-  return {
-    success: true,
-    numeroTecmelec: pedidoBC.No,
-    actualizados,
-    avisos,
-  };
+  return resultado;
+}
+
+// Cron horario (ver /app/api/cron/sincronizar-pedidos-bc): carga incremental,
+// solo repasa pedidos que aún no están cerrados en la app (evita golpear la
+// API de BC por cada pedido histórico ya tramitado o anulado).
+export async function sincronizarPedidosAbiertosConBC() {
+  const supabase = createAdminClient();
+
+  const { data: pedidos } = await supabase
+    .from('pedidos')
+    .select('id, numero_app')
+    .in('estado_general', ['Pendiente de tramitar', 'Tramitado parcial']);
+
+  const resumen: { numeroApp: string; resultado: any }[] = [];
+
+  for (const pedido of pedidos || []) {
+    const resultado = await sincronizarPedidoConBCInterno(supabase, pedido.id, pedido.numero_app);
+    resumen.push({ numeroApp: pedido.numero_app, resultado });
+  }
+
+  revalidatePath('/comprador');
+  revalidatePath('/admin/pedidos');
+  revalidatePath('/responsable');
+
+  return { revisados: pedidos?.length || 0, resumen };
 }
