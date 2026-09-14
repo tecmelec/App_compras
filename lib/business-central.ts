@@ -24,6 +24,13 @@ type ProveedorBC = {
   Name: string;
 };
 
+type PedidoCompraBC = {
+  No: string;
+  Buy_from_Vendor_No: string;
+  Status: string;
+  Your_Reference: string;
+};
+
 let tokenCache: { token: string; expira: number } | null = null;
 
 async function obtenerToken(): Promise<string> {
@@ -100,4 +107,15 @@ export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {
 export async function obtenerProveedoresBC(): Promise<ProveedorBC[]> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROVEEDORES!);
   return consultarBC(base);
+}
+
+// Busca el pedido de compra en BC cuya "Su Referencia" (Your_Reference) coincide
+// con el Nº de pedido APP. Devuelve null si no existe (aún no se ha lanzado el
+// pedido de compra en BC para esta solicitud).
+export async function obtenerPedidoCompraBC(numeroApp: string): Promise<PedidoCompraBC | null> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
+  const filtro = `Your_Reference eq '${numeroApp.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  const resultados: PedidoCompraBC[] = await consultarBC(url);
+  return resultados[0] || null;
 }

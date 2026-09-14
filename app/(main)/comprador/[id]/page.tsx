@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
+import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 
 export default async function DetalleCompradorPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -68,6 +69,8 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           </div>
         )}
       </div>
+
+      <SincronizarPedidoBCBoton pedidoId={p.id} />
 
       <FormularioComprador
         pedidoId={p.id}
