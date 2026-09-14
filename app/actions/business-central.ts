@@ -225,7 +225,8 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     proveedorId = proveedor?.id || null;
   }
 
-  let lineasBC: { No: string; Quantity: number; Quantity_Received: number }[] = [];
+  let lineasBC: { No: string; Quantity: number; Quantity_Received: number; Expected_Receipt_Date: string | null }[] =
+    [];
   let errorLineas: string | null = null;
   try {
     lineasBC = await obtenerLineasPedidoCompraBC(pedidoBC.No);
@@ -268,6 +269,12 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
         // Misma regla de no-retroceso que el estado general.
         if (ordenNuevo > ordenActual) {
           cambios.estado_recepcion = recepcionNueva;
+        }
+
+        // BC es la fuente de verdad para la fecha estimada una vez existe la línea;
+        // si BC no trae fecha (vacía), se deja la que ya hubiera en la app.
+        if (lineaBC.Expected_Receipt_Date) {
+          cambios.fecha_estimada_entrega = lineaBC.Expected_Receipt_Date.slice(0, 10);
         }
       } else if (!errorLineas) {
         avisos.push(

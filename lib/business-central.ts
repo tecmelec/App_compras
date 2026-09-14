@@ -36,6 +36,7 @@ type LineaPedidoCompraBC = {
   No: string;
   Quantity: number;
   Quantity_Received: number;
+  Expected_Receipt_Date: string | null;
 };
 
 let tokenCache: { token: string; expira: number } | null = null;
