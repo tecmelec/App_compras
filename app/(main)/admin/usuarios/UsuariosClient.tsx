@@ -107,6 +107,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                         usuario={u}
                         compradores={compradores}
                         responsables={responsables}
+                        responsablesDisponibles={responsablesDisponibles}
                         onCancel={() => setEditandoId(null)}
                         onSuccess={() => {
                           setEditandoId(null);
