@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
+import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import { rangoFechasEstimadas } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
@@ -37,8 +38,13 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
 
   return (
     <div className="p-8 max-w-4xl">
-      <p className="font-mono text-sm text-marca">{p.numero_app}</p>
-      <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="font-mono text-sm text-marca">{p.numero_app}</p>
+          <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
+        </div>
+        <CrearPedidoBCBoton pedidoId={p.id} />
+      </div>
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="flex items-start gap-3">

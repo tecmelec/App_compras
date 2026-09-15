@@ -10,6 +10,8 @@ import {
   obtenerPedidoCompraBC,
   obtenerLineasPedidoCompraBC,
   obtenerCrudoBC,
+  crearPedidoCompraBC,
+  crearLineaPedidoCompraBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos } from '@/lib/pedidos-utils';
@@ -452,4 +454,149 @@ export async function depurarCamposProductoBC() {
   } catch (e: any) {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }
+}
+
+// Agrupa las líneas de una solicitud por proveedor (BC exige un proveedor
+// por cabecera de pedido de compra, así que si hay varios, se crean varios
+// pedidos de compra — uno por proveedor).
+async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('numero_app, proyectos(bc_job_no)')
+    .eq('id', pedidoId)
+    .single();
+
+  const { data: items } = await supabase
+    .from('pedido_items')
+    .select('id, cantidad, numero_tecmelec, precio_unitario, proveedor_id, productos(nombre, bc_item_no, precio)')
+    .eq('pedido_id', pedidoId);
+
+  const sinProveedor: any[] = [];
+  const sinCodigoBC: any[] = [];
+  const yaVinculadas: any[] = [];
+  const grupos = new Map<string, any[]>();
+
+  for (const item of items || []) {
+    if (item.numero_tecmelec) {
+      yaVinculadas.push(item);
+      continue;
+    }
+    if (!item.proveedor_id) {
+      sinProveedor.push(item);
+      continue;
+    }
+    if (!item.productos?.bc_item_no) {
+      sinCodigoBC.push(item);
+      continue;
+    }
+    if (!grupos.has(item.proveedor_id)) grupos.set(item.proveedor_id, []);
+    grupos.get(item.proveedor_id)!.push(item);
+  }
+
+  const proveedorIds = Array.from(grupos.keys());
+  const { data: proveedoresDb } =
+    proveedorIds.length > 0
+      ? await supabase.from('proveedores').select('id, bc_proveedor_no, nombre').in('id', proveedorIds)
+      : { data: [] };
+  const proveedoresPorId = new Map((proveedoresDb || []).map((p: any) => [p.id, p]));
+
+  const gruposFinal = proveedorIds.map((proveedorId) => {
+    const proveedor = proveedoresPorId.get(proveedorId);
+    const itemsGrupo = grupos.get(proveedorId)!;
+    return {
+      proveedorId,
+      proveedorNombre: proveedor ? `${proveedor.bc_proveedor_no} — ${proveedor.nombre}` : proveedorId,
+      proveedorBcNo: proveedor?.bc_proveedor_no,
+      items: itemsGrupo.map((it) => ({
+        id: it.id,
+        nombre: it.productos?.nombre,
+        bcItemNo: it.productos?.bc_item_no,
+        cantidad: it.cantidad,
+        precio: it.precio_unitario ?? it.productos?.precio ?? 0,
+      })),
+      subtotal: itemsGrupo.reduce(
+        (s: number, it: any) => s + (it.precio_unitario ?? it.productos?.precio ?? 0) * it.cantidad,
+        0
+      ),
+    };
+  });
+
+  return {
+    numeroApp: pedido?.numero_app,
+    jobNo: pedido?.proyectos?.bc_job_no || null,
+    grupos: gruposFinal,
+    sinProveedor: sinProveedor.map((i) => i.productos?.nombre),
+    sinCodigoBC: sinCodigoBC.map((i) => i.productos?.nombre),
+    yaVinculadas: yaVinculadas.map((i) => i.productos?.nombre),
+  };
+}
+
+export async function previsualizarPedidoCompraBC(pedidoId: string) {
+  const supabase = createClient();
+  return agruparPorProveedorParaBC(supabase, pedidoId);
+}
+
+export async function crearPedidosCompraBC(pedidoId: string) {
+  const supabase = createClient();
+  const previa = await agruparPorProveedorParaBC(supabase, pedidoId);
+
+  if (previa.grupos.length === 0) {
+    return { error: 'No hay artículos listos para crear un pedido de compra (revisa proveedor y código BC).' };
+  }
+
+  const creados: { proveedor: string; documentNo: string }[] = [];
+  const errores: string[] = [];
+
+  for (const grupo of previa.grupos) {
+    if (!grupo.proveedorBcNo) {
+      errores.push(`${grupo.proveedorNombre}: falta el código de proveedor de Business Central.`);
+      continue;
+    }
+
+    let cabecera;
+    try {
+      cabecera = await crearPedidoCompraBC({
+        Buy_from_Vendor_No: grupo.proveedorBcNo,
+        Your_Reference: previa.numeroApp,
+      });
+    } catch (e: any) {
+      errores.push(`${grupo.proveedorNombre}: no se pudo crear la cabecera del pedido — ${e.message}`);
+      continue;
+    }
+
+    const documentNo = cabecera.No;
+    let algunaLineaFallo = false;
+
+    for (const item of grupo.items) {
+      try {
+        await crearLineaPedidoCompraBC({
+          Document_Type: 'Order',
+          Document_No: documentNo,
+          No: item.bcItemNo,
+          Quantity: item.cantidad,
+          Direct_Unit_Cost: item.precio,
+          ...(previa.jobNo ? { Job_No: previa.jobNo } : {}),
+        });
+      } catch (e: any) {
+        algunaLineaFallo = true;
+        errores.push(`${grupo.proveedorNombre} (pedido ${documentNo}): línea "${item.nombre}" falló — ${e.message}`);
+      }
+    }
+
+    // Vinculamos en la app las líneas de este proveedor con el pedido recién creado en BC,
+    // aunque alguna línea individual haya fallado (las que sí se crearon quedan trazables).
+    const idsGrupo = grupo.items.map((i) => i.id);
+    await supabase.from('pedido_items').update({ numero_tecmelec: documentNo }).in('id', idsGrupo);
+
+    creados.push({ proveedor: grupo.proveedorNombre, documentNo });
+    if (algunaLineaFallo) {
+      errores.push(
+        `⚠ El pedido ${documentNo} se creó en BC pero con líneas incompletas — revísalo directamente en Business Central.`
+      );
+    }
+  }
+
+  revalidatePath(`/comprador/${pedidoId}`);
+
+  return { success: true, creados, errores };
 }

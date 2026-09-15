@@ -103,6 +103,29 @@ async function consultarBC(url: string) {
   return data.value;
 }
 
+// Crea un registro nuevo en BC vía POST. Devuelve el registro creado tal cual
+// lo confirma BC (incluye el Nº asignado por la serie de numeración, etc.).
+async function crearRegistroBC(url: string, cuerpo: Record<string, any>) {
+  const token = await obtenerToken();
+
+  const respuesta = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(cuerpo),
+  });
+
+  if (!respuesta.ok) {
+    const texto = await respuesta.text();
+    throw new Error(`Error creando registro en Business Central: ${respuesta.status} ${texto}`);
+  }
+
+  return respuesta.json();
+}
+
 export async function obtenerCrudoBC(servicio: string): Promise<any> {
   const base = urlServicioBC(servicio);
   return consultarBC(base);
@@ -142,4 +165,27 @@ export async function obtenerLineasPedidoCompraBC(documentNo: string): Promise<L
   const filtro = `Document_No eq '${documentNo.replace(/'/g, "''")}'`;
   const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
   return consultarBC(url);
+}
+
+// Crea la cabecera de un pedido de compra nuevo en BC. Devuelve el registro
+// creado (incluye el Nº asignado por la serie de numeración de BC).
+export async function crearPedidoCompraBC(datos: {
+  Buy_from_Vendor_No: string;
+  Your_Reference: string;
+}): Promise<PedidoCompraBC> {
+  const url = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
+  return crearRegistroBC(url, datos);
+}
+
+// Crea una línea dentro de un pedido de compra ya existente en BC.
+export async function crearLineaPedidoCompraBC(datos: {
+  Document_Type: string;
+  Document_No: string;
+  No: string;
+  Quantity: number;
+  Direct_Unit_Cost: number;
+  Job_No?: string;
+}): Promise<any> {
+  const url = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_COMPRA!);
+  return crearRegistroBC(url, datos);
 }
