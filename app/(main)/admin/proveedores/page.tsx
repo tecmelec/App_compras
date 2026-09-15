@@ -1,13 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
 import SincronizarProveedoresBoton from './SincronizarProveedoresBoton';
+import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export default async function ProveedoresAdminPage() {
   const supabase = createClient();
 
-  const { data: proveedores } = await supabase
-    .from('proveedores')
-    .select('id, bc_proveedor_no, nombre')
-    .order('bc_proveedor_no');
+  const { data: proveedores } = await obtenerTodosLosProveedores(supabase, 'id, bc_proveedor_no, nombre', 'bc_proveedor_no');
 
   return (
     <div className="p-8">

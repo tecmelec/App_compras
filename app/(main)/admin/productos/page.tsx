@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import ProductosClient from './ProductosClient';
 import SincronizarBCBoton from './SincronizarBCBoton';
 import DepurarBCBoton from './DepurarBCBoton';
+import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export default async function ProductosAdminPage() {
   const supabase = createClient();
@@ -13,10 +14,7 @@ export default async function ProductosAdminPage() {
     )
     .order('categoria');
 
-  const { data: proveedores } = await supabase
-    .from('proveedores')
-    .select('id, bc_proveedor_no, nombre')
-    .order('nombre');
+  const { data: proveedores } = await obtenerTodosLosProveedores(supabase);
 
   return (
     <div className="p-8">

@@ -13,6 +13,7 @@ import {
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos } from '@/lib/pedidos-utils';
+import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export async function sincronizarProductosBC() {
   await requireAdmin();
@@ -28,7 +29,7 @@ export async function sincronizarProductosBC() {
   const { data: existentes } = await supabase.from('productos').select('id, bc_item_no').not('bc_item_no', 'is', null);
   const existentesPorNo = new Map((existentes || []).map((p) => [p.bc_item_no, p.id]));
 
-  const { data: proveedoresDb } = await supabase.from('proveedores').select('id, bc_proveedor_no');
+  const { data: proveedoresDb } = await obtenerTodosLosProveedores(supabase, 'id, bc_proveedor_no', 'bc_proveedor_no');
   const proveedoresPorNo = new Map((proveedoresDb || []).map((p) => [p.bc_proveedor_no, p.id]));
 
   let creados = 0;
@@ -148,7 +149,7 @@ export async function sincronizarProveedoresBC() {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }
 
-  const { data: existentes } = await supabase.from('proveedores').select('id, bc_proveedor_no');
+  const { data: existentes } = await obtenerTodosLosProveedores(supabase, 'id, bc_proveedor_no', 'bc_proveedor_no');
   const existentesPorNo = new Map((existentes || []).map((p) => [p.bc_proveedor_no, p.id]));
 
   let creados = 0;

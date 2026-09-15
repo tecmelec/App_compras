@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import { rangoFechasEstimadas } from '@/lib/pedidos-utils';
+import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
   return (
@@ -28,10 +29,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     .select('id, nombre')
     .order('orden');
 
-  const { data: proveedores } = await supabase
-    .from('proveedores')
-    .select('id, bc_proveedor_no, nombre')
-    .order('nombre');
+  const { data: proveedores } = await obtenerTodosLosProveedores(supabase);
 
   if (!pedido) notFound();
 
