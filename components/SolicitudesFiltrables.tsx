@@ -329,7 +329,7 @@ export default function SolicitudesFiltrables({
                   {mostrarComprador && <td className="px-4 py-3 text-grafito">{p.comprador || '—'}</td>}
                   <td className="px-4 py-3 font-mono text-grafito">{p.numero_tecmelec || '—'}</td>
                   <td className="px-4 py-3 font-mono text-grafito">
-                    <ObraCelda numero={p.nro_obra || ''} nombre={p.nombre_obra} />
+                    <ObraCelda numero={p.nro_obra || ''} nombre={p.nombre_obra} textoVacio="Sin nombre de obra" />
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">{p.total_estimado?.toFixed(2)} €</td>
                   <td className="px-4 py-3">

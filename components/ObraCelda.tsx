@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-export default function ObraCelda({ numero, nombre }: { numero: string; nombre?: string }) {
+export default function ObraCelda({
+  numero,
+  nombre,
+  textoVacio = 'Sin nombre',
+}: {
+  numero: string;
+  nombre?: string;
+  textoVacio?: string;
+}) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -30,7 +38,7 @@ export default function ObraCelda({ numero, nombre }: { numero: string; nombre?:
 
       {abierto && (
         <div className="absolute z-20 mt-1 left-0 whitespace-nowrap rounded-md border border-borde bg-white px-3 py-2 shadow-lg text-sm">
-          <p className="font-medium text-grafito">{nombre || 'Sin nombre de obra'}</p>
+          <p className="font-medium text-grafito">{nombre || textoVacio}</p>
         </div>
       )}
     </div>

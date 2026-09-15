@@ -3,15 +3,19 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
-
+import ObraCelda from '@/components/ObraCelda';
 import EstadoBadge from '@/components/EstadoBadge';
 
 export type LineaFila = {
   numero_app: string;
   pedido_href: string;
   numero_tecmelec: string | null;
+  nro_proveedor: string;
+  nombre_proveedor: string;
   articulo: string;
   cantidad: number;
+  nro_obra: string;
+  nombre_obra: string;
   fecha_requerida: string | null;
   fecha_estimada_entrega: string | null;
   estado_recepcion: string | null;
@@ -21,9 +25,11 @@ type Filtros = {
   busqueda: string;
   numeroApp: string;
   numeroTecmelec: string;
+  nroProveedor: string;
   articulos: string[];
   cantidadMin: string;
   cantidadMax: string;
+  nroObra: string;
   requeridaDesde: string;
   requeridaHasta: string;
   entregaDesde: string;
@@ -35,9 +41,11 @@ const FILTROS_VACIOS: Filtros = {
   busqueda: '',
   numeroApp: '',
   numeroTecmelec: '',
+  nroProveedor: '',
   articulos: [],
   cantidadMin: '',
   cantidadMax: '',
+  nroObra: '',
   requeridaDesde: '',
   requeridaHasta: '',
   entregaDesde: '',
@@ -45,7 +53,16 @@ const FILTROS_VACIOS: Filtros = {
   estados: [],
 };
 
-type CampoOrden = 'numero_app' | 'numero_tecmelec' | 'articulo' | 'cantidad' | 'fecha_requerida' | 'fecha_estimada_entrega' | 'estado_recepcion';
+type CampoOrden =
+  | 'numero_app'
+  | 'numero_tecmelec'
+  | 'nro_proveedor'
+  | 'articulo'
+  | 'cantidad'
+  | 'nro_obra'
+  | 'fecha_requerida'
+  | 'fecha_estimada_entrega'
+  | 'estado_recepcion';
 
 export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
@@ -93,7 +110,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
   const filtradas = filas.filter((f) => {
     if (filtros.busqueda) {
       const palabras = filtros.busqueda.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      const texto = `${f.numero_app} ${f.numero_tecmelec || ''} ${f.articulo}`.toLowerCase();
+      const texto = `${f.numero_app} ${f.numero_tecmelec || ''} ${f.nro_proveedor} ${f.nombre_proveedor} ${f.articulo} ${f.nro_obra} ${f.nombre_obra}`.toLowerCase();
       const coincide = palabras.every((palabra) => texto.includes(palabra));
       if (!coincide) return false;
     }
@@ -103,9 +120,20 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
       !(f.numero_tecmelec || '').toLowerCase().includes(filtros.numeroTecmelec.toLowerCase())
     )
       return false;
+    if (filtros.nroProveedor) {
+      const texto = filtros.nroProveedor.toLowerCase();
+      const coincide =
+        f.nro_proveedor.toLowerCase().includes(texto) || f.nombre_proveedor.toLowerCase().includes(texto);
+      if (!coincide) return false;
+    }
     if (filtros.articulos.length > 0 && !filtros.articulos.includes(f.articulo)) return false;
     if (filtros.cantidadMin && f.cantidad < Number(filtros.cantidadMin)) return false;
     if (filtros.cantidadMax && f.cantidad > Number(filtros.cantidadMax)) return false;
+    if (filtros.nroObra) {
+      const texto = filtros.nroObra.toLowerCase();
+      const coincide = f.nro_obra.toLowerCase().includes(texto) || f.nombre_obra.toLowerCase().includes(texto);
+      if (!coincide) return false;
+    }
     if (filtros.requeridaDesde && (!f.fecha_requerida || new Date(f.fecha_requerida) < new Date(filtros.requeridaDesde)))
       return false;
     if (filtros.requeridaHasta && (!f.fecha_requerida || new Date(f.fecha_requerida) > new Date(filtros.requeridaHasta)))
@@ -226,6 +254,26 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
               </ColumnaFiltroOrden>
 
               <ColumnaFiltroOrden
+                titulo="Nro. Proveedor"
+                campoOrden="nro_proveedor"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="nroProveedor"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={!!filtros.nroProveedor}
+                onLimpiarFiltro={() => actualizar('nroProveedor', '')}
+              >
+                <input
+                  className="input"
+                  placeholder="Número o nombre..."
+                  value={filtros.nroProveedor}
+                  onChange={(e) => actualizar('nroProveedor', e.target.value)}
+                  autoFocus
+                />
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
                 titulo="Artículo solicitado"
                 campoOrden="articulo"
                 ordenActual={orden}
@@ -277,6 +325,26 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     onChange={(e) => actualizar('cantidadMax', e.target.value)}
                   />
                 </div>
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Nro. de obra"
+                campoOrden="nro_obra"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="nroObra"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={!!filtros.nroObra}
+                onLimpiarFiltro={() => actualizar('nroObra', '')}
+              >
+                <input
+                  className="input"
+                  placeholder="Número o nombre..."
+                  value={filtros.nroObra}
+                  onChange={(e) => actualizar('nroObra', e.target.value)}
+                  autoFocus
+                />
               </ColumnaFiltroOrden>
 
               <ColumnaFiltroOrden
@@ -362,7 +430,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
           <tbody className="divide-y divide-borde">
             {ordenadas.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={9} className="px-4 py-6 text-center text-slate text-sm">
                   No hay líneas que coincidan con los filtros.
                 </td>
               </tr>
@@ -375,8 +443,14 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                     </Link>
                   </td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.numero_tecmelec || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    <ObraCelda numero={f.nro_proveedor} nombre={f.nombre_proveedor} textoVacio="Sin nombre de proveedor" />
+                  </td>
                   <td className="px-4 py-3 text-grafito">{f.articulo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.cantidad}</td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    <ObraCelda numero={f.nro_obra} nombre={f.nombre_obra} textoVacio="Sin nombre de obra" />
+                  </td>
                   <td className="px-4 py-3 text-slate">
                     {f.fecha_requerida
                       ? new Date(f.fecha_requerida + 'T00:00:00').toLocaleDateString('es-ES')
