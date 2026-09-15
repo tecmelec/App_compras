@@ -494,11 +494,12 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
   }
 
   const proveedorIds = Array.from(grupos.keys());
-  const { data: proveedoresDb } =
-    proveedorIds.length > 0
-      ? await supabase.from('proveedores').select('id, bc_proveedor_no, nombre').in('id', proveedorIds)
-      : { data: [] };
-  const proveedoresPorId = new Map((proveedoresDb || []).map((p: any) => [p.id, p]));
+  let proveedoresDb: any[] = [];
+  if (proveedorIds.length > 0) {
+    const resultado = await supabase.from('proveedores').select('id, bc_proveedor_no, nombre').in('id', proveedorIds);
+    proveedoresDb = resultado.data || [];
+  }
+  const proveedoresPorId = new Map<string, any>(proveedoresDb.map((p: any) => [p.id, p]));
 
   const gruposFinal = proveedorIds.map((proveedorId) => {
     const proveedor = proveedoresPorId.get(proveedorId);
