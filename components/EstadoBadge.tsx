@@ -8,11 +8,14 @@ const estilos: Record<string, string> = {
   tramitado: 'badge-entregado',
 };
 
+export function claseBadgeEstado(estado?: string): string {
+  if (!estado) return 'badge-proceso';
+  const clave = Object.keys(estilos).find((k) => estado.toLowerCase().includes(k));
+  return clave ? estilos[clave] : 'badge-proceso';
+}
+
 export default function EstadoBadge({ estado }: { estado?: string }) {
   if (!estado) return <span className="text-slate text-sm">—</span>;
 
-  const clave = Object.keys(estilos).find((k) => estado.toLowerCase().includes(k));
-  const clase = clave ? estilos[clave] : 'badge-proceso';
-
-  return <span className={`badge ${clase}`}>{estado}</span>;
+  return <span className={`badge ${claseBadgeEstado(estado)}`}>{estado}</span>;
 }
