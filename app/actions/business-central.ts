@@ -9,6 +9,7 @@ import {
   obtenerProveedoresBC,
   obtenerPedidoCompraBC,
   obtenerLineasPedidoCompraBC,
+  obtenerCrudoBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos } from '@/lib/pedidos-utils';
@@ -407,4 +408,18 @@ export async function sincronizarMisSolicitudesConBC() {
   revalidatePath('/comprador');
 
   return { revisados: pedidos?.length || 0, actualizados, conError };
+}
+
+// Diagnóstico temporal: muestra el primer registro tal cual lo envía BC para
+// el feed de productos, sin tipar ni filtrar campos — útil para ver qué
+// nombre exacto usa un campo (p.ej. Vendor_No) en una página OData concreta.
+export async function depurarCamposProductoBC() {
+  await requireAdmin();
+
+  try {
+    const valores = await obtenerCrudoBC(process.env.BC_ODATA_SERVICE!);
+    return { success: true, primerItem: valores?.[0] || null, total: valores?.length || 0 };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo conectar con Business Central.' };
+  }
 }

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import ProductosClient from './ProductosClient';
 import SincronizarBCBoton from './SincronizarBCBoton';
+import DepurarBCBoton from './DepurarBCBoton';
 
 export default async function ProductosAdminPage() {
   const supabase = createClient();
@@ -23,6 +24,7 @@ export default async function ProductosAdminPage() {
       <p className="text-slate text-sm mb-6">Catálogo de la Tienda Tecmelec.</p>
 
       <SincronizarBCBoton />
+      <DepurarBCBoton />
       <ProductosClient productos={productos || []} proveedores={proveedores || []} />
     </div>
   );

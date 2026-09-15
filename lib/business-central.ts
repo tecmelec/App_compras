@@ -102,6 +102,11 @@ async function consultarBC(url: string) {
   return data.value;
 }
 
+export async function obtenerCrudoBC(servicio: string): Promise<any> {
+  const base = urlServicioBC(servicio);
+  return consultarBC(base);
+}
+
 export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE!);
   const url = `${base}?$filter=${encodeURIComponent("Common_Item_No ne ''")}`;
