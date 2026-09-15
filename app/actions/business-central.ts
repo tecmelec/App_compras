@@ -462,7 +462,7 @@ export async function depurarCamposProductoBC() {
 async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
   const { data: pedido } = await supabase
     .from('pedidos')
-    .select('numero_app, nombre_contacto, proyectos(bc_job_no), direcciones(direccion, ciudad, provincia, codigo_postal)')
+    .select('numero_app, nombre_contacto, telefono_contacto, proyectos(bc_job_no), direcciones(direccion, ciudad, provincia, codigo_postal)')
     .eq('id', pedidoId)
     .single();
 
@@ -525,7 +525,9 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
   return {
     numeroApp: pedido?.numero_app,
     jobNo: pedido?.proyectos?.bc_job_no || null,
-    contacto: pedido?.nombre_contacto || null,
+    contacto: pedido?.nombre_contacto
+      ? `${pedido.nombre_contacto}${pedido.telefono_contacto ? ` ${pedido.telefono_contacto}` : ''}`
+      : null,
     direccion: pedido?.direcciones
       ? {
           direccion: pedido.direcciones.direccion || '',
