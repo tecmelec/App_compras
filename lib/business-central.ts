@@ -181,6 +181,7 @@ export async function crearPedidoCompraBC(datos: {
 export async function crearLineaPedidoCompraBC(datos: {
   Document_Type: string;
   Document_No: string;
+  Type: string;
   No: string;
   Quantity: number;
   Direct_Unit_Cost: number;

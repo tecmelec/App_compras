@@ -573,6 +573,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
         await crearLineaPedidoCompraBC({
           Document_Type: 'Order',
           Document_No: documentNo,
+          Type: 'Item',
           No: item.bcItemNo,
           Quantity: item.cantidad,
           Direct_Unit_Cost: item.precio,
