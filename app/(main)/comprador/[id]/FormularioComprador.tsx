@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedidos';
 import { claseBadgeEstado } from '@/components/EstadoBadge';
 
@@ -10,6 +11,7 @@ type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
 type ItemForm = {
   id: string;
   nombre: string;
+  imagenUrl: string | null;
   precio: number;
   cantidad: number;
   numeroTecmelec: string;
@@ -346,11 +348,16 @@ function ItemFila({
   return (
     <div className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
-        <div>
-          <p className="text-sm font-medium text-grafito">{item.nombre}</p>
-          <p className="font-mono text-slate text-xs mt-0.5">
-            {item.precio?.toFixed(2)} € / ud. · x{item.cantidad}
-          </p>
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 bg-fondo rounded relative shrink-0 overflow-hidden">
+            {item.imagenUrl && <Image src={item.imagenUrl} alt="" fill className="object-contain" />}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-grafito">{item.nombre}</p>
+            <p className="font-mono text-slate text-xs mt-0.5">
+              {item.precio?.toFixed(2)} € / ud. · x{item.cantidad}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-start gap-6 flex-wrap">
