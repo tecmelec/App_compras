@@ -17,7 +17,10 @@ type Producto = {
   precio: number;
   unidad_medida: string | null;
   bc_item_no: string | null;
+  proveedor_predeterminado_id: string | null;
 };
+
+type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
 
 type Filtros = {
   nombre: string;
@@ -41,7 +44,13 @@ const FILTROS_VACIOS: Filtros = {
 
 type CampoOrden = 'nombre' | 'bc_item_no' | 'unidad_medida' | 'categoria' | 'precio' | 'visible';
 
-export default function ProductosClient({ productos }: { productos: Producto[] }) {
+export default function ProductosClient({
+  productos,
+  proveedores,
+}: {
+  productos: Producto[];
+  proveedores: Proveedor[];
+}) {
   const [creando, setCreando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const router = useRouter();
@@ -134,7 +143,11 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
       </div>
 
       {creando && (
-        <ProductoForm onCancel={() => setCreando(false)} onSuccess={() => { setCreando(false); router.refresh(); }} />
+        <ProductoForm
+          proveedores={proveedores}
+          onCancel={() => setCreando(false)}
+          onSuccess={() => { setCreando(false); router.refresh(); }}
+        />
       )}
 
       {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
@@ -338,6 +351,7 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
                       <td colSpan={8} className="bg-fondo p-4">
                         <ProductoForm
                           producto={p}
+                          proveedores={proveedores}
                           onCancel={() => setEditandoId(null)}
                           onSuccess={() => { setEditandoId(null); router.refresh(); }}
                           onDelete={() => { setEditandoId(null); router.refresh(); }}
@@ -358,11 +372,13 @@ export default function ProductosClient({ productos }: { productos: Producto[] }
 
 function ProductoForm({
   producto,
+  proveedores,
   onCancel,
   onSuccess,
   onDelete,
 }: {
   producto?: Producto;
+  proveedores: Proveedor[];
   onCancel: () => void;
   onSuccess: () => void;
   onDelete?: () => void;
@@ -374,6 +390,7 @@ function ProductoForm({
   const [categoria, setCategoria] = useState(producto?.categoria || '');
   const [precio, setPrecio] = useState(producto?.precio?.toString() || '0');
   const [bcItemNo, setBcItemNo] = useState(producto?.bc_item_no || '');
+  const [proveedorPredetId, setProveedorPredetId] = useState(producto?.proveedor_predeterminado_id || '');
   const [visible, setVisible] = useState(producto?.visible ?? true);
   const [imagenUrl, setImagenUrl] = useState(producto?.imagen_url || '');
   const [subiendo, setSubiendo] = useState(false);
@@ -416,6 +433,7 @@ function ProductoForm({
       imagen_url: imagenUrl || null,
       precio: Number(precio) || 0,
       bc_item_no: bcItemNo.trim() || null,
+      proveedor_predeterminado_id: proveedorPredetId || null,
     };
 
     const resultado = esEdicion
@@ -487,6 +505,22 @@ function ProductoForm({
             de dejar que la sincronización cree uno duplicado
             {producto?.unidad_medida ? ` (unidad actual: ${producto.unidad_medida})` : ''}. El nombre y el precio se
             siguen actualizando solos en cada sincronización mientras el código coincida.
+          </p>
+        </div>
+
+        <div className="col-span-2">
+          <label className="block text-sm font-medium text-grafito mb-1">Proveedor predet.</label>
+          <select className="input" value={proveedorPredetId} onChange={(e) => setProveedorPredetId(e.target.value)}>
+            <option value="">Sin asignar</option>
+            {proveedores.map((prov) => (
+              <option key={prov.id} value={prov.id}>
+                {prov.bc_proveedor_no} — {prov.nombre}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate mt-1">
+            Se rellena solo desde el proveedor habitual (Vendor_No) de Business Central; también se puede elegir a
+            mano.
           </p>
         </div>
 

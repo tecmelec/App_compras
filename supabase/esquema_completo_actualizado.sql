@@ -110,6 +110,11 @@ create table public.proveedores (
   created_at timestamptz not null default now()
 );
 
+-- Proveedor predeterminado del producto (Vendor_No en BC); se añade aquí porque
+-- referencia proveedores, que se crea después que productos en este script.
+alter table public.productos
+  add column proveedor_predeterminado_id uuid references public.proveedores(id);
+
 -- 7. CONFIGURACIÓN GENERAL
 -- ------------------------------------------------------------
 create table public.configuracion (

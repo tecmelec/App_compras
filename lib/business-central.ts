@@ -7,6 +7,7 @@ type ItemBC = {
   Base_Unit_of_Measure: string;
   Common_Item_No: string;
   Unit_Price: number;
+  Vendor_No: string;
 };
 
 type ProyectoBC = {

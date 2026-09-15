@@ -7,8 +7,15 @@ export default async function ProductosAdminPage() {
 
   const { data: productos } = await supabase
     .from('productos')
-    .select('id, nombre, descripcion, imagen_url, categoria, visible, precio, unidad_medida, bc_item_no')
+    .select(
+      'id, nombre, descripcion, imagen_url, categoria, visible, precio, unidad_medida, bc_item_no, proveedor_predeterminado_id'
+    )
     .order('categoria');
+
+  const { data: proveedores } = await supabase
+    .from('proveedores')
+    .select('id, bc_proveedor_no, nombre')
+    .order('nombre');
 
   return (
     <div className="p-8">
@@ -16,7 +23,7 @@ export default async function ProductosAdminPage() {
       <p className="text-slate text-sm mb-6">Catálogo de la Tienda Tecmelec.</p>
 
       <SincronizarBCBoton />
-      <ProductosClient productos={productos || []} />
+      <ProductosClient productos={productos || []} proveedores={proveedores || []} />
     </div>
   );
 }

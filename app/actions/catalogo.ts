@@ -11,6 +11,7 @@ export async function crearProducto(datos: {
   categoria: string;
   precio: number;
   bc_item_no?: string | null;
+  proveedor_predeterminado_id?: string | null;
 }) {
   await requireAdmin();
   const supabase = createClient();
@@ -38,6 +39,7 @@ export async function actualizarProducto(
     visible: boolean;
     precio: number;
     bc_item_no?: string | null;
+  proveedor_predeterminado_id?: string | null;
   }
 ) {
   await requireAdmin();

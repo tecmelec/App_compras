@@ -27,12 +27,18 @@ export async function sincronizarProductosBC() {
   const { data: existentes } = await supabase.from('productos').select('id, bc_item_no').not('bc_item_no', 'is', null);
   const existentesPorNo = new Map((existentes || []).map((p) => [p.bc_item_no, p.id]));
 
+  const { data: proveedoresDb } = await supabase.from('proveedores').select('id, bc_proveedor_no');
+  const proveedoresPorNo = new Map((proveedoresDb || []).map((p) => [p.bc_proveedor_no, p.id]));
+
   let creados = 0;
   let actualizados = 0;
   const errores: string[] = [];
+  const proveedoresSinSincronizar = new Set<string>();
 
   for (const item of items) {
     const idExistente = existentesPorNo.get(item.No);
+    const proveedorPredetId = item.Vendor_No ? proveedoresPorNo.get(item.Vendor_No) || null : null;
+    if (item.Vendor_No && !proveedorPredetId) proveedoresSinSincronizar.add(item.Vendor_No);
 
     if (idExistente) {
       const { error } = await supabase
@@ -41,6 +47,7 @@ export async function sincronizarProductosBC() {
           nombre: item.Description,
           unidad_medida: item.Base_Unit_of_Measure,
           precio: item.Unit_Price,
+          proveedor_predeterminado_id: proveedorPredetId,
         })
         .eq('id', idExistente);
 
@@ -52,12 +59,19 @@ export async function sincronizarProductosBC() {
         nombre: item.Description,
         unidad_medida: item.Base_Unit_of_Measure,
         precio: item.Unit_Price,
+        proveedor_predeterminado_id: proveedorPredetId,
         visible: false, // el admin decide cuáles mostrar y sube la imagen antes de publicarlos
       });
 
       if (error) errores.push(`${item.No}: ${error.message}`);
       else creados++;
     }
+  }
+
+  if (proveedoresSinSincronizar.size > 0) {
+    errores.push(
+      `Proveedores sin sincronizar en /admin/proveedores (no se pudo asignar como predeterminado): ${Array.from(proveedoresSinSincronizar).join(', ')}`
+    );
   }
 
   revalidatePath('/admin/productos');
