@@ -74,3 +74,32 @@ export async function idsEfectivos(supabase: SupabaseClient, userId: string): Pr
 
   return [userId, ...(data || []).map((p) => p.id)];
 }
+
+// Recalcula el "Estado" general del pedido (estado_general) a partir del estado
+// detallado de cada línea, y lo guarda. Regla: en cuanto una línea llega a
+// "Pedido lanzado" (o más adelante en la barra de progreso, p.ej. Recibido),
+// cuenta como "lanzada"; si todas las líneas están lanzadas -> "Tramitado";
+// si solo algunas -> "Tramitado parcial". No toca pedidos ya "Anulado".
+export async function recalcularEstadoGeneral(supabase: SupabaseClient, pedidoId: string): Promise<void> {
+  const { data: pedido } = await supabase.from('pedidos').select('estado_general').eq('id', pedidoId).single();
+  if (!pedido || pedido.estado_general === 'Anulado') return;
+
+  const { data: estados } = await supabase.from('estados_pedido').select('id, orden, nombre');
+  const estadoLanzado = (estados || []).find((e: any) => e.nombre === 'Pedido lanzado');
+  if (!estadoLanzado) return; // el admin renombró/quitó ese estado en /admin/estados; no se puede calcular
+
+  const { data: items } = await supabase.from('pedido_items').select('estado_id').eq('pedido_id', pedidoId);
+  if (!items || items.length === 0) return;
+
+  const ordenPorId = new Map((estados || []).map((e: any) => [e.id, e.orden]));
+  const lanzados = items.filter((i: any) => (ordenPorId.get(i.estado_id) ?? -1) >= estadoLanzado.orden).length;
+
+  let nuevoEstado: string;
+  if (lanzados === 0) nuevoEstado = 'Pendiente de tramitar';
+  else if (lanzados < items.length) nuevoEstado = 'Tramitado parcial';
+  else nuevoEstado = 'Tramitado';
+
+  if (nuevoEstado !== pedido.estado_general) {
+    await supabase.from('pedidos').update({ estado_general: nuevoEstado }).eq('id', pedidoId);
+  }
+}

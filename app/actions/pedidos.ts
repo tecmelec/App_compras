@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { enviarEmailSolicitud } from '@/lib/email';
+import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -230,15 +231,15 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
 export async function actualizarPedido(
   pedidoId: string,
-  datos: { estado_general: string; fecha_estimada_entrega: string | null; total_estimado?: number }
+  datos: { estado_general?: string; fecha_estimada_entrega: string | null; total_estimado?: number }
 ) {
   const supabase = createClient();
 
   const cambios: Record<string, any> = {
-    estado_general: datos.estado_general,
     fecha_estimada_entrega: datos.fecha_estimada_entrega || null,
     updated_at: new Date().toISOString(),
   };
+  if (datos.estado_general !== undefined) cambios.estado_general = datos.estado_general;
   if (datos.total_estimado !== undefined) cambios.total_estimado = datos.total_estimado;
 
   const { error } = await supabase.from('pedidos').update(cambios).eq('id', pedidoId);
@@ -251,6 +252,7 @@ export async function actualizarPedido(
 }
 
 export async function actualizarLineasTecmelec(
+  pedidoId: string,
   items: {
     id: string;
     numero_tecmelec: string;
@@ -280,6 +282,10 @@ export async function actualizarLineasTecmelec(
       return { error: 'No se pudo guardar los datos de una de las líneas.' };
     }
   }
+
+  // El "Estado" general se recalcula solo a partir del estado de cada línea
+  // (ver recalcularEstadoGeneral) — no se toca aquí si el pedido está Anulado.
+  await recalcularEstadoGeneral(supabase, pedidoId);
 
   return { success: true };
 }

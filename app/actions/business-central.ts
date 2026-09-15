@@ -14,7 +14,7 @@ import {
   crearLineaPedidoCompraBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
-import { idsEfectivos } from '@/lib/pedidos-utils';
+import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export async function sincronizarProductosBC() {
@@ -333,6 +333,10 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
       .update({ total_estimado: Number(totalNuevo.toFixed(2)) })
       .eq('id', pedidoId);
   }
+
+  // El estado_id de las líneas puede haber cambiado arriba (p.ej. a "Pedido
+  // lanzado"): recalculamos el Estado general del pedido con esos datos.
+  await recalcularEstadoGeneral(supabase, pedidoId);
 
   if (errorLineas) avisos.push(errorLineas);
   if (!proveedorId && pedidoBC.Buy_from_Vendor_No) {

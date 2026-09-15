@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedidos';
-import { claseBadgeEstado } from '@/components/EstadoBadge';
+import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 
 type Estado = { id: number; nombre: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -21,7 +21,6 @@ type ItemForm = {
   proveedorId: string;
 };
 
-const ESTADOS_GENERALES = ['Pendiente de tramitar', 'Tramitado', 'Tramitado parcial', 'Anulado'];
 const ESTADOS_RECEPCION = ['Pendiente de recibir', 'Recibido parcial', 'Recibido', 'Anulado'];
 
 function SelectPildora({
@@ -96,7 +95,7 @@ export default function FormularioComprador({
   const [preciosLinea, setPreciosLinea] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.precio.toString()]))
   );
-  const [estado, setEstado] = useState(estadoGeneral);
+  const [anulado, setAnulado] = useState(estadoGeneral === 'Anulado');
   const [fecha, setFecha] = useState(fechaEstimada);
   const [asignarVacios, setAsignarVacios] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -137,6 +136,7 @@ export default function FormularioComprador({
     setError(null);
 
     const resultadoLineas = await actualizarLineasTecmelec(
+      pedidoId,
       items.map((i) => {
         const fechaLinea = fechasLinea[i.id] || '';
         const fechaFinal = !fechaLinea && asignarVacios && fecha ? fecha : fechaLinea;
@@ -158,8 +158,10 @@ export default function FormularioComprador({
       return;
     }
 
+    // El Estado general ya se recalculó solo a partir de las líneas (arriba);
+    // aquí solo forzamos "Anulado" si el comprador lo ha marcado a mano.
     const resultadoPedido = await actualizarPedido(pedidoId, {
-      estado_general: estado,
+      ...(anulado ? { estado_general: 'Anulado' } : {}),
       fecha_estimada_entrega: fecha || null,
       total_estimado: totalCalculado,
     });
@@ -272,17 +274,16 @@ export default function FormularioComprador({
 
         <div>
           <label className="block text-sm font-medium text-grafito mb-1">Estado general</label>
-          <select
-            className="input"
-            value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-          >
-            {ESTADOS_GENERALES.map((e) => (
-              <option key={e} value={e}>
-                {e}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-3">
+            <EstadoBadge estado={anulado ? 'Anulado' : estadoGeneral} />
+            <span className="text-xs text-slate">
+              (se calcula solo según el estado de las líneas de abajo)
+            </span>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-grafito mt-2">
+            <input type="checkbox" checked={anulado} onChange={(e) => setAnulado(e.target.checked)} />
+            Marcar todo el pedido como Anulado
+          </label>
         </div>
 
         <div>
