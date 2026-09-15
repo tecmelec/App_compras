@@ -462,7 +462,7 @@ export async function depurarCamposProductoBC() {
 async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
   const { data: pedido } = await supabase
     .from('pedidos')
-    .select('numero_app, proyectos(bc_job_no)')
+    .select('numero_app, nombre_contacto, proyectos(bc_job_no), direcciones(direccion, ciudad, provincia, codigo_postal)')
     .eq('id', pedidoId)
     .single();
 
@@ -525,6 +525,15 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
   return {
     numeroApp: pedido?.numero_app,
     jobNo: pedido?.proyectos?.bc_job_no || null,
+    contacto: pedido?.nombre_contacto || null,
+    direccion: pedido?.direcciones
+      ? {
+          direccion: pedido.direcciones.direccion || '',
+          ciudad: pedido.direcciones.ciudad || '',
+          provincia: pedido.direcciones.provincia || '',
+          codigoPostal: pedido.direcciones.codigo_postal || '',
+        }
+      : null,
     grupos: gruposFinal,
     sinProveedor: sinProveedor.map((i) => i.productos?.nombre),
     sinCodigoBC: sinCodigoBC.map((i) => i.productos?.nombre),
@@ -559,6 +568,15 @@ export async function crearPedidosCompraBC(pedidoId: string) {
       cabecera = await crearPedidoCompraBC({
         Buy_from_Vendor_No: grupo.proveedorBcNo,
         Your_Reference: previa.numeroApp,
+        ...(previa.contacto ? { Ship_to_Name: previa.contacto } : {}),
+        ...(previa.direccion
+          ? {
+              Ship_to_Address: previa.direccion.direccion,
+              Ship_to_City: previa.direccion.ciudad,
+              Ship_to_County: previa.direccion.provincia,
+              Ship_to_Post_Code: previa.direccion.codigoPostal,
+            }
+          : {}),
       });
     } catch (e: any) {
       errores.push(`${grupo.proveedorNombre}: no se pudo crear la cabecera del pedido — ${e.message}`);

@@ -15,6 +15,8 @@ type Grupo = {
 type Previa = {
   numeroApp: string;
   jobNo: string | null;
+  contacto: string | null;
+  direccion: { direccion: string; ciudad: string; provincia: string; codigoPostal: string } | null;
   grupos: Grupo[];
   sinProveedor: string[];
   sinCodigoBC: string[];
@@ -94,6 +96,16 @@ export default function CrearPedidoBCBoton({ pedidoId }: { pedidoId: string }) {
                       )}
                       .
                     </p>
+
+                    {previa.direccion && (
+                      <p className="text-xs text-slate mb-4 bg-fondo border border-borde rounded-md px-3 py-2">
+                        Dirección de envío: {previa.contacto ? `${previa.contacto} — ` : ''}
+                        {previa.direccion.direccion}
+                        {previa.direccion.codigoPostal ? `, CP ${previa.direccion.codigoPostal}` : ''}
+                        {previa.direccion.ciudad ? `, ${previa.direccion.ciudad}` : ''}
+                        {previa.direccion.provincia ? ` (${previa.direccion.provincia})` : ''}
+                      </p>
+                    )}
 
                     <div className="space-y-4 mb-4">
                       {previa.grupos.map((g) => (

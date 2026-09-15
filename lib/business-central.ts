@@ -172,6 +172,11 @@ export async function obtenerLineasPedidoCompraBC(documentNo: string): Promise<L
 export async function crearPedidoCompraBC(datos: {
   Buy_from_Vendor_No: string;
   Your_Reference: string;
+  Ship_to_Name?: string;
+  Ship_to_Address?: string;
+  Ship_to_City?: string;
+  Ship_to_County?: string;
+  Ship_to_Post_Code?: string;
 }): Promise<PedidoCompraBC> {
   const url = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
   return crearRegistroBC(url, datos);
