@@ -40,27 +40,25 @@ export async function sincronizarProductosBC() {
     const proveedorPredetId = item.Vendor_No ? proveedoresPorNo.get(item.Vendor_No) || null : null;
     if (item.Vendor_No && !proveedorPredetId) proveedoresSinSincronizar.add(item.Vendor_No);
 
+    // Solo tocamos el proveedor predeterminado cuando BC realmente lo resuelve a uno ya
+    // sincronizado; si no, dejamos lo que ya hubiera (manual o de un sync anterior) intacto.
+    const cambiosComunes: Record<string, any> = {
+      nombre: item.Description,
+      unidad_medida: item.Base_Unit_of_Measure,
+      precio: item.Unit_Price,
+    };
+    if (proveedorPredetId) cambiosComunes.proveedor_predeterminado_id = proveedorPredetId;
+
     if (idExistente) {
-      const { error } = await supabase
-        .from('productos')
-        .update({
-          nombre: item.Description,
-          unidad_medida: item.Base_Unit_of_Measure,
-          precio: item.Unit_Price,
-          proveedor_predeterminado_id: proveedorPredetId,
-        })
-        .eq('id', idExistente);
+      const { error } = await supabase.from('productos').update(cambiosComunes).eq('id', idExistente);
 
       if (error) errores.push(`${item.No}: ${error.message}`);
       else actualizados++;
     } else {
       const { error } = await supabase.from('productos').insert({
         bc_item_no: item.No,
-        nombre: item.Description,
-        unidad_medida: item.Base_Unit_of_Measure,
-        precio: item.Unit_Price,
-        proveedor_predeterminado_id: proveedorPredetId,
         visible: false, // el admin decide cuáles mostrar y sube la imagen antes de publicarlos
+        ...cambiosComunes,
       });
 
       if (error) errores.push(`${item.No}: ${error.message}`);
