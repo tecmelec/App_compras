@@ -93,6 +93,9 @@ export default function FormularioComprador({
   const [proveedoresLinea, setProveedoresLinea] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.proveedorId]))
   );
+  const [preciosLinea, setPreciosLinea] = useState<Record<string, string>>(
+    Object.fromEntries(items.map((i) => [i.id, i.precio.toString()]))
+  );
   const [estado, setEstado] = useState(estadoGeneral);
   const [fecha, setFecha] = useState(fechaEstimada);
   const [asignarVacios, setAsignarVacios] = useState(false);
@@ -121,6 +124,13 @@ export default function FormularioComprador({
     });
   }
 
+  const itemsPorId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+
+  const totalCalculado = useMemo(
+    () => items.reduce((suma, i) => suma + (Number(preciosLinea[i.id]) || 0) * i.cantidad, 0),
+    [items, preciosLinea]
+  );
+
   async function handleGuardar() {
     setGuardando(true);
     setGuardado(false);
@@ -137,6 +147,7 @@ export default function FormularioComprador({
           estado_id: estadosLinea[i.id],
           estado_recepcion: recepcionesLinea[i.id],
           proveedor_id: proveedoresLinea[i.id] || null,
+          precio_unitario: Number(preciosLinea[i.id]) || 0,
         };
       })
     );
@@ -150,6 +161,7 @@ export default function FormularioComprador({
     const resultadoPedido = await actualizarPedido(pedidoId, {
       estado_general: estado,
       fecha_estimada_entrega: fecha || null,
+      total_estimado: totalCalculado,
     });
 
     setGuardando(false);
@@ -162,8 +174,6 @@ export default function FormularioComprador({
     setGuardado(true);
     router.refresh();
   }
-
-  const itemsPorId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
   return (
     <div className="space-y-6">
@@ -211,6 +221,8 @@ export default function FormularioComprador({
                         onRecepcion={(v) => setRecepcionesLinea((prev) => ({ ...prev, [id]: v }))}
                         proveedorId={proveedoresLinea[id]}
                         onProveedorId={(v) => setProveedoresLinea((prev) => ({ ...prev, [id]: v }))}
+                        precio={preciosLinea[id]}
+                        onPrecio={(v) => setPreciosLinea((prev) => ({ ...prev, [id]: v }))}
                         estados={estados}
                         proveedores={proveedores}
                       />
@@ -235,6 +247,8 @@ export default function FormularioComprador({
                   onRecepcion={(v) => setRecepcionesLinea((prev) => ({ ...prev, [id]: v }))}
                   proveedorId={proveedoresLinea[id]}
                   onProveedorId={(v) => setProveedoresLinea((prev) => ({ ...prev, [id]: v }))}
+                  precio={preciosLinea[id]}
+                  onPrecio={(v) => setPreciosLinea((prev) => ({ ...prev, [id]: v }))}
                   estados={estados}
                   proveedores={proveedores}
                 />
@@ -245,7 +259,7 @@ export default function FormularioComprador({
 
         <div className="mt-3 bg-marcaClaro border border-[#C4DECD] rounded-lg px-5 py-3 flex items-center justify-between">
           <span className="text-sm text-grafito">Total solicitado</span>
-          <span className="font-mono text-lg font-semibold text-marca">{totalEstimado?.toFixed(2)} €</span>
+          <span className="font-mono text-lg font-semibold text-marca">{totalCalculado.toFixed(2)} €</span>
         </div>
       </div>
 
@@ -324,6 +338,8 @@ function ItemFila({
   onRecepcion,
   proveedorId,
   onProveedorId,
+  precio,
+  onPrecio,
   estados,
   proveedores,
 }: {
@@ -339,11 +355,17 @@ function ItemFila({
   onRecepcion: (v: string) => void;
   proveedorId: string;
   onProveedorId: (v: string) => void;
+  precio: string;
+  onPrecio: (v: string) => void;
   estados: Estado[];
   proveedores: Proveedor[];
 }) {
   const nombreEstado = estados.find((e) => e.id === estadoId)?.nombre || '';
   const proveedorActual = proveedores.find((p) => p.id === proveedorId);
+  // En cuanto hay Nº pedido Tecmelec, la sincronización con BC es quien manda
+  // sobre precio/proveedor/fecha/estado — se puede seguir editando a mano,
+  // pero se avisa de que el próximo sync lo puede sobrescribir.
+  const gestionadoPorBC = !!numeroTecmelec.trim();
 
   return (
     <div className="p-4">
@@ -354,9 +376,7 @@ function ItemFila({
           </div>
           <div>
             <p className="text-sm font-medium text-grafito">{item.nombre}</p>
-            <p className="font-mono text-slate text-xs mt-0.5">
-              {item.precio?.toFixed(2)} € / ud. · x{item.cantidad}
-            </p>
+            <p className="font-mono text-slate text-xs mt-0.5">x{item.cantidad}</p>
           </div>
         </div>
 
@@ -421,7 +441,28 @@ function ItemFila({
             ))}
           </select>
         </div>
+
+        <div>
+          <p className="text-xs text-slate mb-1">Precio / ud.</p>
+          <div className="relative">
+            <input
+              type="number"
+              step="0.00001"
+              className="input py-1 w-28 font-mono"
+              value={precio}
+              onChange={(e) => onPrecio(e.target.value)}
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate text-xs pointer-events-none">€</span>
+          </div>
+        </div>
       </div>
+
+      {gestionadoPorBC && (
+        <p className="text-xs text-slate mt-2">
+          ⓘ Al sincronizar con Business Central, el precio, proveedor, fecha y estado de esta línea se
+          actualizan automáticamente desde el pedido de compra.
+        </p>
+      )}
     </div>
   );
 }

@@ -230,18 +230,18 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
 export async function actualizarPedido(
   pedidoId: string,
-  datos: { estado_general: string; fecha_estimada_entrega: string | null }
+  datos: { estado_general: string; fecha_estimada_entrega: string | null; total_estimado?: number }
 ) {
   const supabase = createClient();
 
-  const { error } = await supabase
-    .from('pedidos')
-    .update({
-      estado_general: datos.estado_general,
-      fecha_estimada_entrega: datos.fecha_estimada_entrega || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', pedidoId);
+  const cambios: Record<string, any> = {
+    estado_general: datos.estado_general,
+    fecha_estimada_entrega: datos.fecha_estimada_entrega || null,
+    updated_at: new Date().toISOString(),
+  };
+  if (datos.total_estimado !== undefined) cambios.total_estimado = datos.total_estimado;
+
+  const { error } = await supabase.from('pedidos').update(cambios).eq('id', pedidoId);
 
   if (error) {
     return { error: 'No se pudo actualizar el pedido.' };
@@ -258,6 +258,7 @@ export async function actualizarLineasTecmelec(
     estado_id: number;
     estado_recepcion: string;
     proveedor_id: string | null;
+    precio_unitario: number;
   }[]
 ) {
   const supabase = createClient();
@@ -271,6 +272,7 @@ export async function actualizarLineasTecmelec(
         estado_id: item.estado_id,
         estado_recepcion: item.estado_recepcion,
         proveedor_id: item.proveedor_id,
+        precio_unitario: item.precio_unitario,
       })
       .eq('id', item.id);
 

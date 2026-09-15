@@ -240,8 +240,13 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     proveedorId = proveedor?.id || null;
   }
 
-  let lineasBC: { No: string; Quantity: number; Quantity_Received: number; Expected_Receipt_Date: string | null }[] =
-    [];
+  let lineasBC: {
+    No: string;
+    Quantity: number;
+    Quantity_Received: number;
+    Expected_Receipt_Date: string | null;
+    Line_Amount: number;
+  }[] = [];
   let errorLineas: string | null = null;
   try {
     lineasBC = await obtenerLineasPedidoCompraBC(pedidoBC.No);
@@ -291,6 +296,12 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
         if (lineaBC.Expected_Receipt_Date) {
           cambios.fecha_estimada_entrega = lineaBC.Expected_Receipt_Date.slice(0, 10);
         }
+
+        // Precio real de esa línea de compra, con descuentos ya aplicados (Line_Amount
+        // ya viene neto de descuento de línea). BC manda en cuanto hay una línea vinculada.
+        if (lineaBC.Quantity > 0) {
+          cambios.precio_unitario = Number((lineaBC.Line_Amount / lineaBC.Quantity).toFixed(5));
+        }
       } else if (!errorLineas) {
         avisos.push(
           `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No}.`
@@ -301,6 +312,24 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     const { error } = await supabase.from('pedido_items').update(cambios).eq('id', item.id);
     if (error) avisos.push(error.message);
     else actualizados++;
+  }
+
+  // Recalcula el total del pedido con los precios ya actualizados (o el del
+  // catálogo, para las líneas que aún no tengan precio propio de BC).
+  const { data: itemsFinal } = await supabase
+    .from('pedido_items')
+    .select('cantidad, precio_unitario, productos(precio)')
+    .eq('pedido_id', pedidoId);
+
+  if (itemsFinal) {
+    const totalNuevo = itemsFinal.reduce(
+      (suma: number, it: any) => suma + (it.precio_unitario ?? it.productos?.precio ?? 0) * it.cantidad,
+      0
+    );
+    await supabase
+      .from('pedidos')
+      .update({ total_estimado: Number(totalNuevo.toFixed(2)) })
+      .eq('id', pedidoId);
   }
 
   if (errorLineas) avisos.push(errorLineas);

@@ -189,7 +189,8 @@ create table public.pedido_items (
   estado_id int references public.estados_pedido(id),
   estado_recepcion text not null default 'Pendiente de recibir'
     check (estado_recepcion in ('Pendiente de recibir', 'Recibido parcial', 'Recibido', 'Anulado')),
-  proveedor_id uuid references public.proveedores(id)
+  proveedor_id uuid references public.proveedores(id),
+  precio_unitario numeric(12,5)
 );
 
 alter table public.pedido_items
