@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
+import GestionPedidosBC from './GestionPedidosBC';
 import { rangoFechasEstimadas } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
@@ -20,7 +21,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, proveedor_predeterminado_id))'
+      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, unidad_medida, proveedor_predeterminado_id))'
     )
     .eq('id', params.id)
     .single();
@@ -35,6 +36,33 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   if (!pedido) notFound();
 
   const p = pedido as any;
+
+  const proveedoresPorId = new Map<string, string>(
+    (proveedores || []).map((pr: any) => [pr.id, `${pr.bc_proveedor_no} — ${pr.nombre}`])
+  );
+
+  const gruposPorTecmelec = new Map<string, { proveedorId: string; total: number; lineas: number }>();
+  for (const item of p.pedido_items as any[]) {
+    if (!item.numero_tecmelec) continue;
+    const precio = item.precio_unitario ?? item.productos?.precio ?? 0;
+    const existente = gruposPorTecmelec.get(item.numero_tecmelec);
+    if (existente) {
+      existente.total += precio * item.cantidad;
+      existente.lineas += 1;
+    } else {
+      gruposPorTecmelec.set(item.numero_tecmelec, {
+        proveedorId: item.proveedor_id,
+        total: precio * item.cantidad,
+        lineas: 1,
+      });
+    }
+  }
+  const pedidosBC = Array.from(gruposPorTecmelec.entries()).map(([numeroTecmelec, g]) => ({
+    numeroTecmelec,
+    proveedorNombre: proveedoresPorId.get(g.proveedorId) || '',
+    total: g.total,
+    lineas: g.lineas,
+  }));
 
   return (
     <div className="p-8 max-w-4xl">
@@ -158,6 +186,8 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       </div>
 
       <SincronizarPedidoBCBoton pedidoId={p.id} />
+
+      <GestionPedidosBC pedidos={pedidosBC} />
 
       <FormularioComprador
         pedidoId={p.id}

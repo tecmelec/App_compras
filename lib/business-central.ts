@@ -23,6 +23,13 @@ type ProyectoBC = {
 type ProveedorBC = {
   No: string;
   Name: string;
+  Address?: string;
+  Address_2?: string;
+  City?: string;
+  Post_Code?: string;
+  County?: string;
+  Country_Region_Code?: string;
+  VAT_Registration_No?: string;
 };
 
 type PedidoCompraBC = {
@@ -30,6 +37,7 @@ type PedidoCompraBC = {
   Buy_from_Vendor_No: string;
   Status: string;
   Your_Reference: string;
+  Order_Date?: string;
 };
 
 type LineaPedidoCompraBC = {
@@ -175,6 +183,27 @@ export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {
 export async function obtenerProveedoresBC(): Promise<ProveedorBC[]> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROVEEDORES!);
   return consultarBC(base);
+}
+
+// Detalle (dirección, CIF) de un proveedor concreto, para imprimir en el PDF
+// del pedido de compra. Si BC no devuelve algún campo, queda undefined y el
+// PDF simplemente lo omite — no lanza error.
+export async function obtenerProveedorPorNumeroBC(bcProveedorNo: string): Promise<ProveedorBC | null> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROVEEDORES!);
+  const filtro = `No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  const resultados: ProveedorBC[] = await consultarBC(url);
+  return resultados[0] || null;
+}
+
+// Cabecera de un pedido de compra por su Nº de documento (Nº pedido Tecmelec),
+// para sacar la fecha de emisión al imprimir el PDF.
+export async function obtenerPedidoCompraPorDocumentNoBC(documentNo: string): Promise<PedidoCompraBC | null> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
+  const filtro = `No eq '${documentNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  const resultados: PedidoCompraBC[] = await consultarBC(url);
+  return resultados[0] || null;
 }
 
 // Busca el pedido de compra en BC cuya "Su Referencia" (Your_Reference) coincide
