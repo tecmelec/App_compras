@@ -1,5 +1,6 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
 import { EMPRESA } from './empresa';
+import { LOGO_TECMELEC_BASE64 } from './logo';
 
 function euros(n: number): string {
   return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -7,25 +8,25 @@ function euros(n: number): string {
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 9, color: '#1a1a1a', fontFamily: 'Helvetica' },
-  logo: { fontSize: 18, fontWeight: 700, color: '#178A4C', letterSpacing: 1 },
+  logo: { width: 130, height: 130 / (829 / 101) },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   tituloDocumento: { fontSize: 13, fontWeight: 700, textAlign: 'right' },
   fechaDocumento: { fontSize: 9, color: '#444', textAlign: 'right', marginTop: 2 },
   empresaLinea: { fontSize: 9, marginBottom: 14 },
   bloquesRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  bloque: { width: '48%' },
+  bloque: { width: '48%', backgroundColor: '#ececec', padding: 8, borderRadius: 2 },
   bloqueTitulo: { fontSize: 9, color: '#178A4C', marginBottom: 4 },
   bloqueTexto: { fontSize: 9, lineHeight: 1.4 },
   bloqueNombre: { fontSize: 9, fontWeight: 700, marginBottom: 1 },
   tabla: { marginTop: 4 },
   filaCabecera: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-    paddingBottom: 4,
+    backgroundColor: '#ececec',
+    paddingVertical: 5,
+    paddingHorizontal: 4,
     marginBottom: 4,
   },
-  fila: { flexDirection: 'row', paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: '#ddd' },
+  fila: { flexDirection: 'row', paddingVertical: 3, paddingHorizontal: 4, borderBottomWidth: 0.5, borderBottomColor: '#ddd' },
   colNo: { width: '13%' },
   colDesc: { width: '39%' },
   colCant: { width: '12%', textAlign: 'right' },
@@ -39,13 +40,15 @@ const styles = StyleSheet.create({
   totalFilaFinal: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 3,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor: '#ececec',
     borderTopWidth: 1,
     borderTopColor: '#333',
     marginTop: 2,
     fontWeight: 700,
   },
-  condiciones: { marginTop: 28, fontSize: 7, color: '#333', textAlign: 'center', lineHeight: 1.5 },
+  condiciones: { marginTop: 28, fontSize: 6, color: '#333', textAlign: 'center', lineHeight: 1.5 },
   pagoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -109,7 +112,7 @@ export default function PedidoCompraDocument({
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
-          <Text style={styles.logo}>TECMELEC</Text>
+          <Image style={styles.logo} src={LOGO_TECMELEC_BASE64} />
           <View>
             <Text style={styles.tituloDocumento}>Pedido de compra {numeroTecmelec}</Text>
             <Text style={styles.fechaDocumento}>Fecha emisión documento: {fechaEmision}</Text>
