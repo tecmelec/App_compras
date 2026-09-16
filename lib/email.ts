@@ -80,7 +80,7 @@ export async function enviarPedidoCompraPorEmail({
     .map((linea) => `<p style="margin:0 0 10px;">${linea}</p>`)
     .join('');
 
-  await resend.emails.send({
+  const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
     to: destinatarios,
     subject: `PEDIDO DE COMPRA ${numeroTecmelec}`,
@@ -97,4 +97,8 @@ export async function enviarPedidoCompraPorEmail({
       },
     ],
   });
+
+  if (error) {
+    throw new Error(error.message || 'Resend rechazó el envío del email.');
+  }
 }
