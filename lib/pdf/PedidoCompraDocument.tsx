@@ -92,6 +92,8 @@ export type PedidoCompraPdfProps = {
   contacto: string;
   direccionEnvio: string; // ya compuesta en una línea
   lineas: LineaPdf[];
+  formaPago?: string;
+  ibanEnmascarado?: string;
 };
 
 export default function PedidoCompraDocument({
@@ -103,6 +105,8 @@ export default function PedidoCompraDocument({
   contacto,
   direccionEnvio,
   lineas,
+  formaPago,
+  ibanEnmascarado,
 }: PedidoCompraPdfProps) {
   const base = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0);
   const iva = base * (EMPRESA.ivaPorcentaje / 100);
@@ -178,8 +182,8 @@ export default function PedidoCompraDocument({
         <Text style={styles.condiciones}>{CONDICIONES}</Text>
 
         <View style={styles.pagoRow}>
-          <Text>Forma de pago: {EMPRESA.formaPago}</Text>
-          <Text>IBAN: {EMPRESA.ibanEnmascarado}</Text>
+          <Text>Forma de pago: {formaPago || EMPRESA.formaPago}</Text>
+          <Text>IBAN: {ibanEnmascarado || EMPRESA.ibanEnmascarado}</Text>
         </View>
 
         <Text style={styles.footer}>

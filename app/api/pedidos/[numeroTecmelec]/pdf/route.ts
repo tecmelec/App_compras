@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createClient } from '@/lib/supabase/server';
-import { obtenerProveedorPorNumeroBC, obtenerPedidoCompraPorDocumentNoBC } from '@/lib/business-central';
+import {
+  obtenerProveedorPorNumeroBC,
+  obtenerPedidoCompraPorDocumentNoBC,
+  obtenerFichaProveedorPorNumeroBC,
+  obtenerCuentasBancariasProveedorBC,
+} from '@/lib/business-central';
 import PedidoCompraDocument, { LineaPdf } from '@/lib/pdf/PedidoCompraDocument';
 
 export async function GET(request: NextRequest, { params }: { params: { numeroTecmelec: string } }) {
@@ -53,6 +58,8 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
   let proveedorDireccion = '';
   let proveedorCif = '';
   let fechaEmision = new Date().toLocaleDateString('es-ES');
+  let formaPago = '';
+  let ibanEnmascarado = '';
 
   if (proveedor?.bc_proveedor_no) {
     try {
@@ -65,6 +72,23 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
       }
     } catch {
       // Sin datos adicionales del proveedor si BC no responde; el PDF se genera igual.
+    }
+
+    try {
+      const ficha = await obtenerFichaProveedorPorNumeroBC(proveedor.bc_proveedor_no);
+      if (ficha) {
+        const metodo = ficha.Payment_Method_Code === 'TRANSFER' ? 'Transf. bancaria' : ficha.Payment_Method_Code || '';
+        formaPago = [metodo, ficha.Payment_Terms_Code].filter(Boolean).join(' - ');
+
+        const cuentas = await obtenerCuentasBancariasProveedorBC(proveedor.bc_proveedor_no);
+        const cuenta =
+          cuentas.find((c) => c.Code === ficha.Preferred_Bank_Account_Code) || cuentas.find((c) => c.IBAN) || null;
+        if (cuenta?.IBAN) {
+          ibanEnmascarado = enmascararIban(cuenta.IBAN);
+        }
+      }
+    } catch {
+      // Sin forma de pago / IBAN del proveedor si BC no responde; el PDF usa los valores por defecto.
     }
   }
 
@@ -104,6 +128,8 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
         : '',
       direccionEnvio,
       lineas,
+      formaPago,
+      ibanEnmascarado,
     })
   );
 
@@ -113,4 +139,15 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
       'Content-Disposition': `inline; filename="Pedido_compra_${numeroTecmelec}.pdf"`,
     },
   });
+}
+
+// "ES6421002211900200204694" -> "ES****************4694" (deja el país y los
+// últimos 4 dígitos, como hace el PDF que genera Business Central).
+function enmascararIban(iban: string): string {
+  const limpio = iban.replace(/\s/g, '');
+  if (limpio.length <= 6) return limpio;
+  const pais = limpio.slice(0, 2);
+  const ultimos = limpio.slice(-4);
+  const relleno = '*'.repeat(Math.max(limpio.length - 6, 0));
+  return `${pais}${relleno}${ultimos}`;
 }

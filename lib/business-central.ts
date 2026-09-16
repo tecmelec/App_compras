@@ -40,6 +40,20 @@ type PedidoCompraBC = {
   Order_Date?: string;
 };
 
+type FichaProveedorBC = {
+  No: string;
+  Payment_Terms_Code?: string;
+  Payment_Method_Code?: string;
+  Preferred_Bank_Account_Code?: string;
+};
+
+type CuentaBancariaProveedorBC = {
+  Vendor_No: string;
+  Code: string;
+  Name?: string;
+  IBAN?: string;
+};
+
 type LineaPedidoCompraBC = {
   Document_No: string;
   No: string;
@@ -204,6 +218,27 @@ export async function obtenerPedidoCompraPorDocumentNoBC(documentNo: string): Pr
   const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
   const resultados: PedidoCompraBC[] = await consultarBC(url);
   return resultados[0] || null;
+}
+
+// Términos y método de pago del proveedor (códigos), y qué cuenta bancaria
+// suya es la preferida — para el bloque "Forma de pago" / IBAN del PDF.
+export async function obtenerFichaProveedorPorNumeroBC(bcProveedorNo: string): Promise<FichaProveedorBC | null> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_FICHA_PROVEEDOR!);
+  const filtro = `No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  const resultados: FichaProveedorBC[] = await consultarBC(url);
+  return resultados[0] || null;
+}
+
+// Cuentas bancarias del proveedor (incluye el IBAN), para sacar la que
+// coincide con su cuenta preferida.
+export async function obtenerCuentasBancariasProveedorBC(
+  bcProveedorNo: string
+): Promise<CuentaBancariaProveedorBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_BANCO_PROVEEDOR!);
+  const filtro = `Vendor_No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  return consultarBC(url);
 }
 
 // Busca el pedido de compra en BC cuya "Su Referencia" (Your_Reference) coincide
