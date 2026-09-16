@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { renderToBuffer } from '@react-pdf/renderer';
+import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
 import {
   obtenerProveedorPorNumeroBC,
@@ -109,14 +110,19 @@ async function generarPdf(numeroTecmelecParam: string, conFotos: boolean): Promi
         .join(', ')
     : '';
 
-  const lineas: LineaPdf[] = items.map((it: any) => ({
-    bcItemNo: it.productos?.bc_item_no || '',
-    nombre: it.productos?.nombre || '',
-    cantidad: it.cantidad,
-    unidadMedida: it.productos?.unidad_medida || '',
-    precio: it.precio_unitario ?? it.productos?.precio ?? 0,
-    imagenUrl: conFotos ? it.productos?.imagen_url || undefined : undefined,
-  }));
+  const lineas: LineaPdf[] = await Promise.all(
+    items.map(async (it: any) => ({
+      bcItemNo: it.productos?.bc_item_no || '',
+      nombre: it.productos?.nombre || '',
+      cantidad: it.cantidad,
+      unidadMedida: it.productos?.unidad_medida || '',
+      precio: it.precio_unitario ?? it.productos?.precio ?? 0,
+      imagenUrl:
+        conFotos && it.productos?.imagen_url
+          ? await prepararImagenParaPdf(it.productos.imagen_url)
+          : undefined,
+    }))
+  );
 
   const buffer = await renderToBuffer(
     PedidoCompraDocument({
@@ -153,4 +159,20 @@ function enmascararIban(iban: string): string {
   const ultimos = limpio.slice(-4);
   const relleno = '*'.repeat(Math.max(limpio.length - 6, 0));
   return `${pais}${relleno}${ultimos}`;
+}
+
+// pdfkit (usado por @react-pdf/renderer) solo admite JPEG y PNG. Las fotos
+// del catálogo pueden estar en cualquier formato (WebP, HEIC...), así que se
+// descargan y se convierten siempre a PNG antes de incrustarlas en el PDF.
+// Si algo falla, se omite la foto en vez de romper todo el documento.
+async function prepararImagenParaPdf(url: string): Promise<string | undefined> {
+  try {
+    const respuesta = await fetch(url);
+    if (!respuesta.ok) return undefined;
+    const buffer = Buffer.from(await respuesta.arrayBuffer());
+    const png = await sharp(buffer).png().toBuffer();
+    return `data:image/png;base64,${png.toString('base64')}`;
+  } catch {
+    return undefined;
+  }
 }
