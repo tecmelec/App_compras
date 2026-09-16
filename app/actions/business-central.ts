@@ -481,15 +481,28 @@ export async function depurarLineasPlanificacionBC(jobNo: string, jobTaskNo: str
   }
 }
 
-// Diagnóstico temporal: campos crudos de un proveedor concreto, para ver
-// cómo se llaman exactamente el IBAN y la forma de pago en su ficha de BC.
+// Diagnóstico temporal: campos crudos de un proveedor concreto, en sus tres
+// fuentes (ficha "Prov" ya usada, ficha completa y cuenta bancaria), para ver
+// cómo se llaman exactamente el IBAN y la forma de pago.
 export async function depurarProveedorBC(bcProveedorNo: string) {
   await requireAdmin();
 
   try {
-    const filtro = `No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
-    const valores = await obtenerCrudoBCFiltrado(process.env.BC_ODATA_SERVICE_PROVEEDORES!, filtro);
-    return { success: true, proveedor: valores?.[0] || null };
+    const filtroNo = `No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
+    const filtroVendorNo = `Vendor_No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
+
+    const [prov, fichaProveedor, bancoProveedor] = await Promise.all([
+      obtenerCrudoBCFiltrado(process.env.BC_ODATA_SERVICE_PROVEEDORES!, filtroNo),
+      obtenerCrudoBCFiltrado(process.env.BC_ODATA_SERVICE_FICHA_PROVEEDOR!, filtroNo),
+      obtenerCrudoBCFiltrado(process.env.BC_ODATA_SERVICE_BANCO_PROVEEDOR!, filtroVendorNo),
+    ]);
+
+    return {
+      success: true,
+      prov: prov?.[0] || null,
+      fichaProveedor: fichaProveedor?.[0] || null,
+      bancoProveedor: bancoProveedor || [],
+    };
   } catch (e: any) {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }
