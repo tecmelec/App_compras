@@ -5,7 +5,19 @@ import { obtenerProveedorPorNumeroBC, obtenerPedidoCompraPorDocumentNoBC } from 
 import PedidoCompraDocument, { LineaPdf } from '@/lib/pdf/PedidoCompraDocument';
 
 export async function GET(request: NextRequest, { params }: { params: { numeroTecmelec: string } }) {
-  const numeroTecmelec = decodeURIComponent(params.numeroTecmelec);
+  try {
+    return await generarPdf(params.numeroTecmelec);
+  } catch (e: any) {
+    console.error('Error generando PDF de pedido:', e);
+    return NextResponse.json(
+      { error: e?.message || 'Error desconocido', stack: e?.stack || null },
+      { status: 500 }
+    );
+  }
+}
+
+async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
+  const numeroTecmelec = decodeURIComponent(numeroTecmelecParam);
   const supabase = createClient();
 
   const {
