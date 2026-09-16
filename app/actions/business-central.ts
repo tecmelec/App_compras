@@ -566,20 +566,28 @@ export async function crearPedidosCompraBC(pedidoId: string) {
     return { error: 'No hay artículos listos para crear un pedido de compra (revisa proveedor y código BC).' };
   }
 
+  const creados: { proveedor: string; documentNo: string }[] = [];
+  const errores: string[] = [];
+
   // La obra es la misma para todo el pedido, así que la tarea solo hace falta
   // comprobarla una vez, no por cada línea.
   let jobTaskNo: string | undefined;
   if (previa.jobNo) {
     try {
       const existe = await existeTareaProyectoBC(previa.jobNo, JOB_TASK_NO_FIJA);
-      jobTaskNo = existe ? JOB_TASK_NO_FIJA : undefined;
-    } catch {
-      jobTaskNo = undefined; // si falla la comprobación, mejor dejarla en blanco que arriesgar la línea
+      if (existe) {
+        jobTaskNo = JOB_TASK_NO_FIJA;
+      } else {
+        errores.push(
+          `ℹ La obra ${previa.jobNo} no tiene la tarea ${JOB_TASK_NO_FIJA} — las líneas se crean sin Nº de tarea.`
+        );
+      }
+    } catch (e: any) {
+      errores.push(
+        `⚠ No se pudo comprobar la tarea ${JOB_TASK_NO_FIJA} de la obra ${previa.jobNo} (se deja en blanco) — ${e.message}`
+      );
     }
   }
-
-  const creados: { proveedor: string; documentNo: string }[] = [];
-  const errores: string[] = [];
 
   for (const grupo of previa.grupos) {
     if (!grupo.proveedorBcNo) {
