@@ -1,6 +1,7 @@
 'use client';
 
 import EnviarEmailPedidoBoton from './EnviarEmailPedidoBoton';
+import VerConversacionBoton from './VerConversacionBoton';
 
 type Fila = {
   numeroTecmelec: string;
@@ -48,6 +49,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 </a>
                 <EnviarEmailPedidoBoton numeroTecmelec={p.numeroTecmelec} conFotos={true} />
               </div>
+              <VerConversacionBoton numeroTecmelec={p.numeroTecmelec} />
             </div>
           </div>
         ))}

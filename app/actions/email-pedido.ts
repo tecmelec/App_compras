@@ -2,7 +2,7 @@
 
 import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { enviarEmailConAdjuntoGraph } from '@/lib/microsoft-graph';
+import { enviarEmailConAdjuntoGraph, obtenerConversacionGraph } from '@/lib/microsoft-graph';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
 
 // Precarga rápida (sin generar el PDF) del proveedor y su(s) email(s) de BC,
@@ -111,19 +111,98 @@ export async function enviarPedidoPorEmail(
   }
 
   try {
-    const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
+    const { data: item } = await supabase
+      .from('pedido_items')
+      .select('pedido_id')
+      .eq('numero_tecmelec', numeroTecmelec)
+      .limit(1)
+      .maybeSingle();
 
-    await enviarEmailConAdjuntoGraph({
+    if (!item) {
+      return { error: 'Pedido no encontrado.' };
+    }
+
+    const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
+    const asunto = `PEDIDO DE COMPRA ${numeroTecmelec}`;
+
+    const { messageId, conversationId } = await enviarEmailConAdjuntoGraph({
       buzon: user.email,
       destinatarios,
-      asunto: `PEDIDO DE COMPRA ${numeroTecmelec}`,
+      asunto,
       cuerpo: mensaje,
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
       contenidoBase64: pdfBuffer.toString('base64'),
     });
 
+    const { error: errorGuardado } = await supabase.from('pedido_emails').insert({
+      pedido_id: item.pedido_id,
+      numero_tecmelec: numeroTecmelec,
+      enviado_por: user.id,
+      buzon: user.email,
+      destinatarios,
+      asunto,
+      mensaje,
+      con_fotos: conFotos,
+      graph_message_id: messageId,
+      graph_conversation_id: conversationId,
+    });
+
+    if (errorGuardado) {
+      // El email ya salió; que no se guarde el registro no debe impedir avisar del envío,
+      // pero sí lo dejamos en consola para poder investigarlo.
+      console.error('No se pudo guardar el registro de pedido_emails:', errorGuardado);
+    }
+
     return { success: true, destinatarios };
   } catch (e: any) {
     return { error: e.message || 'No se pudo enviar el email.' };
+  }
+}
+
+// Historial de emails enviados desde la app para este pedido, más la
+// conversación completa leída en vivo desde Microsoft Graph (incluye las
+// respuestas del proveedor que hayan llegado al buzón de quien envió).
+export async function obtenerConversacionPedido(numeroTecmelec: string) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: 'No autenticado.' };
+  }
+
+  try {
+    const { data: envios } = await supabase
+      .from('pedido_emails')
+      .select('buzon, graph_conversation_id, created_at, enviado_por, profiles(nombre_completo)')
+      .eq('numero_tecmelec', numeroTecmelec)
+      .order('created_at', { ascending: true });
+
+    if (!envios || envios.length === 0) {
+      return { success: true, mensajes: [], enviado: false };
+    }
+
+    // Normalmente hay una sola conversación por pedido; si se envió más de
+    // una vez (p. ej. reenvío), se combinan los hilos de cada envío.
+    const hilos = new Map<string, string>(); // conversationId -> buzon
+    for (const e of envios as any[]) {
+      if (e.graph_conversation_id && e.buzon) {
+        hilos.set(e.graph_conversation_id, e.buzon);
+      }
+    }
+
+    const mensajesPorHilo = await Promise.all(
+      Array.from(hilos.entries()).map(([conversationId, buzon]) =>
+        obtenerConversacionGraph(buzon, conversationId).catch(() => [])
+      )
+    );
+
+    const mensajes = mensajesPorHilo
+      .flat()
+      .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+    return { success: true, mensajes, enviado: true };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo leer la conversación.' };
   }
 }
