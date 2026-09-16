@@ -54,6 +54,7 @@ export async function enviarEmailConAdjuntoGraph({
   destinatarios,
   asunto,
   cuerpo,
+  cuerpoEsHtml,
   nombreArchivo,
   contenidoBase64,
 }: {
@@ -61,6 +62,7 @@ export async function enviarEmailConAdjuntoGraph({
   destinatarios: string[];
   asunto: string;
   cuerpo: string;
+  cuerpoEsHtml?: boolean;
   nombreArchivo: string;
   contenidoBase64: string;
 }): Promise<{ messageId: string; conversationId: string | null }> {
@@ -76,7 +78,7 @@ export async function enviarEmailConAdjuntoGraph({
     headers: headersComunes,
     body: JSON.stringify({
       subject: asunto,
-      body: { contentType: 'Text', content: cuerpo },
+      body: { contentType: cuerpoEsHtml ? 'HTML' : 'Text', content: cuerpo },
       toRecipients: destinatarios.map((email) => ({ emailAddress: { address: email } })),
       attachments: [
         {

@@ -14,8 +14,11 @@ create table public.pedido_emails (
   con_fotos boolean not null default false,
   graph_message_id text,
   graph_conversation_id text,
+  token uuid not null default gen_random_uuid(),
   created_at timestamptz not null default now()
 );
+
+create unique index pedido_emails_token_idx on public.pedido_emails(token);
 
 create index pedido_emails_pedido_id_idx on public.pedido_emails(pedido_id);
 create index pedido_emails_numero_tecmelec_idx on public.pedido_emails(numero_tecmelec);

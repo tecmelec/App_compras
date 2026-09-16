@@ -1,9 +1,17 @@
 'use server';
 
+import { randomUUID } from 'crypto';
 import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { enviarEmailConAdjuntoGraph, obtenerConversacionGraph } from '@/lib/microsoft-graph';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
+
+function construirBaseUrl(): string {
+  const h = headers();
+  const host = h.get('host');
+  const protocolo = host?.startsWith('localhost') || host?.startsWith('127.0.0.1') ? 'http' : 'https';
+  return `${protocolo}://${host}`;
+}
 
 // Precarga rápida (sin generar el PDF) del proveedor y su(s) email(s) de BC,
 // para que el usuario los vea y pueda editarlos antes de enviar.
@@ -65,11 +73,8 @@ export async function obtenerDatosEmailPedido(numeroTecmelec: string) {
 // y rompe el build (Terser no admite el "await" que genera esa interop ESM
 // en ese contexto).
 async function pedirPdfPorHttp(numeroTecmelec: string, conFotos: boolean): Promise<Buffer> {
-  const h = headers();
-  const host = h.get('host');
-  const protocolo = host?.startsWith('localhost') || host?.startsWith('127.0.0.1') ? 'http' : 'https';
   const query = conFotos ? '?fotos=1' : '';
-  const url = `${protocolo}://${host}/api/pedidos/${encodeURIComponent(numeroTecmelec)}/pdf${query}`;
+  const url = `${construirBaseUrl()}/api/pedidos/${encodeURIComponent(numeroTecmelec)}/pdf${query}`;
 
   const cookieHeader = cookies()
     .getAll()
@@ -87,6 +92,35 @@ async function pedirPdfPorHttp(numeroTecmelec: string, conFotos: boolean): Promi
 
   const arrayBuffer = await respuesta.arrayBuffer();
   return Buffer.from(arrayBuffer);
+}
+
+function escapeHtml(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function construirCuerpoHtml(mensaje: string, enlaceFechaEntrega: string): string {
+  const parrafos = mensaje
+    .split('\n')
+    .map((linea) => `<p style="margin:0 0 10px;">${escapeHtml(linea)}</p>`)
+    .join('');
+
+  return `
+    <div style="font-family: sans-serif; color:#1C2126;">
+      ${parrafos}
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+        <tr>
+          <td style="background-color:#178A4C;border-radius:8px;">
+            <a href="${enlaceFechaEntrega}" style="display:inline-block;padding:14px 22px;color:#ffffff;font-weight:bold;text-decoration:none;font-family:sans-serif;font-size:14px;">
+              📅 Indica la fecha de entrega estimada
+            </a>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
 }
 
 export async function enviarPedidoPorEmail(
@@ -124,12 +158,16 @@ export async function enviarPedidoPorEmail(
 
     const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
     const asunto = `PEDIDO DE COMPRA ${numeroTecmelec}`;
+    const token = randomUUID();
+    const enlaceFechaEntrega = `${construirBaseUrl()}/proveedor/pedido/${token}`;
+    const cuerpoHtml = construirCuerpoHtml(mensaje, enlaceFechaEntrega);
 
     const { messageId, conversationId } = await enviarEmailConAdjuntoGraph({
       buzon: user.email,
       destinatarios,
       asunto,
-      cuerpo: mensaje,
+      cuerpo: cuerpoHtml,
+      cuerpoEsHtml: true,
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
       contenidoBase64: pdfBuffer.toString('base64'),
     });
@@ -145,6 +183,7 @@ export async function enviarPedidoPorEmail(
       con_fotos: conFotos,
       graph_message_id: messageId,
       graph_conversation_id: conversationId,
+      token,
     });
 
     if (errorGuardado) {
