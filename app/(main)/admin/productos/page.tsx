@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import ProductosClient from './ProductosClient';
 import SincronizarBCBoton from './SincronizarBCBoton';
 import DepurarBCBoton from './DepurarBCBoton';
+import DepurarPlanificacionBoton from './DepurarPlanificacionBoton';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export default async function ProductosAdminPage() {
@@ -23,6 +24,7 @@ export default async function ProductosAdminPage() {
 
       <SincronizarBCBoton />
       <DepurarBCBoton />
+      <DepurarPlanificacionBoton />
       <ProductosClient productos={productos || []} proveedores={proveedores || []} />
     </div>
   );

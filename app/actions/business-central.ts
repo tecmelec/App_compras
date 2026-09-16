@@ -10,6 +10,7 @@ import {
   obtenerPedidoCompraBC,
   obtenerLineasPedidoCompraBC,
   obtenerCrudoBC,
+  obtenerCrudoBCFiltrado,
   crearPedidoCompraBC,
   crearLineaPedidoCompraBC,
   existeTareaProyectoBC,
@@ -456,6 +457,21 @@ export async function depurarCamposProductoBC() {
   try {
     const valores = await obtenerCrudoBC(process.env.BC_ODATA_SERVICE!);
     return { success: true, primerItem: valores?.[0] || null, total: valores?.length || 0 };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo conectar con Business Central.' };
+  }
+}
+
+// Diagnóstico temporal: muestra tal cual las líneas de planificación de
+// proyecto existentes para una obra/tarea concreta, para ver los nombres de
+// campo exactos antes de intentar crear una nueva por OData.
+export async function depurarLineasPlanificacionBC(jobNo: string, jobTaskNo: string) {
+  await requireAdmin();
+
+  try {
+    const filtro = `Job_No eq '${jobNo.replace(/'/g, "''")}' and Job_Task_No eq '${jobTaskNo.replace(/'/g, "''")}'`;
+    const valores = await obtenerCrudoBCFiltrado(process.env.BC_ODATA_SERVICE_LINEAS_PLANIFICACION!, filtro);
+    return { success: true, lineas: valores || [], total: valores?.length || 0 };
   } catch (e: any) {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }

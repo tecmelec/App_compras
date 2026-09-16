@@ -83,7 +83,7 @@ function urlServicioBC(servicio: string): string {
 
   return `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${environment}/ODataV4/Company('${encodeURIComponent(
     company
-  )}')/${servicio}`;
+  )}')/${encodeURIComponent(servicio)}`;
 }
 
 async function consultarBC(url: string) {
@@ -129,6 +129,12 @@ async function crearRegistroBC(url: string, cuerpo: Record<string, any>) {
 export async function obtenerCrudoBC(servicio: string): Promise<any> {
   const base = urlServicioBC(servicio);
   return consultarBC(base);
+}
+
+export async function obtenerCrudoBCFiltrado(servicio: string, filtro: string): Promise<any> {
+  const base = urlServicioBC(servicio);
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  return consultarBC(url);
 }
 
 export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
