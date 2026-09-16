@@ -1,7 +1,7 @@
 'use server';
 
+import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { construirPedidoCompraPdf } from '@/lib/pdf/generar-pedido-pdf';
 import { enviarPedidoCompraPorEmail } from '@/lib/email';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
 
@@ -58,6 +58,37 @@ export async function obtenerDatosEmailPedido(numeroTecmelec: string) {
   }
 }
 
+// El PDF se pide a nuestra propia ruta /api/pedidos/.../pdf en vez de
+// generarlo aquí mismo: esa ruta ya está aislada para poder cargar
+// @react-pdf/renderer (ESM); importarlo directamente en esta Server Action
+// arrastra esa dependencia al bundle de la página que usa el botón de email
+// y rompe el build (Terser no admite el "await" que genera esa interop ESM
+// en ese contexto).
+async function pedirPdfPorHttp(numeroTecmelec: string, conFotos: boolean): Promise<Buffer> {
+  const h = headers();
+  const host = h.get('host');
+  const protocolo = host?.startsWith('localhost') || host?.startsWith('127.0.0.1') ? 'http' : 'https';
+  const query = conFotos ? '?fotos=1' : '';
+  const url = `${protocolo}://${host}/api/pedidos/${encodeURIComponent(numeroTecmelec)}/pdf${query}`;
+
+  const cookieHeader = cookies()
+    .getAll()
+    .map((c) => `${c.name}=${c.value}`)
+    .join('; ');
+
+  const respuesta = await fetch(url, {
+    headers: { cookie: cookieHeader },
+    cache: 'no-store',
+  });
+
+  if (!respuesta.ok) {
+    throw new Error(`No se pudo generar el PDF del pedido (HTTP ${respuesta.status}).`);
+  }
+
+  const arrayBuffer = await respuesta.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export async function enviarPedidoPorEmail(
   numeroTecmelec: string,
   conFotos: boolean,
@@ -77,16 +108,13 @@ export async function enviarPedidoPorEmail(
   }
 
   try {
-    const resultado = await construirPedidoCompraPdf(numeroTecmelec, conFotos);
-    if (!resultado) {
-      return { error: 'Pedido no encontrado.' };
-    }
+    const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
 
     await enviarPedidoCompraPorEmail({
       destinatarios,
       numeroTecmelec,
-      proveedorNombre: resultado.proveedorNombre,
-      pdfBuffer: resultado.buffer,
+      proveedorNombre: '',
+      pdfBuffer,
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
       mensaje,
     });
