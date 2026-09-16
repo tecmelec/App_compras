@@ -183,7 +183,7 @@ export default function PedidoCompraDocument({
 
         <View style={styles.pagoRow}>
           <Text>Forma de pago: {formaPago || EMPRESA.formaPago}</Text>
-          <Text>IBAN: {ibanEnmascarado || EMPRESA.ibanEnmascarado}</Text>
+          {ibanEnmascarado ? <Text>IBAN: {ibanEnmascarado}</Text> : null}
         </View>
 
         <Text style={styles.footer}>
