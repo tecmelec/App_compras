@@ -1,3 +1,7 @@
+'use client';
+
+import EnviarEmailPedidoBoton from './EnviarEmailPedidoBoton';
+
 type Fila = {
   numeroTecmelec: string;
   proveedorNombre: string;
@@ -21,23 +25,29 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 {p.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </p>
             </div>
-            <div className="flex items-center gap-4 shrink-0">
-              <a
-                href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-marca hover:underline"
-              >
-                Ver PDF
-              </a>
-              <a
-                href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf?fotos=1`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-marca hover:underline"
-              >
-                PDF con fotos
-              </a>
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-marca hover:underline"
+                >
+                  Ver PDF
+                </a>
+                <EnviarEmailPedidoBoton numeroTecmelec={p.numeroTecmelec} conFotos={false} />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <a
+                  href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf?fotos=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-marca hover:underline"
+                >
+                  PDF con fotos
+                </a>
+                <EnviarEmailPedidoBoton numeroTecmelec={p.numeroTecmelec} conFotos={true} />
+              </div>
             </div>
           </div>
         ))}

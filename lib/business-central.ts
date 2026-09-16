@@ -45,6 +45,7 @@ type FichaProveedorBC = {
   Payment_Terms_Code?: string;
   Payment_Method_Code?: string;
   Preferred_Bank_Account_Code?: string;
+  E_Mail?: string;
 };
 
 type CuentaBancariaProveedorBC = {

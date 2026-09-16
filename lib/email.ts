@@ -55,3 +55,40 @@ export async function enviarEmailSolicitud({
     `,
   });
 }
+
+export async function enviarPedidoCompraPorEmail({
+  destinatarios,
+  numeroTecmelec,
+  proveedorNombre,
+  pdfBuffer,
+  nombreArchivo,
+}: {
+  destinatarios: string[];
+  numeroTecmelec: string;
+  proveedorNombre: string;
+  pdfBuffer: Buffer;
+  nombreArchivo: string;
+}) {
+  if (destinatarios.length === 0) return;
+
+  await resend.emails.send({
+    from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
+    to: destinatarios,
+    subject: `PEDIDO DE COMPRA ${numeroTecmelec}`,
+    html: `
+      <div style="font-family: sans-serif; color:#1C2126;">
+        <p>Buenas,</p>
+        <p>Adjuntamos el pedido de compra <strong>${numeroTecmelec}</strong>${
+      proveedorNombre ? ` para ${proveedorNombre}` : ''
+    }.</p>
+        <p>Un saludo,<br/>Tecmelec Electricidad S.L.</p>
+      </div>
+    `,
+    attachments: [
+      {
+        filename: nombreArchivo,
+        content: pdfBuffer.toString('base64'),
+      },
+    ],
+  });
+}
