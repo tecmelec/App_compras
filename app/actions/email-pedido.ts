@@ -2,7 +2,7 @@
 
 import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { enviarPedidoCompraPorEmail } from '@/lib/email';
+import { enviarEmailConAdjuntoGraph } from '@/lib/microsoft-graph';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
 
 // Precarga rápida (sin generar el PDF) del proveedor y su(s) email(s) de BC,
@@ -102,6 +102,9 @@ export async function enviarPedidoPorEmail(
   if (!user) {
     return { error: 'No autenticado.' };
   }
+  if (!user.email) {
+    return { error: 'Tu usuario no tiene un email asociado, no se puede enviar en tu nombre.' };
+  }
 
   if (destinatarios.length === 0) {
     return { error: 'Añade al menos un destinatario.' };
@@ -110,14 +113,13 @@ export async function enviarPedidoPorEmail(
   try {
     const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
 
-    await enviarPedidoCompraPorEmail({
+    await enviarEmailConAdjuntoGraph({
+      buzon: user.email,
       destinatarios,
-      numeroTecmelec,
-      proveedorNombre: '',
-      pdfBuffer,
+      asunto: `PEDIDO DE COMPRA ${numeroTecmelec}`,
+      cuerpo: mensaje,
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
-      mensaje,
-      replyTo: user.email,
+      contenidoBase64: pdfBuffer.toString('base64'),
     });
 
     return { success: true, destinatarios };
