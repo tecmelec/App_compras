@@ -234,7 +234,7 @@ export async function crearLineaPlanificacionBC(datos: {
   Line_Type: string;
   Type: string;
   No: string;
-  Quantity: number;
+  AITP_Quantity_Needed: number;
   Unit_Cost?: number;
   Planning_Date?: string;
 }): Promise<any> {

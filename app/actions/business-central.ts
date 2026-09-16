@@ -663,7 +663,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
             Line_Type: 'Budget',
             Type: 'Item',
             No: item.bcItemNo,
-            Quantity: item.cantidad,
+            AITP_Quantity_Needed: item.cantidad,
             Unit_Cost: item.precio,
             Planning_Date: new Date().toISOString().slice(0, 10),
           });
