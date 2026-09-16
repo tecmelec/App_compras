@@ -63,6 +63,7 @@ export async function enviarPedidoCompraPorEmail({
   pdfBuffer,
   nombreArchivo,
   mensaje,
+  replyTo,
 }: {
   destinatarios: string[];
   numeroTecmelec: string;
@@ -70,6 +71,7 @@ export async function enviarPedidoCompraPorEmail({
   pdfBuffer: Buffer;
   nombreArchivo: string;
   mensaje?: string;
+  replyTo?: string;
 }) {
   if (destinatarios.length === 0) return;
 
@@ -83,6 +85,7 @@ export async function enviarPedidoCompraPorEmail({
   const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
     to: destinatarios,
+    ...(replyTo ? { replyTo } : {}),
     subject: `PEDIDO DE COMPRA ${numeroTecmelec}`,
     html: `
       <div style="font-family: sans-serif; color:#1C2126;">

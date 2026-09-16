@@ -117,6 +117,7 @@ export async function enviarPedidoPorEmail(
       pdfBuffer,
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
       mensaje,
+      replyTo: user.email,
     });
 
     return { success: true, destinatarios };
