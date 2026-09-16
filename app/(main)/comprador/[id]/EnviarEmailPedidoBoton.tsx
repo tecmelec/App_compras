@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { enviarPedidoPorEmail } from '@/app/actions/email-pedido';
+import { enviarPedidoPorEmail, obtenerDatosEmailPedido } from '@/app/actions/email-pedido';
+
+const MENSAJE_POR_DEFECTO = (numeroTecmelec: string, proveedorNombre: string) =>
+  `Buenas,\nAdjuntamos el pedido de compra ${numeroTecmelec}${proveedorNombre ? ` para ${proveedorNombre}` : ''}.`;
 
 export default function EnviarEmailPedidoBoton({
   numeroTecmelec,
@@ -11,8 +14,11 @@ export default function EnviarEmailPedidoBoton({
   conFotos: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [resultado, setResultado] = useState<{ destinatarios: string[] } | null>(null);
+  const [para, setPara] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [enviado, setEnviado] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -24,17 +30,40 @@ export default function EnviarEmailPedidoBoton({
     return () => document.removeEventListener('mousedown', onClickFuera);
   }, []);
 
-  function abrir() {
-    setResultado(null);
+  async function abrir() {
+    setEnviado(null);
     setError(null);
     setAbierto(true);
+    setCargando(true);
+
+    const r = await obtenerDatosEmailPedido(numeroTecmelec);
+
+    setCargando(false);
+
+    if (r.error) {
+      setError(r.error);
+      return;
+    }
+
+    setPara((r.emails || []).join(', '));
+    setMensaje(MENSAJE_POR_DEFECTO(numeroTecmelec, r.proveedorNombre || ''));
   }
 
   async function handleEnviar() {
+    const destinatarios = para
+      .split(/[;,]/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+
+    if (destinatarios.length === 0) {
+      setError('Añade al menos un destinatario.');
+      return;
+    }
+
     setEnviando(true);
     setError(null);
 
-    const r = await enviarPedidoPorEmail(numeroTecmelec, conFotos);
+    const r = await enviarPedidoPorEmail(numeroTecmelec, conFotos, destinatarios, mensaje);
 
     setEnviando(false);
 
@@ -43,7 +72,7 @@ export default function EnviarEmailPedidoBoton({
       return;
     }
 
-    setResultado({ destinatarios: r.destinatarios || [] });
+    setEnviado(r.destinatarios || destinatarios);
   }
 
   return (
@@ -61,18 +90,36 @@ export default function EnviarEmailPedidoBoton({
       </button>
 
       {abierto && (
-        <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-borde bg-white shadow-lg p-4 text-sm">
-          {!resultado && (
+        <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-borde bg-white shadow-lg p-4 text-sm">
+          {cargando && <p className="text-xs text-slate">Cargando datos del proveedor…</p>}
+
+          {!cargando && !enviado && (
             <>
-              <p className="text-grafito mb-1">
-                Enviar el pedido <span className="font-mono">{numeroTecmelec}</span>
-                {conFotos ? ' (con fotos)' : ''} por email al proveedor.
+              <p className="text-xs font-semibold text-grafito mb-2">
+                Pedido {numeroTecmelec}
+                {conFotos ? ' (con fotos)' : ''}
               </p>
-              <p className="text-xs text-slate mb-3">
-                Asunto: PEDIDO DE COMPRA {numeroTecmelec}. El destinatario se toma del email registrado en la ficha
-                del proveedor en Business Central.
-              </p>
+
+              <label className="block text-xs text-slate mb-1">Para</label>
+              <input
+                type="text"
+                value={para}
+                onChange={(e) => setPara(e.target.value)}
+                placeholder="email@proveedor.com, otro@proveedor.com"
+                className="input w-full text-xs mb-3"
+              />
+
+              <label className="block text-xs text-slate mb-1">Mensaje</label>
+              <textarea
+                value={mensaje}
+                onChange={(e) => setMensaje(e.target.value)}
+                rows={4}
+                className="input w-full text-xs mb-1 resize-none"
+              />
+              <p className="text-[11px] text-slate mb-3">Asunto: PEDIDO DE COMPRA {numeroTecmelec}</p>
+
               {error && <p className="text-xs text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mb-3">{error}</p>}
+
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setAbierto(false)} className="text-xs text-slate hover:text-grafito px-2 py-1">
                   Cancelar
@@ -88,10 +135,11 @@ export default function EnviarEmailPedidoBoton({
               </div>
             </>
           )}
-          {resultado && (
+
+          {enviado && (
             <>
               <p className="text-grafito mb-1">Email enviado a:</p>
-              <p className="text-xs text-slate mb-3">{resultado.destinatarios.join(', ')}</p>
+              <p className="text-xs text-slate mb-3">{enviado.join(', ')}</p>
               <div className="flex justify-end">
                 <button type="button" onClick={() => setAbierto(false)} className="text-xs text-marca hover:underline px-2 py-1">
                   Cerrar

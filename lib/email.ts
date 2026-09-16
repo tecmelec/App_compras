@@ -62,14 +62,23 @@ export async function enviarPedidoCompraPorEmail({
   proveedorNombre,
   pdfBuffer,
   nombreArchivo,
+  mensaje,
 }: {
   destinatarios: string[];
   numeroTecmelec: string;
   proveedorNombre: string;
   pdfBuffer: Buffer;
   nombreArchivo: string;
+  mensaje?: string;
 }) {
   if (destinatarios.length === 0) return;
+
+  const parrafos = (
+    mensaje || `Adjuntamos el pedido de compra ${numeroTecmelec}${proveedorNombre ? ` para ${proveedorNombre}` : ''}.`
+  )
+    .split('\n')
+    .map((linea) => `<p style="margin:0 0 10px;">${linea}</p>`)
+    .join('');
 
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
@@ -77,11 +86,8 @@ export async function enviarPedidoCompraPorEmail({
     subject: `PEDIDO DE COMPRA ${numeroTecmelec}`,
     html: `
       <div style="font-family: sans-serif; color:#1C2126;">
-        <p>Buenas,</p>
-        <p>Adjuntamos el pedido de compra <strong>${numeroTecmelec}</strong>${
-      proveedorNombre ? ` para ${proveedorNombre}` : ''
-    }.</p>
-        <p>Un saludo,<br/>Tecmelec Electricidad S.L.</p>
+        ${parrafos}
+        <p style="margin-top:10px;">Un saludo,<br/>Tecmelec Electricidad S.L.</p>
       </div>
     `,
     attachments: [
