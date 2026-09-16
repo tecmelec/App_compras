@@ -86,6 +86,15 @@ function urlServicioBC(servicio: string): string {
   )}')/${encodeURIComponent(servicio)}`;
 }
 
+// Base de la API estándar de Business Central (v2.0), distinta de las páginas
+// OData personalizadas (_Excel) que usamos en el resto de la integración.
+function urlApiEstandarBC(ruta: string): string {
+  const tenantId = process.env.BC_TENANT_ID!;
+  const environment = process.env.BC_ENVIRONMENT!;
+
+  return `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${environment}/api/v2.0/${ruta}`;
+}
+
 async function consultarBC(url: string) {
   const token = await obtenerToken();
 
@@ -134,6 +143,21 @@ export async function obtenerCrudoBC(servicio: string): Promise<any> {
 export async function obtenerCrudoBCFiltrado(servicio: string, filtro: string): Promise<any> {
   const base = urlServicioBC(servicio);
   const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  return consultarBC(url);
+}
+
+// Diagnóstico de la API estándar (api/v2.0), para confirmar que el token
+// tiene permiso ahí y ver los nombres de campo reales antes de escribir.
+export async function obtenerCompaniaEstandarBC(nombre: string): Promise<any | null> {
+  const url = urlApiEstandarBC('companies');
+  const companias = await consultarBC(url);
+  return (
+    companias.find((c: any) => c.name === nombre || c.displayName === nombre) || companias[0] || null
+  );
+}
+
+export async function obtenerCrudoEstandarBC(companyId: string, entidad: string): Promise<any> {
+  const url = urlApiEstandarBC(`companies(${companyId})/${entidad}`);
   return consultarBC(url);
 }
 

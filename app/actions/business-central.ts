@@ -16,6 +16,8 @@ import {
   existeTareaProyectoBC,
   obtenerMaxLineaPlanificacionBC,
   crearLineaPlanificacionBC,
+  obtenerCompaniaEstandarBC,
+  obtenerCrudoEstandarBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
@@ -476,6 +478,30 @@ export async function depurarLineasPlanificacionBC(jobNo: string, jobTaskNo: str
     return { success: true, lineas: valores || [], total: valores?.length || 0 };
   } catch (e: any) {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
+  }
+}
+
+// Diagnóstico temporal: comprueba acceso a la API estándar (api/v2.0) y
+// muestra un registro real de jobPlanningLines, para ver sus nombres de
+// campo exactos antes de intentar crear uno.
+export async function depurarAPIEstandarBC() {
+  await requireAdmin();
+
+  try {
+    const compania = await obtenerCompaniaEstandarBC(process.env.BC_COMPANY_NAME!);
+    if (!compania) {
+      return { error: 'La API estándar respondió pero no se encontró ninguna compañía.' };
+    }
+
+    const lineas = await obtenerCrudoEstandarBC(compania.id, 'jobPlanningLines');
+    return {
+      success: true,
+      compania,
+      total: lineas?.length || 0,
+      primeraLinea: lineas?.[0] || null,
+    };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo conectar con la API estándar de Business Central.' };
   }
 }
 
