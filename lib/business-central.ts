@@ -198,6 +198,7 @@ export async function crearLineaPedidoCompraBC(datos: {
   Direct_Unit_Cost: number;
   Job_No?: string;
   Job_Task_No?: string;
+  Job_Planning_Line_No?: number;
 }): Promise<any> {
   const url = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_COMPRA!);
   return crearRegistroBC(url, datos);
@@ -211,4 +212,32 @@ export async function existeTareaProyectoBC(jobNo: string, jobTaskNo: string): P
   const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
   const resultados = await consultarBC(url);
   return resultados.length > 0;
+}
+
+// Nº de línea más alto ya usado en las líneas de planificación de una
+// obra/tarea, para poder calcular el siguiente sin colisionar (BC los
+// numera de 10000 en 10000, igual que casi todas sus líneas de documento).
+export async function obtenerMaxLineaPlanificacionBC(jobNo: string, jobTaskNo: string): Promise<number> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_PLANIFICACION!);
+  const filtro = `Job_No eq '${jobNo.replace(/'/g, "''")}' and Job_Task_No eq '${jobTaskNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}&$select=Line_No&$orderby=Line_No desc&$top=1`;
+  const resultados = await consultarBC(url);
+  return resultados[0]?.Line_No || 0;
+}
+
+// Crea una nueva línea de planificación de proyecto (presupuesto) para un
+// artículo, dentro de una obra/tarea concreta.
+export async function crearLineaPlanificacionBC(datos: {
+  Job_No: string;
+  Job_Task_No: string;
+  Line_No: number;
+  Line_Type: string;
+  Type: string;
+  No: string;
+  Quantity: number;
+  Unit_Cost?: number;
+  Planning_Date?: string;
+}): Promise<any> {
+  const url = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_PLANIFICACION!);
+  return crearRegistroBC(url, datos);
 }

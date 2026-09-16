@@ -14,6 +14,8 @@ import {
   crearPedidoCompraBC,
   crearLineaPedidoCompraBC,
   existeTareaProyectoBC,
+  obtenerMaxLineaPlanificacionBC,
+  crearLineaPlanificacionBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
@@ -605,6 +607,21 @@ export async function crearPedidosCompraBC(pedidoId: string) {
     }
   }
 
+  // Nº de línea de planificación disponible; se calcula una vez y se va
+  // incrementando en memoria (de 10000 en 10000, como BC) para no repetir
+  // la consulta ni arriesgar colisiones entre líneas creadas en el mismo lote.
+  let proximoLineNo: number | null = null;
+  if (previa.jobNo && jobTaskNo) {
+    try {
+      const maxActual = await obtenerMaxLineaPlanificacionBC(previa.jobNo, jobTaskNo);
+      proximoLineNo = maxActual + 10000;
+    } catch (e: any) {
+      errores.push(
+        `⚠ No se pudo consultar las líneas de planificación de la obra ${previa.jobNo} — no se vincularán líneas de planificación (${e.message}).`
+      );
+    }
+  }
+
   for (const grupo of previa.grupos) {
     if (!grupo.proveedorBcNo) {
       errores.push(`${grupo.proveedorNombre}: falta el código de proveedor de Business Central.`);
@@ -635,6 +652,30 @@ export async function crearPedidosCompraBC(pedidoId: string) {
     let algunaLineaFallo = false;
 
     for (const item of grupo.items) {
+      let jobPlanningLineNo: number | undefined;
+
+      if (previa.jobNo && jobTaskNo && proximoLineNo !== null) {
+        try {
+          await crearLineaPlanificacionBC({
+            Job_No: previa.jobNo,
+            Job_Task_No: jobTaskNo,
+            Line_No: proximoLineNo,
+            Line_Type: 'Budget',
+            Type: 'Item',
+            No: item.bcItemNo,
+            Quantity: item.cantidad,
+            Unit_Cost: item.precio,
+            Planning_Date: new Date().toISOString().slice(0, 10),
+          });
+          jobPlanningLineNo = proximoLineNo;
+          proximoLineNo += 10000;
+        } catch (e: any) {
+          errores.push(
+            `${grupo.proveedorNombre}: no se pudo crear la línea de planificación para "${item.nombre}" (se crea la línea de compra sin vincular) — ${e.message}`
+          );
+        }
+      }
+
       try {
         await crearLineaPedidoCompraBC({
           Document_Type: 'Order',
@@ -645,6 +686,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
           Direct_Unit_Cost: item.precio,
           ...(previa.jobNo ? { Job_No: previa.jobNo } : {}),
           ...(jobTaskNo ? { Job_Task_No: jobTaskNo } : {}),
+          ...(jobPlanningLineNo ? { Job_Planning_Line_No: jobPlanningLineNo } : {}),
         });
       } catch (e: any) {
         algunaLineaFallo = true;
