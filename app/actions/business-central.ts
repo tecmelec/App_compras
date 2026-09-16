@@ -481,6 +481,20 @@ export async function depurarLineasPlanificacionBC(jobNo: string, jobTaskNo: str
   }
 }
 
+// Diagnóstico temporal: campos crudos de un proveedor concreto, para ver
+// cómo se llaman exactamente el IBAN y la forma de pago en su ficha de BC.
+export async function depurarProveedorBC(bcProveedorNo: string) {
+  await requireAdmin();
+
+  try {
+    const filtro = `No eq '${bcProveedorNo.replace(/'/g, "''")}'`;
+    const valores = await obtenerCrudoBCFiltrado(process.env.BC_ODATA_SERVICE_PROVEEDORES!, filtro);
+    return { success: true, proveedor: valores?.[0] || null };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo conectar con Business Central.' };
+  }
+}
+
 // Diagnóstico temporal: comprueba acceso a la API estándar (api/v2.0) y
 // muestra un registro real de jobPlanningLines, para ver sus nombres de
 // campo exactos antes de intentar crear uno.

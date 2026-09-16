@@ -4,6 +4,7 @@ import SincronizarBCBoton from './SincronizarBCBoton';
 import DepurarBCBoton from './DepurarBCBoton';
 import DepurarPlanificacionBoton from './DepurarPlanificacionBoton';
 import DepurarAPIEstandarBoton from './DepurarAPIEstandarBoton';
+import DepurarProveedorBoton from './DepurarProveedorBoton';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export default async function ProductosAdminPage() {
@@ -27,6 +28,7 @@ export default async function ProductosAdminPage() {
       <DepurarBCBoton />
       <DepurarPlanificacionBoton />
       <DepurarAPIEstandarBoton />
+      <DepurarProveedorBoton />
       <ProductosClient productos={productos || []} proveedores={proveedores || []} />
     </div>
   );
