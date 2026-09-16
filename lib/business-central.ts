@@ -258,8 +258,6 @@ export async function crearLineaPlanificacionBC(datos: {
   Line_Type: string;
   Type: string;
   No: string;
-  AITP_Quantity_Needed: number;
-  Unit_Cost?: number;
   Planning_Date?: string;
 }): Promise<any> {
   const url = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_PLANIFICACION!);
