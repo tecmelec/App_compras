@@ -33,9 +33,7 @@ export default function EnviarEmailPedidoBoton({
 
     const para = (r.emails || []).join(',');
     const asunto = `PEDIDO DE COMPRA ${numeroTecmelec}`;
-    const cuerpo = `Buenas,\nAdjuntamos el pedido de compra ${numeroTecmelec}${
-      r.proveedorNombre ? ` para ${r.proveedorNombre}` : ''
-    }.\n\nUn saludo,\nTecmelec Electricidad S.L.`;
+    const cuerpo = `Buenas,\nAdjuntamos el pedido de compra ${numeroTecmelec}.`;
 
     const mailto = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 
