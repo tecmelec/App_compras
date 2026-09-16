@@ -26,7 +26,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginBottom: 4,
   },
-  fila: { flexDirection: 'row', paddingVertical: 3, paddingHorizontal: 4, borderBottomWidth: 0.5, borderBottomColor: '#ddd' },
+  fila: { flexDirection: 'row', alignItems: 'center', paddingVertical: 3, paddingHorizontal: 4, borderBottomWidth: 0.5, borderBottomColor: '#ddd' },
+  colFoto: { width: '9%' },
+  foto: { width: 26, height: 26, objectFit: 'contain' },
   colNo: { width: '13%' },
   colDesc: { width: '39%' },
   colCant: { width: '12%', textAlign: 'right' },
@@ -81,6 +83,7 @@ export type LineaPdf = {
   cantidad: number;
   unidadMedida: string;
   precio: number;
+  imagenUrl?: string;
 };
 
 export type PedidoCompraPdfProps = {
@@ -94,6 +97,7 @@ export type PedidoCompraPdfProps = {
   lineas: LineaPdf[];
   formaPago?: string;
   ibanEnmascarado?: string;
+  conFotos?: boolean;
 };
 
 export default function PedidoCompraDocument({
@@ -107,10 +111,12 @@ export default function PedidoCompraDocument({
   lineas,
   formaPago,
   ibanEnmascarado,
+  conFotos,
 }: PedidoCompraPdfProps) {
   const base = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0);
   const iva = base * (EMPRESA.ivaPorcentaje / 100);
   const total = base + iva;
+  const colDescEstilo = conFotos ? [styles.colDesc, { width: '30%' }] : [styles.colDesc];
 
   return (
     <Document>
@@ -143,8 +149,9 @@ export default function PedidoCompraDocument({
 
         <View style={styles.tabla}>
           <View style={styles.filaCabecera}>
+            {conFotos ? <Text style={[styles.colFoto, styles.cabeceraTexto]}></Text> : null}
             <Text style={[styles.colNo, styles.cabeceraTexto]}>Nº</Text>
-            <Text style={[styles.colDesc, styles.cabeceraTexto]}>Descripción</Text>
+            <Text style={[colDescEstilo, styles.cabeceraTexto]}>Descripción</Text>
             <Text style={[styles.colCant, styles.cabeceraTexto]}>Cantidad</Text>
             <Text style={[styles.colUd, styles.cabeceraTexto]}></Text>
             <Text style={[styles.colPrecio, styles.cabeceraTexto]}>Precio</Text>
@@ -153,8 +160,13 @@ export default function PedidoCompraDocument({
           </View>
           {lineas.map((l, i) => (
             <View style={styles.fila} key={i}>
+              {conFotos ? (
+                <View style={styles.colFoto}>
+                  {l.imagenUrl ? <Image style={styles.foto} src={l.imagenUrl} /> : null}
+                </View>
+              ) : null}
               <Text style={styles.colNo}>{l.bcItemNo}</Text>
-              <Text style={styles.colDesc}>{l.nombre}</Text>
+              <Text style={colDescEstilo}>{l.nombre}</Text>
               <Text style={styles.colCant}>{euros(l.cantidad)}</Text>
               <Text style={styles.colUd}>{l.unidadMedida}</Text>
               <Text style={styles.colPrecio}>{euros(l.precio)}</Text>

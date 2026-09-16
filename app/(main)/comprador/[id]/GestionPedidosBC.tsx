@@ -21,14 +21,24 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 {p.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </p>
             </div>
-            <a
-              href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-marca hover:underline shrink-0"
-            >
-              Ver PDF
-            </a>
+            <div className="flex items-center gap-4 shrink-0">
+              <a
+                href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-marca hover:underline"
+              >
+                Ver PDF
+              </a>
+              <a
+                href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf?fotos=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-marca hover:underline"
+              >
+                PDF con fotos
+              </a>
+            </div>
           </div>
         ))}
       </div>

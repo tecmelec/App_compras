@@ -11,7 +11,8 @@ import PedidoCompraDocument, { LineaPdf } from '@/lib/pdf/PedidoCompraDocument';
 
 export async function GET(request: NextRequest, { params }: { params: { numeroTecmelec: string } }) {
   try {
-    return await generarPdf(params.numeroTecmelec);
+    const conFotos = request.nextUrl.searchParams.get('fotos') === '1';
+    return await generarPdf(params.numeroTecmelec, conFotos);
   } catch (e: any) {
     console.error('Error generando PDF de pedido:', e);
     return NextResponse.json(
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: { numeroTe
   }
 }
 
-async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
+async function generarPdf(numeroTecmelecParam: string, conFotos: boolean): Promise<NextResponse> {
   const numeroTecmelec = decodeURIComponent(numeroTecmelecParam);
   const supabase = createClient();
 
@@ -35,7 +36,7 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
   // La consulta respeta RLS: si el usuario no tiene acceso a estas líneas, vienen vacías.
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('cantidad, precio_unitario, proveedor_id, pedido_id, productos(nombre, bc_item_no, precio, unidad_medida)')
+    .select('cantidad, precio_unitario, proveedor_id, pedido_id, productos(nombre, bc_item_no, precio, unidad_medida, imagen_url)')
     .eq('numero_tecmelec', numeroTecmelec);
 
   if (!items || items.length === 0) {
@@ -114,6 +115,7 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
     cantidad: it.cantidad,
     unidadMedida: it.productos?.unidad_medida || '',
     precio: it.precio_unitario ?? it.productos?.precio ?? 0,
+    imagenUrl: conFotos ? it.productos?.imagen_url || undefined : undefined,
   }));
 
   const buffer = await renderToBuffer(
@@ -130,6 +132,7 @@ async function generarPdf(numeroTecmelecParam: string): Promise<NextResponse> {
       lineas,
       formaPago,
       ibanEnmascarado,
+      conFotos,
     })
   );
 
