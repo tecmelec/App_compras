@@ -12,6 +12,7 @@ import {
   obtenerCrudoBC,
   crearPedidoCompraBC,
   crearLineaPedidoCompraBC,
+  existeTareaProyectoBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
@@ -552,12 +553,29 @@ export async function previsualizarPedidoCompraBC(pedidoId: string) {
   return agruparPorProveedorParaBC(supabase, pedidoId);
 }
 
+// Nº de tarea de proyecto que se asigna a las líneas de compra cuando la obra
+// la tiene definida. Si la obra no tiene esta tarea, se deja en blanco (Job_No
+// igual se manda, solo Job_Task_No queda sin asignar).
+const JOB_TASK_NO_FIJA = '95.01';
+
 export async function crearPedidosCompraBC(pedidoId: string) {
   const supabase = createClient();
   const previa = await agruparPorProveedorParaBC(supabase, pedidoId);
 
   if (previa.grupos.length === 0) {
     return { error: 'No hay artículos listos para crear un pedido de compra (revisa proveedor y código BC).' };
+  }
+
+  // La obra es la misma para todo el pedido, así que la tarea solo hace falta
+  // comprobarla una vez, no por cada línea.
+  let jobTaskNo: string | undefined;
+  if (previa.jobNo) {
+    try {
+      const existe = await existeTareaProyectoBC(previa.jobNo, JOB_TASK_NO_FIJA);
+      jobTaskNo = existe ? JOB_TASK_NO_FIJA : undefined;
+    } catch {
+      jobTaskNo = undefined; // si falla la comprobación, mejor dejarla en blanco que arriesgar la línea
+    }
   }
 
   const creados: { proveedor: string; documentNo: string }[] = [];
@@ -602,6 +620,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
           Quantity: item.cantidad,
           Direct_Unit_Cost: item.precio,
           ...(previa.jobNo ? { Job_No: previa.jobNo } : {}),
+          ...(jobTaskNo ? { Job_Task_No: jobTaskNo } : {}),
         });
       } catch (e: any) {
         algunaLineaFallo = true;

@@ -191,7 +191,18 @@ export async function crearLineaPedidoCompraBC(datos: {
   Quantity: number;
   Direct_Unit_Cost: number;
   Job_No?: string;
+  Job_Task_No?: string;
 }): Promise<any> {
   const url = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_COMPRA!);
   return crearRegistroBC(url, datos);
+}
+
+// Comprueba si una tarea de proyecto (Job_Task_No) existe dentro de una obra
+// (Job_No) concreta, antes de asignarla en una línea de compra.
+export async function existeTareaProyectoBC(jobNo: string, jobTaskNo: string): Promise<boolean> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_TAREAS_PROYECTO!);
+  const filtro = `Job_No eq '${jobNo.replace(/'/g, "''")}' and Job_Task_No eq '${jobTaskNo.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  const resultados = await consultarBC(url);
+  return resultados.length > 0;
 }
