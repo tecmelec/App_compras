@@ -1,9 +1,12 @@
-// Envía emails a través de Microsoft Graph (Outlook / Microsoft 365), usando
-// el mismo registro de app de Azure AD que ya se usa para Business Central
-// (mismo tenant/client id/secret), pero pidiendo un token para el recurso de
-// Graph en vez del de Business Central.
+// Envía emails a través de Microsoft Graph (Outlook / Microsoft 365).
 //
-// Requiere en Azure AD, sobre esa misma app:
+// Usa GRAPH_TENANT_ID/GRAPH_CLIENT_ID/GRAPH_CLIENT_SECRET si están definidas
+// (necesario cuando el correo @tecmelec.es vive en un tenant de Microsoft 365
+// distinto al que se usa para Business Central); si no, reutiliza las
+// credenciales de BC (BC_TENANT_ID/BC_CLIENT_ID/BC_CLIENT_SECRET), por si en
+// algún caso coincidieran en el mismo tenant.
+//
+// Requiere en la app de Azure AD de ESE tenant (el que gestiona el correo):
 //   - Permiso de aplicación "Mail.Send" de Microsoft Graph, con Admin consent.
 //   - Permiso de aplicación "Mail.Read" de Microsoft Graph, con Admin consent
 //     (para poder leer después las respuestas del proveedor y armar el
@@ -18,9 +21,13 @@ async function obtenerTokenGraph(): Promise<string> {
     return tokenCache.token;
   }
 
-  const tenantId = process.env.BC_TENANT_ID!;
-  const clientId = process.env.BC_CLIENT_ID!;
-  const clientSecret = process.env.BC_CLIENT_SECRET!;
+  // Usa un tenant/app dedicado al correo si se ha configurado (necesario si
+  // el correo @tecmelec.es vive en un tenant de Microsoft 365 distinto al
+  // que se usa para Business Central); si no, cae en las mismas credenciales
+  // de BC por si en algún momento coinciden en el mismo tenant.
+  const tenantId = process.env.GRAPH_TENANT_ID || process.env.BC_TENANT_ID!;
+  const clientId = process.env.GRAPH_CLIENT_ID || process.env.BC_CLIENT_ID!;
+  const clientSecret = process.env.GRAPH_CLIENT_SECRET || process.env.BC_CLIENT_SECRET!;
 
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
