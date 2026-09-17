@@ -21,6 +21,7 @@ export type PedidoFila = {
 };
 
 type Filtros = {
+  busqueda: string;
   numeroApp: string;
   numeroTecmelec: string;
   nroObra: string;
@@ -35,6 +36,7 @@ type Filtros = {
 };
 
 const FILTROS_VACIOS: Filtros = {
+  busqueda: '',
   numeroApp: '',
   numeroTecmelec: '',
   nroObra: '',
@@ -89,6 +91,14 @@ export default function SolicitudesFiltrables({
   const hayFiltrosActivos = JSON.stringify(filtros) !== JSON.stringify(FILTROS_VACIOS);
 
   const filtrados = pedidos.filter((p) => {
+    if (filtros.busqueda) {
+      const palabras = filtros.busqueda.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const texto = `${p.numero_app} ${p.numero_tecmelec || ''} ${p.solicitante} ${p.comprador || ''} ${
+        p.nro_obra || ''
+      } ${p.nombre_obra || ''}`.toLowerCase();
+      const coincide = palabras.every((palabra) => texto.includes(palabra));
+      if (!coincide) return false;
+    }
     if (filtros.numeroApp && !p.numero_app.toLowerCase().includes(filtros.numeroApp.toLowerCase())) return false;
     if (
       filtros.numeroTecmelec &&
@@ -127,14 +137,36 @@ export default function SolicitudesFiltrables({
 
   return (
     <div>
-      {hayFiltrosActivos && (
-        <button
-          onClick={() => setFiltros(FILTROS_VACIOS)}
-          className="text-sm text-marca hover:underline mb-3"
-        >
-          ✕ Borrar filtros
-        </button>
-      )}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-md">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            className="input input-icon-left w-full"
+            placeholder="Buscar por Nº pedido APP, Nº pedido Tecmelec, solicitante u obra..."
+            value={filtros.busqueda}
+            onChange={(e) => actualizar('busqueda', e.target.value)}
+          />
+        </div>
+
+        {hayFiltrosActivos && (
+          <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline">
+            ✕ Borrar filtros
+          </button>
+        )}
+      </div>
 
       {columnaAbierta && (
         <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />
