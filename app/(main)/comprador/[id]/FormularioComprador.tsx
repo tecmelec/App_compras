@@ -433,7 +433,7 @@ function ItemFila({
             proveedores={proveedores}
             value={proveedorId}
             onChange={onProveedorId}
-            className="w-52"
+            className="w-72"
           />
         </div>
 
