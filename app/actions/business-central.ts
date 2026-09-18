@@ -867,6 +867,20 @@ export async function crearPedidosCompraBC(pedidoId: string) {
     }
 
     const documentNo = cabecera.No;
+
+    // Vinculamos las líneas de este proveedor al pedido de BC INMEDIATAMENTE
+    // tras crear la cabecera, antes de crear las líneas una a una. Así, si el
+    // proceso se interrumpe a mitad (tiempo de espera agotado, caída de red,
+    // etc.), la app ya sabe que estos artículos pertenecen a este pedido de
+    // compra concreto — y un reintento del comprador (al ver que "no pasó
+    // nada") los encuentra como "ya vinculados" en vez de volver a crear un
+    // pedido de compra duplicado en BC para los mismos artículos. Antes esto
+    // se hacía al final del bucle de líneas, lo que dejaba una ventana en la
+    // que un fallo a mitad de proceso generaba pedidos de compra huérfanos o
+    // duplicados en BC (cabeceras vacías o con líneas repetidas).
+    const idsGrupo = grupo.items.map((i) => i.id);
+    await supabase.from('pedido_items').update({ numero_tecmelec: documentNo }).in('id', idsGrupo);
+
     let algunaLineaFallo = false;
 
     for (const item of grupo.items) {
@@ -909,11 +923,6 @@ export async function crearPedidosCompraBC(pedidoId: string) {
         errores.push(`${grupo.proveedorNombre} (pedido ${documentNo}): línea "${item.nombre}" falló — ${e.message}`);
       }
     }
-
-    // Vinculamos en la app las líneas de este proveedor con el pedido recién creado en BC,
-    // aunque alguna línea individual haya fallado (las que sí se crearon quedan trazables).
-    const idsGrupo = grupo.items.map((i) => i.id);
-    await supabase.from('pedido_items').update({ numero_tecmelec: documentNo }).in('id', idsGrupo);
 
     creados.push({ proveedor: grupo.proveedorNombre, documentNo });
     if (algunaLineaFallo) {
