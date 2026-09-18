@@ -245,12 +245,26 @@ export async function obtenerCuentasBancariasProveedorBC(
 // Busca el pedido de compra en BC cuya "Su Referencia" (Your_Reference) coincide
 // con el Nº de pedido APP. Devuelve null si no existe (aún no se ha lanzado el
 // pedido de compra en BC para esta solicitud).
+// OJO: una misma solicitud puede tener VARIOS pedidos de compra en BC (uno por
+// proveedor, todos con la misma Your_Reference) — para sincronizar una solicitud
+// completa hay que usar obtenerPedidosCompraBC (plural) y recorrerlos todos, no
+// quedarse con el primero.
 export async function obtenerPedidoCompraBC(numeroApp: string): Promise<PedidoCompraBC | null> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
   const filtro = `Your_Reference eq '${numeroApp.replace(/'/g, "''")}'`;
   const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
   const resultados: PedidoCompraBC[] = await consultarBC(url);
   return resultados[0] || null;
+}
+
+// Igual que obtenerPedidoCompraBC pero devuelve TODOS los pedidos de compra que
+// comparten esa Your_Reference (una solicitud puede generar un pedido de compra
+// por cada proveedor distinto).
+export async function obtenerPedidosCompraBC(numeroApp: string): Promise<PedidoCompraBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
+  const filtro = `Your_Reference eq '${numeroApp.replace(/'/g, "''")}'`;
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}`;
+  return consultarBC(url);
 }
 
 // Líneas de un pedido de compra concreto en BC (por Nº pedido Tecmelec / Document_No),

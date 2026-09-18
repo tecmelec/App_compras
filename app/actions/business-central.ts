@@ -7,7 +7,7 @@ import {
   obtenerItemsComunesBC,
   obtenerProyectosBC,
   obtenerProveedoresBC,
-  obtenerPedidoCompraBC,
+  obtenerPedidosCompraBC,
   obtenerLineasPedidoCompraBC,
   obtenerCrudoBC,
   obtenerCrudoBCFiltrado,
@@ -219,15 +219,25 @@ function calcularEstadoRecepcion(cantidadPedida: number, cantidadRecibida: numbe
 // (botón manual con el cliente de sesión del comprador, o el cron con el
 // cliente admin). No hace comprobaciones de autenticación: eso lo decide
 // quien llama a esta función.
+//
+// Importante: una misma solicitud puede tener VARIOS pedidos de compra en BC
+// (uno por proveedor, todos con la misma Your_Reference = numeroApp). Por eso
+// se recorren TODOS con obtenerPedidosCompraBC (antes solo se cogía el primero
+// con obtenerPedidoCompraBC, y se sobrescribía el numero_tecmelec de TODAS las
+// líneas de la solicitud con ese único pedido, mezclando en un solo grupo lo
+// que en realidad eran pedidos de compra distintos). Cada pedido de compra BC
+// solo actualiza las líneas de pedido_items que YA tienen asignado ese mismo
+// numero_tecmelec (asignado al crear el pedido de compra en BC, ver
+// crearPedidosCompraBC más abajo) — nunca se reasigna el numero_tecmelec aquí.
 async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, numeroApp: string) {
-  let pedidoBC;
+  let pedidosBC;
   try {
-    pedidoBC = await obtenerPedidoCompraBC(numeroApp);
+    pedidosBC = await obtenerPedidosCompraBC(numeroApp);
   } catch (e: any) {
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }
 
-  if (!pedidoBC) {
+  if (!pedidosBC || pedidosBC.length === 0) {
     return {
       error: `No se encontró en Business Central ningún pedido de compra con "Su Referencia" = ${numeroApp}.`,
       sinCambios: true,
@@ -235,91 +245,116 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
   }
 
   const { data: estados } = await supabase.from('estados_pedido').select('id, nombre, orden');
-  const nombreEstadoNuevo = MAPA_ESTADO_BC[pedidoBC.Status];
-  const estadoNuevo = nombreEstadoNuevo ? estados?.find((e: any) => e.nombre === nombreEstadoNuevo) : null;
-
-  let proveedorId: string | null = null;
-  if (pedidoBC.Buy_from_Vendor_No) {
-    const { data: proveedor } = await supabase
-      .from('proveedores')
-      .select('id')
-      .eq('bc_proveedor_no', pedidoBC.Buy_from_Vendor_No)
-      .maybeSingle();
-    proveedorId = proveedor?.id || null;
-  }
-
-  let lineasBC: {
-    No: string;
-    Quantity: number;
-    Quantity_Received: number;
-    Expected_Receipt_Date: string | null;
-    Line_Amount: number;
-  }[] = [];
-  let errorLineas: string | null = null;
-  try {
-    lineasBC = await obtenerLineasPedidoCompraBC(pedidoBC.No);
-  } catch (e: any) {
-    errorLineas = e.message || 'No se pudieron obtener las líneas del pedido de compra.';
-  }
 
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('id, estado_id, estado_recepcion, cantidad, productos(bc_item_no)')
+    .select('id, numero_tecmelec, estado_id, estado_recepcion, cantidad, productos(bc_item_no)')
     .eq('pedido_id', pedidoId);
 
   let actualizados = 0;
   const avisos: string[] = [];
+  const numerosTecmelec: string[] = [];
 
-  for (const item of items || []) {
-    const cambios: Record<string, any> = { numero_tecmelec: pedidoBC.No };
-    if (proveedorId) cambios.proveedor_id = proveedorId;
+  for (const pedidoBC of pedidosBC) {
+    numerosTecmelec.push(pedidoBC.No);
 
-    if (estadoNuevo) {
-      const ordenActual = estados?.find((e: any) => e.id === item.estado_id)?.orden ?? 0;
-      // Nunca retrocede: si en BC el pedido "vuelve" a un estado anterior, se ignora.
-      if (estadoNuevo.orden > ordenActual) {
-        cambios.estado_id = estadoNuevo.id;
+    const nombreEstadoNuevo = MAPA_ESTADO_BC[pedidoBC.Status];
+    const estadoNuevo = nombreEstadoNuevo ? estados?.find((e: any) => e.nombre === nombreEstadoNuevo) : null;
+
+    let proveedorId: string | null = null;
+    if (pedidoBC.Buy_from_Vendor_No) {
+      const { data: proveedor } = await supabase
+        .from('proveedores')
+        .select('id')
+        .eq('bc_proveedor_no', pedidoBC.Buy_from_Vendor_No)
+        .maybeSingle();
+      proveedorId = proveedor?.id || null;
+    }
+
+    let lineasBC: {
+      No: string;
+      Quantity: number;
+      Quantity_Received: number;
+      Expected_Receipt_Date: string | null;
+      Line_Amount: number;
+    }[] = [];
+    let errorLineas: string | null = null;
+    try {
+      lineasBC = await obtenerLineasPedidoCompraBC(pedidoBC.No);
+    } catch (e: any) {
+      errorLineas = e.message || 'No se pudieron obtener las líneas del pedido de compra.';
+    }
+
+    // Solo las líneas de esta solicitud que ya pertenecen a ESTE pedido de
+    // compra concreto — así, si hay varios (uno por proveedor), cada uno
+    // actualiza únicamente lo suyo.
+    const itemsDeEstePedido = (items || []).filter((item: any) => item.numero_tecmelec === pedidoBC.No);
+
+    for (const item of itemsDeEstePedido) {
+      const cambios: Record<string, any> = {};
+      if (proveedorId) cambios.proveedor_id = proveedorId;
+
+      if (estadoNuevo) {
+        const ordenActual = estados?.find((e: any) => e.id === item.estado_id)?.orden ?? 0;
+        // Nunca retrocede: si en BC el pedido "vuelve" a un estado anterior, se ignora.
+        if (estadoNuevo.orden > ordenActual) {
+          cambios.estado_id = estadoNuevo.id;
+        }
+      }
+
+      // Estado de recepción: se cruza por artículo BC (bc_item_no) + cantidad exacta,
+      // ya que Document_No por sí solo no identifica una línea concreta.
+      if (item.estado_recepcion !== 'Anulado') {
+        const bcItemNo = item.productos?.bc_item_no;
+        const lineaBC = bcItemNo
+          ? lineasBC.find((l) => l.No === bcItemNo && l.Quantity === item.cantidad)
+          : undefined;
+
+        if (lineaBC) {
+          const recepcionNueva = calcularEstadoRecepcion(lineaBC.Quantity, lineaBC.Quantity_Received);
+          const ordenActual = ORDEN_RECEPCION[item.estado_recepcion || ''] ?? -1;
+          const ordenNuevo = ORDEN_RECEPCION[recepcionNueva];
+          // Misma regla de no-retroceso que el estado general.
+          if (ordenNuevo > ordenActual) {
+            cambios.estado_recepcion = recepcionNueva;
+          }
+
+          // BC es la fuente de verdad para la fecha estimada una vez existe la línea;
+          // si BC no trae fecha (vacía), se deja la que ya hubiera en la app.
+          if (lineaBC.Expected_Receipt_Date) {
+            cambios.fecha_estimada_entrega = lineaBC.Expected_Receipt_Date.slice(0, 10);
+          }
+
+          // Precio real de esa línea de compra, con descuentos ya aplicados (Line_Amount
+          // ya viene neto de descuento de línea). BC manda en cuanto hay una línea vinculada.
+          if (lineaBC.Quantity > 0) {
+            cambios.precio_unitario = Number((lineaBC.Line_Amount / lineaBC.Quantity).toFixed(5));
+          }
+        } else if (!errorLineas) {
+          avisos.push(
+            `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No}.`
+          );
+        }
+      }
+
+      if (Object.keys(cambios).length > 0) {
+        const { error } = await supabase.from('pedido_items').update(cambios).eq('id', item.id);
+        if (error) avisos.push(error.message);
+        else actualizados++;
       }
     }
 
-    // Estado de recepción: se cruza por artículo BC (bc_item_no) + cantidad exacta,
-    // ya que Document_No por sí solo no identifica una línea concreta.
-    if (item.estado_recepcion !== 'Anulado') {
-      const bcItemNo = item.productos?.bc_item_no;
-      const lineaBC = bcItemNo
-        ? lineasBC.find((l) => l.No === bcItemNo && l.Quantity === item.cantidad)
-        : undefined;
-
-      if (lineaBC) {
-        const recepcionNueva = calcularEstadoRecepcion(lineaBC.Quantity, lineaBC.Quantity_Received);
-        const ordenActual = ORDEN_RECEPCION[item.estado_recepcion || ''] ?? -1;
-        const ordenNuevo = ORDEN_RECEPCION[recepcionNueva];
-        // Misma regla de no-retroceso que el estado general.
-        if (ordenNuevo > ordenActual) {
-          cambios.estado_recepcion = recepcionNueva;
-        }
-
-        // BC es la fuente de verdad para la fecha estimada una vez existe la línea;
-        // si BC no trae fecha (vacía), se deja la que ya hubiera en la app.
-        if (lineaBC.Expected_Receipt_Date) {
-          cambios.fecha_estimada_entrega = lineaBC.Expected_Receipt_Date.slice(0, 10);
-        }
-
-        // Precio real de esa línea de compra, con descuentos ya aplicados (Line_Amount
-        // ya viene neto de descuento de línea). BC manda en cuanto hay una línea vinculada.
-        if (lineaBC.Quantity > 0) {
-          cambios.precio_unitario = Number((lineaBC.Line_Amount / lineaBC.Quantity).toFixed(5));
-        }
-      } else if (!errorLineas) {
-        avisos.push(
-          `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No}.`
-        );
-      }
+    if (errorLineas) avisos.push(errorLineas);
+    if (!proveedorId && pedidoBC.Buy_from_Vendor_No) {
+      avisos.push(
+        `El proveedor "${pedidoBC.Buy_from_Vendor_No}" de Business Central no está sincronizado en /admin/proveedores.`
+      );
     }
-
-    const { error } = await supabase.from('pedido_items').update(cambios).eq('id', item.id);
-    if (error) avisos.push(error.message);
-    else actualizados++;
+    if (!nombreEstadoNuevo) {
+      avisos.push(
+        `Estado "${pedidoBC.Status}" de Business Central no reconocido (se esperaba Open, Pending Approval o Released).`
+      );
+    }
   }
 
   // Recalcula el total del pedido con los precios ya actualizados (o el del
@@ -344,19 +379,7 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
   // lanzado"): recalculamos el Estado general del pedido con esos datos.
   await recalcularEstadoGeneral(supabase, pedidoId);
 
-  if (errorLineas) avisos.push(errorLineas);
-  if (!proveedorId && pedidoBC.Buy_from_Vendor_No) {
-    avisos.push(
-      `El proveedor "${pedidoBC.Buy_from_Vendor_No}" de Business Central no está sincronizado en /admin/proveedores.`
-    );
-  }
-  if (!nombreEstadoNuevo) {
-    avisos.push(
-      `Estado "${pedidoBC.Status}" de Business Central no reconocido (se esperaba Open, Pending Approval o Released).`
-    );
-  }
-
-  return { success: true, numeroTecmelec: pedidoBC.No, actualizados, avisos };
+  return { success: true, numeroTecmelec: numerosTecmelec.join(', '), actualizados, avisos };
 }
 
 // Botón manual desde /comprador/[id]: usa el cliente con la sesión del
@@ -617,6 +640,119 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
     sinCodigoBC: sinCodigoBC.map((i) => i.productos?.nombre),
     yaVinculadas: yaVinculadas.map((i) => i.productos?.nombre),
   };
+}
+
+// Reparación puntual del bug "mezcla de proveedores al sincronizar": antes,
+// sincronizarPedidoConBCInterno cogía solo el PRIMER pedido de compra BC de la
+// solicitud y sobrescribía el numero_tecmelec de TODAS sus líneas con ese único
+// valor, aunque la solicitud tuviera varios pedidos de compra (uno por
+// proveedor). Esta función revisa todas las solicitudes que ya tienen líneas
+// vinculadas a BC, y para aquellas con más de un pedido de compra en BC,
+// vuelve a repartir cada línea a su pedido de compra correcto cruzando por
+// artículo BC (bc_item_no) + cantidad exacta. Si una línea coincide con más de
+// un pedido de compra (o con ninguno), NO se toca — se reporta para revisión
+// manual en vez de adivinar.
+export async function repararSolicitudesMultiProveedorBC() {
+  await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: itemsConPedidoBC } = await supabase
+    .from('pedido_items')
+    .select('pedido_id')
+    .not('numero_tecmelec', 'is', null);
+
+  const idsPedidos = Array.from(new Set((itemsConPedidoBC || []).map((i: any) => i.pedido_id)));
+  if (idsPedidos.length === 0) return { revisadas: 0, resumen: [] };
+
+  const { data: pedidos } = await supabase.from('pedidos').select('id, numero_app').in('id', idsPedidos);
+
+  const resumen: {
+    numeroApp: string;
+    pedidosCompra: string[];
+    lineasCorregidas: number;
+    sinCoincidenciaClara: string[];
+  }[] = [];
+
+  for (const pedido of pedidos || []) {
+    let pedidosBC;
+    try {
+      pedidosBC = await obtenerPedidosCompraBC(pedido.numero_app);
+    } catch {
+      continue; // fallo de conexión puntual: no se toca, se puede reintentar más tarde
+    }
+
+    if (!pedidosBC || pedidosBC.length < 2) continue; // nada que reparar
+
+    const lineasPorPO = new Map<string, { No: string; Quantity: number }[]>();
+    for (const po of pedidosBC) {
+      try {
+        lineasPorPO.set(po.No, await obtenerLineasPedidoCompraBC(po.No));
+      } catch {
+        lineasPorPO.set(po.No, []);
+      }
+    }
+
+    const vendorNos = Array.from(new Set(pedidosBC.map((p) => p.Buy_from_Vendor_No).filter(Boolean)));
+    const { data: proveedoresDb } =
+      vendorNos.length > 0
+        ? await supabase.from('proveedores').select('id, bc_proveedor_no').in('bc_proveedor_no', vendorNos)
+        : { data: [] as any[] };
+    const proveedorIdPorBcNo = new Map((proveedoresDb || []).map((p: any) => [p.bc_proveedor_no, p.id]));
+
+    const { data: items } = await supabase
+      .from('pedido_items')
+      .select('id, cantidad, numero_tecmelec, proveedor_id, productos(bc_item_no)')
+      .eq('pedido_id', pedido.id)
+      .not('numero_tecmelec', 'is', null);
+
+    let corregidas = 0;
+    const sinCoincidenciaClara: string[] = [];
+
+    for (const item of items || []) {
+      const bcItemNo = (item as any).productos?.bc_item_no;
+      if (!bcItemNo) continue;
+
+      const coincidencias = pedidosBC.filter((po) =>
+        (lineasPorPO.get(po.No) || []).some((l) => l.No === bcItemNo && l.Quantity === item.cantidad)
+      );
+
+      if (coincidencias.length !== 1) {
+        sinCoincidenciaClara.push(`${bcItemNo} (cantidad ${item.cantidad})`);
+        continue;
+      }
+
+      const poCorrecto = coincidencias[0];
+      const proveedorIdCorrecto = poCorrecto.Buy_from_Vendor_No
+        ? proveedorIdPorBcNo.get(poCorrecto.Buy_from_Vendor_No)
+        : null;
+
+      const necesitaNumero = item.numero_tecmelec !== poCorrecto.No;
+      const necesitaProveedor = !!proveedorIdCorrecto && item.proveedor_id !== proveedorIdCorrecto;
+
+      if (necesitaNumero || necesitaProveedor) {
+        await supabase
+          .from('pedido_items')
+          .update({
+            numero_tecmelec: poCorrecto.No,
+            ...(proveedorIdCorrecto ? { proveedor_id: proveedorIdCorrecto } : {}),
+          })
+          .eq('id', item.id);
+        corregidas++;
+      }
+    }
+
+    if (corregidas > 0 || sinCoincidenciaClara.length > 0) {
+      await recalcularEstadoGeneral(supabase, pedido.id);
+      resumen.push({
+        numeroApp: pedido.numero_app,
+        pedidosCompra: pedidosBC.map((p) => p.No),
+        lineasCorregidas: corregidas,
+        sinCoincidenciaClara,
+      });
+    }
+  }
+
+  return { revisadas: pedidos?.length || 0, resumen };
 }
 
 export async function previsualizarPedidoCompraBC(pedidoId: string) {

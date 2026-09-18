@@ -5,6 +5,7 @@ import DepurarBCBoton from './DepurarBCBoton';
 import DepurarPlanificacionBoton from './DepurarPlanificacionBoton';
 import DepurarAPIEstandarBoton from './DepurarAPIEstandarBoton';
 import DepurarProveedorBoton from './DepurarProveedorBoton';
+import RepararMultiProveedorBoton from './RepararMultiProveedorBoton';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 export default async function ProductosAdminPage() {
@@ -29,6 +30,7 @@ export default async function ProductosAdminPage() {
       <DepurarPlanificacionBoton />
       <DepurarAPIEstandarBoton />
       <DepurarProveedorBoton />
+      <RepararMultiProveedorBoton />
       <ProductosClient productos={productos || []} proveedores={proveedores || []} />
     </div>
   );
