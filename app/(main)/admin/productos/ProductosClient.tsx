@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { crearProducto, actualizarProducto, eliminarProducto } from '@/app/actions/catalogo';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
+import ComboboxProveedor from '@/components/ComboboxProveedor';
 
 type Producto = {
   id: string;
@@ -510,14 +511,7 @@ function ProductoForm({
 
         <div className="col-span-2">
           <label className="block text-sm font-medium text-grafito mb-1">Proveedor predet.</label>
-          <select className="input" value={proveedorPredetId} onChange={(e) => setProveedorPredetId(e.target.value)}>
-            <option value="">Sin asignar</option>
-            {proveedores.map((prov) => (
-              <option key={prov.id} value={prov.id}>
-                {prov.bc_proveedor_no} — {prov.nombre}
-              </option>
-            ))}
-          </select>
+          <ComboboxProveedor proveedores={proveedores} value={proveedorPredetId} onChange={setProveedorPredetId} />
           <p className="text-xs text-slate mt-1">
             Se rellena solo desde el proveedor habitual (Vendor_No) de Business Central; también se puede elegir a
             mano.
