@@ -84,7 +84,13 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   }
 
   // "Predet." es una dirección virtual tomada de la ficha del proyecto en Business Central.
-  // La resolvemos a una fila real de "direcciones" (una sola por usuario, se actualiza cada vez).
+  // Como direccion_entrega_id es una referencia obligatoria a "direcciones", cada pedido que
+  // usa "Predet." crea su PROPIA fila con un snapshot de esa dirección en ese momento —oculta,
+  // para que no aparezca en el listado de direcciones guardadas del usuario (ya se muestra ahí
+  // como la tarjeta "Predet." virtual, calculada en el modal a partir del proyecto). Antes se
+  // reutilizaba/actualizaba una única fila por usuario, lo que además de aparecer duplicada en
+  // el listado, hacía que pedidos antiguos de otros proyectos pudieran acabar mostrando la
+  // dirección de un proyecto distinto si esa fila compartida se sobrescribía más tarde.
   let direccionEntregaId = datos.direccion_entrega_id;
   if (direccionEntregaId === '__predet__') {
     const { data: proyecto } = await supabase
@@ -97,36 +103,24 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
       return { error: 'El proyecto seleccionado no tiene una dirección predeterminada en Business Central.' };
     }
 
-    const { data: predetExistente } = await supabase
+    const { data: nuevaDireccion, error: errorDireccion } = await supabase
       .from('direcciones')
+      .insert({
+        usuario_id: user.id,
+        alias: 'Predet.',
+        direccion: proyecto.direccion,
+        codigo_postal: proyecto.codigo_postal,
+        ciudad: proyecto.ciudad,
+        provincia: proyecto.provincia,
+        oculta: true,
+      })
       .select('id')
-      .eq('usuario_id', user.id)
-      .eq('alias', 'Predet.')
-      .maybeSingle();
+      .single();
 
-    const datosDireccion = {
-      alias: 'Predet.',
-      direccion: proyecto.direccion,
-      codigo_postal: proyecto.codigo_postal,
-      ciudad: proyecto.ciudad,
-      provincia: proyecto.provincia,
-    };
-
-    if (predetExistente) {
-      await supabase.from('direcciones').update(datosDireccion).eq('id', predetExistente.id);
-      direccionEntregaId = predetExistente.id;
-    } else {
-      const { data: nuevaDireccion, error: errorDireccion } = await supabase
-        .from('direcciones')
-        .insert({ ...datosDireccion, usuario_id: user.id })
-        .select('id')
-        .single();
-
-      if (errorDireccion || !nuevaDireccion) {
-        return { error: 'No se pudo guardar la dirección predeterminada.' };
-      }
-      direccionEntregaId = nuevaDireccion.id;
+    if (errorDireccion || !nuevaDireccion) {
+      return { error: 'No se pudo guardar la dirección predeterminada.' };
     }
+    direccionEntregaId = nuevaDireccion.id;
   }
 
   // Si el comprador o el responsable asignado tiene un sustituto activo (ej: vacaciones),
