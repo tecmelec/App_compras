@@ -5,6 +5,7 @@ import Image from 'next/image';
 import ProgresoEstado from '@/components/ProgresoEstado';
 import EstadoBadge from '@/components/EstadoBadge';
 import ContactarComprasBoton from '@/components/ContactarComprasBoton';
+import SeguirPedidoToggle from '@/components/SeguirPedidoToggle';
 import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -256,7 +257,10 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                   <p className="text-sm text-slate">Puedes seguir el estado de esta parte de tu solicitud aquí.</p>
                 </div>
               </div>
-              <EstadoBadge estado={nombreEstadoGrupo} />
+              <div className="flex items-center gap-3">
+                <SeguirPedidoToggle pedidoId={p.id} valorInicial={p.seguir_pedido} />
+                <EstadoBadge estado={nombreEstadoGrupo} />
+              </div>
             </div>
 
             {resultado.anulado ? (

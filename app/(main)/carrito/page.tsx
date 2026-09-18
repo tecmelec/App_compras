@@ -21,6 +21,7 @@ export default function CarritoPage() {
     direccion_entrega_id: string;
     fecha_requerida: string;
     comprador_id: string | null;
+    seguir_pedido: boolean;
   }) {
     setEnviando(true);
     setError(null);

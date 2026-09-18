@@ -89,6 +89,7 @@ export default function SolicitudModal({
     direccion_entrega_id: string;
     fecha_requerida: string;
     comprador_id: string | null;
+    seguir_pedido: boolean;
   }) => void;
   enviando: boolean;
 }) {
@@ -98,6 +99,7 @@ export default function SolicitudModal({
   const [direcciones, setDirecciones] = useState<Direccion[]>([]);
   const [direccionId, setDireccionId] = useState('');
   const [fecha, setFecha] = useState(proximaFechaHabilValida());
+  const [seguirPedido, setSeguirPedido] = useState(false);
   const [creandoDireccion, setCreandoDireccion] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -253,6 +255,7 @@ export default function SolicitudModal({
       direccion_entrega_id: direccionId,
       fecha_requerida: fecha,
       comprador_id: rol === 'usuario' ? compradorAsignadoId : compradorSeleccionado,
+      seguir_pedido: seguirPedido,
     });
   }
 
@@ -535,6 +538,21 @@ export default function SolicitudModal({
                   No se permiten sábados ni domingos. Fuera del horario de corte (L-J después de las
                   17:00, o V después de las 13:30), la fecha más próxima se ajusta automáticamente.
                 </p>
+
+                <label className="flex items-start gap-2 mt-4 text-sm text-grafito cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={seguirPedido}
+                    onChange={(e) => setSeguirPedido(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded border-borde text-marca focus:ring-marca"
+                  />
+                  <span>
+                    Seguir pedido
+                    <span className="block text-xs text-slate">
+                      Recibe una notificación cada vez que cambie el estado de los pedidos asociados a esta solicitud.
+                    </span>
+                  </span>
+                </label>
               </div>
             )}
 

@@ -4,15 +4,18 @@ import { useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import CartIcon from '@/components/CartIcon';
 import CuentaMenu from '@/components/CuentaMenu';
+import NotificacionesIcon from '@/components/NotificacionesIcon';
 
 export default function HeaderBar({
   nombre,
   rol,
   mostrarCarrito,
+  userId,
 }: {
   nombre: string;
   rol: string;
   mostrarCarrito: boolean;
+  userId: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -67,6 +70,7 @@ export default function HeaderBar({
       )}
 
       <div className="flex items-center gap-3 shrink-0">
+        {mostrarCarrito && <NotificacionesIcon userId={userId} />}
         {mostrarCarrito && <CartIcon />}
         <CuentaMenu nombre={nombre} rol={rol} />
       </div>

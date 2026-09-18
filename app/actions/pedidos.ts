@@ -13,6 +13,7 @@ type DatosSolicitud = {
   direccion_entrega_id: string;
   fecha_requerida: string;
   comprador_id?: string | null;
+  seguir_pedido?: boolean;
 };
 
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
@@ -174,6 +175,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
       total_estimado: totalEstimado,
       requiere_aprobacion: requiereAprobacion,
       aprobado: requiereAprobacion ? null : true,
+      seguir_pedido: datos.seguir_pedido ?? false,
     })
     .select('id, numero_app')
     .single();
