@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedidos';
 import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
+import ComboboxProveedor from '@/components/ComboboxProveedor';
 
 type Estado = { id: number; nombre: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -362,7 +363,6 @@ function ItemFila({
   proveedores: Proveedor[];
 }) {
   const nombreEstado = estados.find((e) => e.id === estadoId)?.nombre || '';
-  const proveedorActual = proveedores.find((p) => p.id === proveedorId);
   // En cuanto hay Nº pedido Tecmelec, la sincronización con BC es quien manda
   // sobre precio/proveedor/fecha/estado — se puede seguir editando a mano,
   // pero se avisa de que el próximo sync lo puede sobrescribir.
@@ -429,18 +429,12 @@ function ItemFila({
 
         <div>
           <p className="text-xs text-slate mb-1">Proveedor</p>
-          <select
-            className={`input py-1 w-52 ${proveedorActual ? 'text-grafito' : 'text-slate'}`}
+          <ComboboxProveedor
+            proveedores={proveedores}
             value={proveedorId}
-            onChange={(e) => onProveedorId(e.target.value)}
-          >
-            <option value="">— Sin asignar —</option>
-            {proveedores.map((prov) => (
-              <option key={prov.id} value={prov.id}>
-                {prov.bc_proveedor_no} — {prov.nombre}
-              </option>
-            ))}
-          </select>
+            onChange={onProveedorId}
+            className="w-52"
+          />
         </div>
 
         <div>
