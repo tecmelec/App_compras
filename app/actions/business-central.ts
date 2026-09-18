@@ -755,6 +755,35 @@ export async function repararSolicitudesMultiProveedorBC() {
   return { revisadas: pedidos?.length || 0, resumen };
 }
 
+// Diagnóstico temporal: para una solicitud dada, muestra TODOS sus pedidos de
+// compra en BC (No, proveedor, estado) y las líneas crudas de cada uno — para
+// investigar por qué repararSolicitudesMultiProveedorBC no encuentra una
+// coincidencia clara (0 o más de 1 línea con el mismo artículo+cantidad).
+export async function depurarLineasSolicitudBC(numeroApp: string) {
+  await requireAdmin();
+
+  const pedidosBC = await obtenerPedidosCompraBC(numeroApp);
+  const detalle = [];
+  for (const po of pedidosBC) {
+    let lineas: any[] = [];
+    let error: string | null = null;
+    try {
+      lineas = await obtenerLineasPedidoCompraBC(po.No);
+    } catch (e: any) {
+      error = e.message || 'Error obteniendo líneas.';
+    }
+    detalle.push({
+      documentNo: po.No,
+      vendor: po.Buy_from_Vendor_No,
+      status: po.Status,
+      lineas,
+      error,
+    });
+  }
+
+  return { pedidosBC, detalle };
+}
+
 export async function previsualizarPedidoCompraBC(pedidoId: string) {
   const supabase = createClient();
   return agruparPorProveedorParaBC(supabase, pedidoId);
