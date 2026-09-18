@@ -69,7 +69,7 @@ export default function HeaderBar({
         <div />
       )}
 
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="relative flex items-center gap-3 shrink-0">
         {mostrarCarrito && <NotificacionesIcon userId={userId} />}
         {mostrarCarrito && <CartIcon />}
         <CuentaMenu nombre={nombre} rol={rol} />

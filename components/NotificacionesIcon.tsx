@@ -104,7 +104,7 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="relative">
+    <>
       <button
         onClick={alternar}
         className="relative inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-fondo transition-colors"
@@ -171,6 +171,6 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
