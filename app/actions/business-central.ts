@@ -405,16 +405,36 @@ export async function sincronizarPedidoConBC(pedidoId: string) {
   return resultado;
 }
 
+// Un pedido sigue "abierto" para la sincronización incremental mientras le
+// quede algo por tramitar (estado_general) O algo por recibir (estado_recepcion
+// de alguna línea). Antes solo se miraba estado_general, así que en cuanto
+// todas las líneas quedaban "lanzadas" (Tramitado) el pedido dejaba de
+// repasarse — aunque la recepción de mercancía siguiera pendiente, y por eso
+// solo se actualizaba entrando al detalle y sincronizando a mano.
+async function pedidosAbiertosDe(supabase: any, filtro?: (q: any) => any) {
+  let query = supabase
+    .from('pedidos')
+    .select('id, numero_app, pedido_items(estado_recepcion)')
+    .neq('estado_general', 'Anulado');
+
+  if (filtro) query = filtro(query);
+
+  const { data: candidatos } = await query;
+
+  return (candidatos || []).filter((p: any) =>
+    (p.pedido_items || []).some(
+      (it: any) => it.estado_recepcion !== 'Recibido' && it.estado_recepcion !== 'Anulado'
+    )
+  );
+}
+
 // Cron horario (ver /app/api/cron/sincronizar-pedidos-bc): carga incremental,
 // solo repasa pedidos que aún no están cerrados en la app (evita golpear la
-// API de BC por cada pedido histórico ya tramitado o anulado).
+// API de BC por cada pedido histórico ya anulado o completamente recibido).
 export async function sincronizarPedidosAbiertosConBC() {
   const supabase = createAdminClient();
 
-  const { data: pedidos } = await supabase
-    .from('pedidos')
-    .select('id, numero_app')
-    .in('estado_general', ['Pendiente de tramitar', 'Tramitado parcial']);
+  const pedidos = await pedidosAbiertosDe(supabase);
 
   const resumen: { numeroApp: string; resultado: any }[] = [];
 
@@ -444,17 +464,9 @@ export async function sincronizarMisSolicitudesConBC() {
 
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
 
-  let query = supabase
-    .from('pedidos')
-    .select('id, numero_app')
-    .in('estado_general', ['Pendiente de tramitar', 'Tramitado parcial']);
+  const idsFiltro = perfil?.rol !== 'admin' ? await idsEfectivos(supabase, user.id) : null;
 
-  if (perfil?.rol !== 'admin') {
-    const ids = await idsEfectivos(supabase, user.id);
-    query = query.in('comprador_id', ids);
-  }
-
-  const { data: pedidos } = await query;
+  const pedidos = await pedidosAbiertosDe(supabase, idsFiltro ? (q: any) => q.in('comprador_id', idsFiltro) : undefined);
 
   let actualizados = 0;
   let conError = 0;
