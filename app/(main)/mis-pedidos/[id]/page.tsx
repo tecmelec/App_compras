@@ -35,6 +35,12 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
 
   if (!pedido) notFound();
 
+  const { data: seguimientos } = await supabase
+    .from('seguimiento_pedidos_tecmelec')
+    .select('numero_tecmelec, activo')
+    .eq('pedido_id', params.id);
+  const seguimientoPorGrupo = new Map((seguimientos || []).map((s: any) => [s.numero_tecmelec, s.activo]));
+
   const { data: estados } = await supabase.from('estados_pedido').select('id, nombre, orden').order('orden');
 
   const p = pedido as any;
@@ -258,7 +264,11 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <SeguirPedidoToggle pedidoId={p.id} valorInicial={p.seguir_pedido} />
+                <SeguirPedidoToggle
+                  pedidoId={p.id}
+                  numeroTecmelec={numeroTecmelec === '__sin_asignar__' ? '' : numeroTecmelec}
+                  valorInicial={seguimientoPorGrupo.has(numeroTecmelec) ? seguimientoPorGrupo.get(numeroTecmelec)! : p.seguir_pedido}
+                />
                 <EstadoBadge estado={nombreEstadoGrupo} />
               </div>
             </div>
