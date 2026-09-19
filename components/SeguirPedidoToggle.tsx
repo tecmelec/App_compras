@@ -5,9 +5,11 @@ import { actualizarSeguirPedido } from '@/app/actions/notificaciones';
 
 export default function SeguirPedidoToggle({
   pedidoId,
+  numeroTecmelec,
   valorInicial,
 }: {
   pedidoId: string;
+  numeroTecmelec: string;
   valorInicial: boolean;
 }) {
   const [activo, setActivo] = useState(valorInicial);
@@ -17,7 +19,7 @@ export default function SeguirPedidoToggle({
     const anterior = activo;
     setActivo(checked);
     startTransition(async () => {
-      const resultado = await actualizarSeguirPedido(pedidoId, checked);
+      const resultado = await actualizarSeguirPedido(pedidoId, numeroTecmelec, checked);
       if (resultado.error) setActivo(anterior);
     });
   }
