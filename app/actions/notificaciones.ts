@@ -41,10 +41,18 @@ export async function marcarTodasNotificacionesLeidas() {
   return { success: true };
 }
 
-// Activa/desactiva el seguimiento de una solicitud (recibir notificaciones cuando
-// cambie el estado de los pedidos Tecmelec asociados). Solo el propio solicitante
-// puede cambiarlo.
-export async function actualizarSeguirPedido(pedidoId: string, seguir: boolean) {
+// Activa/desactiva el seguimiento de un "Pedido Tecmelec" concreto dentro de
+// una solicitud (una solicitud puede tener varios, uno por proveedor). Cada
+// grupo se sigue de forma independiente. numeroTecmelec puede ser '' para el
+// grupo de líneas aún sin asignar a un pedido Tecmelec.
+// No se hace update directo sobre ninguna tabla: se usa una función RPC
+// security definer que valida que el pedido sea del usuario antes de tocar
+// nada, para no poder cambiar otros campos desde el cliente.
+export async function actualizarSeguirPedido(
+  pedidoId: string,
+  numeroTecmelec: string,
+  seguir: boolean
+) {
   const supabase = createClient();
 
   const {
@@ -53,13 +61,10 @@ export async function actualizarSeguirPedido(pedidoId: string, seguir: boolean) 
 
   if (!user) return { error: 'Debes iniciar sesión.' };
 
-  // No se hace update directo sobre "pedidos": el solicitante no tiene policy
-  // de UPDATE sobre esa tabla (por diseño, para no poder tocar otros campos
-  // como aprobado/comprador_id desde el cliente). Se usa una función RPC
-  // security definer que solo puede cambiar seguir_pedido en pedidos propios.
-  const { error } = await supabase.rpc('set_seguir_pedido', {
+  const { error } = await supabase.rpc('set_seguir_pedido_tecmelec', {
     p_pedido_id: pedidoId,
-    p_seguir: seguir,
+    p_numero_tecmelec: numeroTecmelec,
+    p_activo: seguir,
   });
 
   if (error) return { error: 'No se pudo actualizar el seguimiento del pedido.' };
