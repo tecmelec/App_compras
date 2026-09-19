@@ -53,11 +53,14 @@ export async function actualizarSeguirPedido(pedidoId: string, seguir: boolean) 
 
   if (!user) return { error: 'Debes iniciar sesión.' };
 
-  const { error } = await supabase
-    .from('pedidos')
-    .update({ seguir_pedido: seguir })
-    .eq('id', pedidoId)
-    .eq('usuario_id', user.id);
+  // No se hace update directo sobre "pedidos": el solicitante no tiene policy
+  // de UPDATE sobre esa tabla (por diseño, para no poder tocar otros campos
+  // como aprobado/comprador_id desde el cliente). Se usa una función RPC
+  // security definer que solo puede cambiar seguir_pedido en pedidos propios.
+  const { error } = await supabase.rpc('set_seguir_pedido', {
+    p_pedido_id: pedidoId,
+    p_seguir: seguir,
+  });
 
   if (error) return { error: 'No se pudo actualizar el seguimiento del pedido.' };
 
