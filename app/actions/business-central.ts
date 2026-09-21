@@ -230,10 +230,19 @@ function calcularEstadoRecepcion(cantidadPedida: number, cantidadRecibida: numbe
 // numero_tecmelec (asignado al crear el pedido de compra en BC, ver
 // crearPedidosCompraBC más abajo) — nunca se reasigna el numero_tecmelec aquí.
 async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, numeroApp: string) {
+  // Cada aviso se registra también con console.error, para que quede visible en
+  // los Logs de Vercel (pestaña "Logs" del proyecto) sin depender de leer el
+  // cuerpo JSON de la respuesta del cron, que no se ve fácilmente ahí.
+  function avisar(avisos: string[], mensaje: string) {
+    avisos.push(mensaje);
+    console.error(`[sincronizarPedidoConBC ${numeroApp}] ${mensaje}`);
+  }
+
   let pedidosBC;
   try {
     pedidosBC = await obtenerPedidosCompraBC(numeroApp);
   } catch (e: any) {
+    console.error(`[sincronizarPedidoConBC ${numeroApp}] Error consultando pedidos de compra: ${e.message}`);
     return { error: e.message || 'No se pudo conectar con Business Central.' };
   }
 
@@ -331,27 +340,36 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
             cambios.precio_unitario = Number((lineaBC.Line_Amount / lineaBC.Quantity).toFixed(5));
           }
         } else if (!errorLineas) {
-          avisos.push(
-            `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No}.`
+          avisar(
+            avisos,
+            `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No} (línea ${item.id}).`
           );
         }
       }
 
       if (Object.keys(cambios).length > 0) {
         const { error } = await supabase.from('pedido_items').update(cambios).eq('id', item.id);
-        if (error) avisos.push(error.message);
-        else actualizados++;
+        if (error) {
+          avisar(avisos, `Error al guardar línea ${item.id} de ${pedidoBC.No}: ${error.message}`);
+        } else {
+          actualizados++;
+          console.log(
+            `[sincronizarPedidoConBC ${numeroApp}] Línea ${item.id} de ${pedidoBC.No} actualizada: ${JSON.stringify(cambios)}`
+          );
+        }
       }
     }
 
-    if (errorLineas) avisos.push(errorLineas);
+    if (errorLineas) avisar(avisos, errorLineas);
     if (!proveedorId && pedidoBC.Buy_from_Vendor_No) {
-      avisos.push(
+      avisar(
+        avisos,
         `El proveedor "${pedidoBC.Buy_from_Vendor_No}" de Business Central no está sincronizado en /admin/proveedores.`
       );
     }
     if (!nombreEstadoNuevo) {
-      avisos.push(
+      avisar(
+        avisos,
         `Estado "${pedidoBC.Status}" de Business Central no reconocido (se esperaba Open, Pending Approval o Released).`
       );
     }
@@ -378,6 +396,10 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
   // El estado_id de las líneas puede haber cambiado arriba (p.ej. a "Pedido
   // lanzado"): recalculamos el Estado general del pedido con esos datos.
   await recalcularEstadoGeneral(supabase, pedidoId);
+
+  console.log(
+    `[sincronizarPedidoConBC ${numeroApp}] Fin: ${actualizados} línea(s) actualizada(s), ${avisos.length} aviso(s).`
+  );
 
   return { success: true, numeroTecmelec: numerosTecmelec.join(', '), actualizados, avisos };
 }
@@ -419,13 +441,21 @@ async function pedidosAbiertosDe(supabase: any, filtro?: (q: any) => any) {
 
   if (filtro) query = filtro(query);
 
-  const { data: candidatos } = await query;
+  const { data: candidatos, error } = await query;
+  if (error) {
+    console.error(`[pedidosAbiertosDe] Error consultando candidatos: ${error.message}`);
+    return [];
+  }
 
-  return (candidatos || []).filter((p: any) =>
+  const abiertos = (candidatos || []).filter((p: any) =>
     (p.pedido_items || []).some(
       (it: any) => it.estado_recepcion !== 'Recibido' && it.estado_recepcion !== 'Anulado'
     )
   );
+  console.log(
+    `[pedidosAbiertosDe] ${candidatos?.length || 0} candidato(s) revisado(s), ${abiertos.length} sigue(n) abierto(s).`
+  );
+  return abiertos;
 }
 
 // Cron horario (ver /app/api/cron/sincronizar-pedidos-bc): carga incremental,
