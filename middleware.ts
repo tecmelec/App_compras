@@ -51,5 +51,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // api/cron/* queda fuera: lo llama el cron de Vercel sin sesión de usuario
+  // (se autentica con CRON_SECRET dentro de la propia ruta), así que si pasa
+  // por aquí primero, este middleware lo redirige a /login antes de que el
+  // código de la ruta llegue a comprobar ese secreto.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron).*)'],
 };
