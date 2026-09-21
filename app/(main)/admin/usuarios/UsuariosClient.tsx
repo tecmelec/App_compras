@@ -32,6 +32,10 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
   const responsables = usuarios.filter((u) => u.rol === 'responsable');
   // Un admin también puede actuar como responsable asignado de un usuario/comprador.
   const responsablesDisponibles = usuarios.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
+  // Y también como sustituto de un comprador o responsable (p.ej. para poder
+  // gestionar sus compras/aprobaciones sin tener que cambiarle el rol).
+  const compradoresSustitutosDisponibles = usuarios.filter((u) => u.rol === 'comprador' || u.rol === 'admin');
+  const responsablesSustitutosDisponibles = usuarios.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
 
   function nombrePorId(id: string | null) {
     if (!id) return '—';
@@ -49,6 +53,8 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
           compradores={compradores}
           responsables={responsables}
           responsablesDisponibles={responsablesDisponibles}
+          compradoresSustitutosDisponibles={compradoresSustitutosDisponibles}
+          responsablesSustitutosDisponibles={responsablesSustitutosDisponibles}
           onCancel={() => setCreando(false)}
           onSuccess={() => {
             setCreando(false);
@@ -108,6 +114,8 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                         compradores={compradores}
                         responsables={responsables}
                         responsablesDisponibles={responsablesDisponibles}
+                        compradoresSustitutosDisponibles={compradoresSustitutosDisponibles}
+                        responsablesSustitutosDisponibles={responsablesSustitutosDisponibles}
                         onCancel={() => setEditandoId(null)}
                         onSuccess={() => {
                           setEditandoId(null);
@@ -131,6 +139,8 @@ function UsuarioForm({
   compradores,
   responsables,
   responsablesDisponibles,
+  compradoresSustitutosDisponibles,
+  responsablesSustitutosDisponibles,
   onCancel,
   onSuccess,
 }: {
@@ -138,6 +148,8 @@ function UsuarioForm({
   compradores: Usuario[];
   responsables: Usuario[];
   responsablesDisponibles: Usuario[];
+  compradoresSustitutosDisponibles: Usuario[];
+  responsablesSustitutosDisponibles: Usuario[];
   onCancel: () => void;
   onSuccess: () => void;
 }) {
@@ -290,11 +302,11 @@ function UsuarioForm({
               <label className="block text-sm font-medium text-grafito mb-1">Sustituto (vacaciones)</label>
               <select className="input" value={sustitutoId} onChange={(e) => setSustitutoId(e.target.value)}>
                 <option value="">Sin sustituto</option>
-                {(rol === 'comprador' ? compradores : responsables)
+                {(rol === 'comprador' ? compradoresSustitutosDisponibles : responsablesSustitutosDisponibles)
                   .filter((u) => u.id !== usuario?.id)
                   .map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.nombre_completo}
+                      {u.nombre_completo} {u.rol === 'admin' ? '(admin)' : ''}
                     </option>
                   ))}
               </select>
