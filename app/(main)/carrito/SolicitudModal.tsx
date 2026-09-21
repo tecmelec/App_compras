@@ -107,7 +107,9 @@ export default function SolicitudModal({
 
   const [rol, setRol] = useState<string>('usuario');
   const [compradorAsignadoId, setCompradorAsignadoId] = useState<string | null>(null);
-  const [compradoresDisponibles, setCompradoresDisponibles] = useState<{ id: string; nombre_completo: string }[]>([]);
+  const [compradoresDisponibles, setCompradoresDisponibles] = useState<
+    { id: string; nombre_completo: string; rol?: string }[]
+  >([]);
   const [compradorSeleccionado, setCompradorSeleccionado] = useState('');
 
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
@@ -148,10 +150,13 @@ export default function SolicitudModal({
         if (perfil.rol === 'usuario') {
           setCompradorAsignadoId(perfil.comprador_id || null);
         } else {
+          // Un admin también puede figurar como comprador asignable (p.ej. si
+          // quiere tramitar él mismo una solicitud), igual que ya puede actuar
+          // como responsable o como sustituto de un comprador.
           const { data: compradores } = await supabase
             .from('profiles')
-            .select('id, nombre_completo')
-            .eq('rol', 'comprador')
+            .select('id, nombre_completo, rol')
+            .in('rol', ['comprador', 'admin'])
             .order('nombre_completo');
           setCompradoresDisponibles(compradores || []);
         }
@@ -487,7 +492,7 @@ export default function SolicitudModal({
                       <option value="">Selecciona un comprador</option>
                       {compradoresDisponibles.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.nombre_completo}
+                          {c.nombre_completo} {c.rol === 'admin' ? '(admin)' : ''}
                         </option>
                       ))}
                     </select>
