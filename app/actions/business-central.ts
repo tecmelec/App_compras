@@ -501,6 +501,21 @@ export async function depurarCamposProductoBC() {
   }
 }
 
+// Diagnóstico temporal: muestra tal cual las líneas de un pedido de compra
+// concreto (por Nº de documento, p.ej. "PC2608166") — para ver si BC las
+// reporta como una sola línea por artículo o partidas en varias (lo que
+// rompería el cruce por Quantity exacta que usa sincronizarPedidoConBCInterno).
+export async function depurarLineasPedidoCompraBC(documentNo: string) {
+  await requireAdmin();
+
+  try {
+    const lineas = await obtenerLineasPedidoCompraBC(documentNo);
+    return { success: true, lineas: lineas || [], total: lineas?.length || 0 };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo conectar con Business Central.' };
+  }
+}
+
 // Diagnóstico temporal: muestra tal cual las líneas de planificación de
 // proyecto existentes para una obra/tarea concreta, para ver los nombres de
 // campo exactos antes de intentar crear una nueva por OData.
