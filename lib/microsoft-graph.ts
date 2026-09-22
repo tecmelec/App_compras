@@ -83,15 +83,22 @@ async function buscarMensajeEnviado(
 
     try {
       const respuesta = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!respuesta.ok) continue;
+      if (!respuesta.ok) {
+        const texto = await respuesta.text().catch(() => '');
+        console.error(`buscarMensajeEnviado: Graph respondió ${respuesta.status} en intento ${intento + 1}/${intentos}:`, texto);
+        continue;
+      }
 
       const data = await respuesta.json();
       const mensaje = data.value?.[0];
       if (mensaje?.id) {
         return { messageId: mensaje.id, conversationId: mensaje.conversationId || null };
       }
-    } catch {
-      // Se reintenta en la siguiente vuelta.
+      console.error(
+        `buscarMensajeEnviado: sin resultados en intento ${intento + 1}/${intentos} (buzon=${buzon}, asunto="${asunto}")`
+      );
+    } catch (err) {
+      console.error(`buscarMensajeEnviado: excepción en intento ${intento + 1}/${intentos}:`, err);
     }
   }
 
