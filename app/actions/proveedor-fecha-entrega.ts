@@ -10,23 +10,43 @@ export type ItemFechaEntrega = {
   fechaActual: string | null;
 };
 
-export async function obtenerPedidoPorToken(token: string) {
-  const supabase = createAdminClient();
-
+// El token puede venir de un email enviado desde la app (pedido_emails) o de
+// un enlace generado manualmente con el botón "Copiar enlace"
+// (enlaces_proveedor_pedido); ambos dan acceso a la misma página pública.
+async function resolverNumeroTecmelecPorToken(
+  supabase: ReturnType<typeof createAdminClient>,
+  token: string
+): Promise<string | null> {
   const { data: envio } = await supabase
     .from('pedido_emails')
-    .select('numero_tecmelec, pedido_id')
+    .select('numero_tecmelec')
     .eq('token', token)
     .maybeSingle();
 
-  if (!envio) {
+  if (envio) return envio.numero_tecmelec;
+
+  const { data: enlace } = await supabase
+    .from('enlaces_proveedor_pedido')
+    .select('numero_tecmelec')
+    .eq('token', token)
+    .maybeSingle();
+
+  return enlace?.numero_tecmelec || null;
+}
+
+export async function obtenerPedidoPorToken(token: string) {
+  const supabase = createAdminClient();
+
+  const numeroTecmelec = await resolverNumeroTecmelecPorToken(supabase, token);
+
+  if (!numeroTecmelec) {
     return { error: 'Este enlace no es válido o ha caducado.' };
   }
 
   const { data: items } = await supabase
     .from('pedido_items')
     .select('id, cantidad, fecha_estimada_entrega, proveedor_id, productos(nombre, unidad_medida)')
-    .eq('numero_tecmelec', envio.numero_tecmelec);
+    .eq('numero_tecmelec', numeroTecmelec);
 
   if (!items || items.length === 0) {
     return { error: 'No se encontraron artículos para este pedido.' };
@@ -49,7 +69,7 @@ export async function obtenerPedidoPorToken(token: string) {
 
   return {
     success: true,
-    numeroTecmelec: envio.numero_tecmelec,
+    numeroTecmelec,
     proveedorNombre,
     items: itemsFormateados,
   };
@@ -63,13 +83,9 @@ export async function guardarFechaEntregaProveedor(
 ) {
   const supabase = createAdminClient();
 
-  const { data: envio } = await supabase
-    .from('pedido_emails')
-    .select('numero_tecmelec')
-    .eq('token', token)
-    .maybeSingle();
+  const numeroTecmelec = await resolverNumeroTecmelecPorToken(supabase, token);
 
-  if (!envio) {
+  if (!numeroTecmelec) {
     return { error: 'Este enlace no es válido o ha caducado.' };
   }
 
@@ -80,7 +96,7 @@ export async function guardarFechaEntregaProveedor(
     const { error } = await supabase
       .from('pedido_items')
       .update({ fecha_estimada_entrega: payload.fecha })
-      .eq('numero_tecmelec', envio.numero_tecmelec);
+      .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
     return { success: true };
@@ -99,7 +115,7 @@ export async function guardarFechaEntregaProveedor(
       .from('pedido_items')
       .update({ fecha_estimada_entrega: f.fecha })
       .eq('id', f.itemId)
-      .eq('numero_tecmelec', envio.numero_tecmelec);
+      .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
   }
