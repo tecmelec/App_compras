@@ -73,8 +73,8 @@ export default function FechaEntregaForm({ token, items }: { token: string; item
       <div className="space-y-3 mb-6">
         {items.map((it) => (
           <div key={it.id} className="flex items-center justify-between gap-4 border-b border-borde pb-3 last:border-0">
-            <div>
-              <p className="text-sm text-grafito">{it.nombre}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-grafito break-words">{it.nombre}</p>
               <p className="text-xs text-slate">
                 {it.cantidad} {it.unidadMedida}
               </p>
@@ -84,7 +84,7 @@ export default function FechaEntregaForm({ token, items }: { token: string; item
                 type="date"
                 value={fechasPorItem[it.id] || ''}
                 onChange={(e) => setFechasPorItem((prev) => ({ ...prev, [it.id]: e.target.value }))}
-                className="input w-40 shrink-0"
+                className="input w-40 max-w-[9rem] shrink-0"
               />
             )}
           </div>
