@@ -55,5 +55,8 @@ export const config = {
   // (se autentica con CRON_SECRET dentro de la propia ruta), así que si pasa
   // por aquí primero, este middleware lo redirige a /login antes de que el
   // código de la ruta llegue a comprobar ese secreto.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron).*)'],
+  // proveedor/* queda fuera: es la página pública (sin login) que abre el
+  // proveedor desde el enlace del email o el enlace copiado, para indicar la
+  // fecha de entrega; se identifica por el token de la URL, no por sesión.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron|proveedor).*)'],
 };
