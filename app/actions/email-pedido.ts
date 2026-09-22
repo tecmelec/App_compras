@@ -218,11 +218,10 @@ export async function obtenerContactosSugeridos(): Promise<
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data: envios } = await supabase
-    .from('pedido_emails')
-    .select('destinatarios, cc, created_at')
-    .order('created_at', { ascending: false })
-    .limit(300);
+  const [{ data: envios }, { data: ocultos }] = await Promise.all([
+    supabase.from('pedido_emails').select('destinatarios, cc, created_at').order('created_at', { ascending: false }).limit(300),
+    supabase.from('contactos_email_ocultos').select('email, oculto_desde').eq('usuario_id', user.id),
+  ]);
 
   const porEmail = new Map<string, { veces: number; ultimoUso: string }>();
 
@@ -234,16 +233,47 @@ export async function obtenerContactosSugeridos(): Promise<
       const actual = porEmail.get(email);
       if (actual) {
         actual.veces += 1;
+        if (e.created_at > actual.ultimoUso) actual.ultimoUso = e.created_at;
       } else {
         porEmail.set(email, { veces: 1, ultimoUso: e.created_at });
       }
     }
   }
 
+  // Un contacto ocultado por el usuario deja de sugerirse, salvo que se
+  // le haya vuelto a escribir después de ocultarlo (en ese caso reaparece).
+  const ocultosPorEmail = new Map<string, string>(
+    ((ocultos || []) as { email: string; oculto_desde: string }[]).map((o) => [o.email, o.oculto_desde])
+  );
+
   return Array.from(porEmail.entries())
     .map(([email, datos]) => ({ email, ...datos }))
+    .filter((c) => {
+      const ocultoDesde = ocultosPorEmail.get(c.email);
+      return !ocultoDesde || c.ultimoUso > ocultoDesde;
+    })
     .sort((a, b) => b.veces - a.veces || (a.ultimoUso < b.ultimoUso ? 1 : -1))
     .slice(0, 30);
+}
+
+// Deja de sugerir esta dirección (p. ej. porque se escribió mal) hasta que
+// se le vuelva a escribir en un envío nuevo.
+export async function ocultarContactoSugerido(email: string) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado.' };
+
+  const limpio = email.trim().toLowerCase();
+  if (!limpio) return { error: 'Email no válido.' };
+
+  const { error } = await supabase
+    .from('contactos_email_ocultos')
+    .upsert({ usuario_id: user.id, email: limpio, oculto_desde: new Date().toISOString() }, { onConflict: 'usuario_id,email' });
+
+  if (error) return { error: error.message };
+  return { success: true };
 }
 
 // Historial de emails enviados desde la app para este pedido, más la
