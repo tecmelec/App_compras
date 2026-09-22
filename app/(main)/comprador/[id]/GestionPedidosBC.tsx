@@ -2,6 +2,7 @@
 
 import EnviarEmailPedidoBoton from './EnviarEmailPedidoBoton';
 import VerConversacionBoton from './VerConversacionBoton';
+import CopiarEnlaceProveedorBoton from './CopiarEnlaceProveedorBoton';
 
 type Fila = {
   numeroTecmelec: string;
@@ -50,6 +51,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 <EnviarEmailPedidoBoton numeroTecmelec={p.numeroTecmelec} conFotos={true} />
               </div>
               <VerConversacionBoton numeroTecmelec={p.numeroTecmelec} />
+              <CopiarEnlaceProveedorBoton numeroTecmelec={p.numeroTecmelec} />
             </div>
           </div>
         ))}
