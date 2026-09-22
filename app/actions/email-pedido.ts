@@ -268,7 +268,10 @@ export async function obtenerConversacionPedido(numeroTecmelec: string) {
 
     const mensajesPorHilo = await Promise.all(
       Array.from(hilos.entries()).map(([conversationId, buzon]) =>
-        obtenerConversacionGraph(buzon, conversationId).catch(() => [])
+        obtenerConversacionGraph(buzon, conversationId).catch((err) => {
+          console.error(`No se pudo leer la conversación (buzon=${buzon}, conversationId=${conversationId}):`, err);
+          return [];
+        })
       )
     );
 
