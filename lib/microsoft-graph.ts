@@ -60,10 +60,18 @@ function esperar(ms: number) {
 // /sendMail, para sacar su Id y su conversationId (sendMail no los devuelve
 // directamente, a diferencia de crear+enviar un borrador). Se identifica por
 // asunto + fecha más reciente; el asunto ya incluye el Nº de pedido, así que
-// es suficientemente único. Si Graph tarda un poco en indexarlo en Enviados,
-// se reintenta un par de veces antes de rendirse — nunca lanza error: si no
-// lo encuentra, el email ya salió igualmente, solo no se podrá enlazar la
-// conversación después.
+// es suficientemente único.
+//
+// No se usa $filter=subject eq '...' combinado con $orderby: Graph puede
+// devolver 0 resultados en silencio (sin error) para esa combinación en
+// ciertos buzones/tenants por restricciones de indexación. En su lugar se
+// piden los últimos mensajes de Enviados sin filtro y se compara el asunto
+// aquí mismo, que es fiable siempre que el mensaje esté entre los más
+// recientes.
+//
+// Si Graph tarda un poco en indexarlo en Enviados, se reintenta un par de
+// veces antes de rendirse — nunca lanza error: si no lo encuentra, el email
+// ya salió igualmente, solo no se podrá enlazar la conversación después.
 async function buscarMensajeEnviado(
   token: string,
   buzon: string,
@@ -71,12 +79,9 @@ async function buscarMensajeEnviado(
   intentos: number,
   esperaMs: number
 ): Promise<{ messageId: string; conversationId: string | null }> {
-  const filtro = `subject eq '${asunto.replace(/'/g, "''")}'`;
   const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
     buzon
-  )}/mailFolders/sentitems/messages?$filter=${encodeURIComponent(
-    filtro
-  )}&$select=id,conversationId,sentDateTime&$orderby=sentDateTime desc&$top=1`;
+  )}/mailFolders/sentitems/messages?$select=id,conversationId,subject,sentDateTime&$orderby=sentDateTime desc&$top=15`;
 
   for (let intento = 0; intento < intentos; intento++) {
     if (intento > 0) await esperar(esperaMs);
@@ -90,12 +95,13 @@ async function buscarMensajeEnviado(
       }
 
       const data = await respuesta.json();
-      const mensaje = data.value?.[0];
+      const mensajes: any[] = data.value || [];
+      const mensaje = mensajes.find((m) => (m.subject || '').trim() === asunto.trim());
       if (mensaje?.id) {
         return { messageId: mensaje.id, conversationId: mensaje.conversationId || null };
       }
       console.error(
-        `buscarMensajeEnviado: sin resultados en intento ${intento + 1}/${intentos} (buzon=${buzon}, asunto="${asunto}")`
+        `buscarMensajeEnviado: sin coincidencia en intento ${intento + 1}/${intentos} (buzon=${buzon}, asunto buscado="${asunto}", asuntos recibidos=${JSON.stringify(mensajes.map((m) => m.subject))})`
       );
     } catch (err) {
       console.error(`buscarMensajeEnviado: excepción en intento ${intento + 1}/${intentos}:`, err);
