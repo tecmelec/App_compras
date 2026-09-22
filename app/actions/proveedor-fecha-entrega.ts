@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { obtenerLineasPedidoCompraBC, actualizarFechaEntregaLineaCompraBC } from '@/lib/business-central';
 
 export type ItemFechaEntrega = {
   id: string;
@@ -32,6 +33,64 @@ async function resolverNumeroTecmelecPorToken(
     .maybeSingle();
 
   return enlace?.numero_tecmelec || null;
+}
+
+// Intenta reflejar también en Business Central la fecha que acaba de indicar
+// el proveedor (Expected_Receipt_Date de la línea). Es un "mejor esfuerzo":
+// si BC no deja tocar esa línea (documento bloqueado, cambios de permisos,
+// etc.) no debe impedir que la fecha quede guardada en la app —que es la
+// referencia real para el seguimiento interno—, así que cualquier fallo
+// aquí solo se registra en los logs de Vercel.
+async function sincronizarFechasConBC(
+  supabase: ReturnType<typeof createAdminClient>,
+  numeroTecmelec: string,
+  cambios: { itemId: string; fecha: string }[]
+) {
+  if (cambios.length === 0) return;
+
+  const { data: items } = await supabase
+    .from('pedido_items')
+    .select('id, cantidad, productos(bc_item_no)')
+    .in(
+      'id',
+      cambios.map((c) => c.itemId)
+    );
+
+  const itemsConBcNo = (items || []).filter((it: any) => it.productos?.bc_item_no);
+  if (itemsConBcNo.length === 0) return;
+
+  let lineasBC: Awaited<ReturnType<typeof obtenerLineasPedidoCompraBC>>;
+  try {
+    lineasBC = await obtenerLineasPedidoCompraBC(numeroTecmelec);
+  } catch (e: any) {
+    console.error(`[sincronizarFechasConBC ${numeroTecmelec}] No se pudo leer BC:`, e.message || e);
+    return;
+  }
+
+  for (const cambio of cambios) {
+    const item = itemsConBcNo.find((it: any) => it.id === cambio.itemId) as any;
+    if (!item) continue;
+
+    // Mismo criterio de desambiguación (Nº de artículo + cantidad exacta)
+    // que usa el resto de la sincronización con BC, por si el pedido tiene
+    // varias líneas con el mismo artículo en cantidades distintas.
+    const linea = lineasBC.find((l) => l.No === item.productos.bc_item_no && l.Quantity === item.cantidad);
+    if (!linea) {
+      console.error(
+        `[sincronizarFechasConBC ${numeroTecmelec}] No se encontró la línea de BC para el artículo ${item.productos.bc_item_no} (cantidad ${item.cantidad}).`
+      );
+      continue;
+    }
+
+    try {
+      await actualizarFechaEntregaLineaCompraBC(linea, cambio.fecha);
+    } catch (e: any) {
+      console.error(
+        `[sincronizarFechasConBC ${numeroTecmelec}] No se pudo actualizar la línea ${linea.No} en BC:`,
+        e.message || e
+      );
+    }
+  }
 }
 
 export async function obtenerPedidoPorToken(token: string) {
@@ -93,12 +152,25 @@ export async function guardarFechaEntregaProveedor(
     if (!payload.fecha) {
       return { error: 'Indica una fecha.' };
     }
+
+    const { data: itemsGrupo } = await supabase
+      .from('pedido_items')
+      .select('id')
+      .eq('numero_tecmelec', numeroTecmelec);
+
     const { error } = await supabase
       .from('pedido_items')
       .update({ fecha_estimada_entrega: payload.fecha })
       .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
+
+    await sincronizarFechasConBC(
+      supabase,
+      numeroTecmelec,
+      (itemsGrupo || []).map((it) => ({ itemId: it.id, fecha: payload.fecha }))
+    );
+
     return { success: true };
   }
 
@@ -119,6 +191,8 @@ export async function guardarFechaEntregaProveedor(
 
     if (error) return { error: error.message };
   }
+
+  await sincronizarFechasConBC(supabase, numeroTecmelec, fechasValidas);
 
   return { success: true };
 }
