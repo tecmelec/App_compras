@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { enviarPedidoPorEmail, obtenerDatosEmailPedido, obtenerContactosSugeridos } from '@/app/actions/email-pedido';
+import {
+  enviarPedidoPorEmail,
+  obtenerDatosEmailPedido,
+  obtenerContactosSugeridos,
+  ocultarContactoSugerido,
+} from '@/app/actions/email-pedido';
 import CampoDestinatarios, { ContactoSugerido } from './CampoDestinatarios';
 
 const MENSAJE_POR_DEFECTO = (numeroTecmelec: string) => `Buenas,\nAdjuntamos el pedido de compra ${numeroTecmelec}.`;
@@ -82,6 +87,14 @@ export default function EnviarEmailPedidoBoton({
     setEnviado(r.destinatarios || para);
   }
 
+  function ocultarSugerencia(email: string) {
+    setSugerencias((actual) => actual.filter((s) => s.email !== email));
+    ocultarContactoSugerido(email).catch(() => {
+      // Si falla el guardado, no pasa nada grave: en la próxima apertura
+      // volvería a aparecer en las sugerencias.
+    });
+  }
+
   return (
     <div className="relative inline-block" ref={ref}>
       <button
@@ -134,13 +147,21 @@ export default function EnviarEmailPedidoBoton({
                   emails={para}
                   onChange={setPara}
                   sugerencias={sugerencias}
+                  onOcultarSugerencia={ocultarSugerencia}
                   placeholder="email@proveedor.com"
                 />
               </div>
 
               {mostrarCc && (
                 <div className="mb-3">
-                  <CampoDestinatarios label="CC" emails={cc} onChange={setCc} sugerencias={sugerencias} placeholder="email@empresa.com" />
+                  <CampoDestinatarios
+                    label="CC"
+                    emails={cc}
+                    onChange={setCc}
+                    sugerencias={sugerencias}
+                    onOcultarSugerencia={ocultarSugerencia}
+                    placeholder="email@empresa.com"
+                  />
                 </div>
               )}
 

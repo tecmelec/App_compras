@@ -20,12 +20,14 @@ export default function CampoDestinatarios({
   emails,
   onChange,
   sugerencias,
+  onOcultarSugerencia,
   placeholder,
 }: {
   label: string;
   emails: string[];
   onChange: (emails: string[]) => void;
   sugerencias: ContactoSugerido[];
+  onOcultarSugerencia?: (email: string) => void;
   placeholder?: string;
 }) {
   const [texto, setTexto] = useState('');
@@ -123,20 +125,30 @@ export default function CampoDestinatarios({
       {abierto && (opciones.length > 0 || puedeAgregarLibre) && (
         <div className="absolute left-0 right-0 z-30 mt-1 bg-white border border-borde rounded-lg shadow-lg max-h-56 overflow-y-auto">
           {opciones.map((s) => (
-            <button
-              key={s.email}
-              type="button"
-              onClick={() => agregar(s.email)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-marcaClaro/60 text-xs"
-            >
-              <span
-                className="w-6 h-6 rounded-full text-white flex items-center justify-center text-[10px] font-semibold shrink-0"
-                style={{ backgroundColor: colorAvatar(s.email) }}
-              >
-                {s.email[0]?.toUpperCase()}
-              </span>
-              <span className="text-grafito truncate">{s.email}</span>
-            </button>
+            <div key={s.email} className="w-full flex items-center gap-2 pl-3 pr-1.5 py-1 hover:bg-marcaClaro/60 text-xs group">
+              <button type="button" onClick={() => agregar(s.email)} className="flex items-center gap-2 flex-1 min-w-0 text-left py-1">
+                <span
+                  className="w-6 h-6 rounded-full text-white flex items-center justify-center text-[10px] font-semibold shrink-0"
+                  style={{ backgroundColor: colorAvatar(s.email) }}
+                >
+                  {s.email[0]?.toUpperCase()}
+                </span>
+                <span className="text-grafito truncate">{s.email}</span>
+              </button>
+              {onOcultarSugerencia && (
+                <button
+                  type="button"
+                  title="Quitar de las sugerencias"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOcultarSugerencia(s.email);
+                  }}
+                  className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-slate/60 hover:bg-slate/20 hover:text-grafito"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           ))}
           {puedeAgregarLibre && (
             <button
