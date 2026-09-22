@@ -57,11 +57,19 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       });
     }
   }
+  const numerosTecmelecLista = Array.from(gruposPorTecmelec.keys());
+  const { data: emailsEnviados } = numerosTecmelecLista.length
+    ? await supabase.from('pedido_emails').select('numero_tecmelec, con_fotos').in('numero_tecmelec', numerosTecmelecLista)
+    : { data: [] as { numero_tecmelec: string; con_fotos: boolean }[] };
+  const enviosPorGrupo = new Set((emailsEnviados || []).map((e: any) => `${e.numero_tecmelec}|${e.con_fotos}`));
+
   const pedidosBC = Array.from(gruposPorTecmelec.entries()).map(([numeroTecmelec, g]) => ({
     numeroTecmelec,
     proveedorNombre: proveedoresPorId.get(g.proveedorId) || '',
     total: g.total,
     lineas: g.lineas,
+    enviadoSinFotos: enviosPorGrupo.has(`${numeroTecmelec}|false`),
+    enviadoConFotos: enviosPorGrupo.has(`${numeroTecmelec}|true`),
   }));
 
   return (

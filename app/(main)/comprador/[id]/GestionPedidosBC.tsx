@@ -9,6 +9,8 @@ type Fila = {
   proveedorNombre: string;
   total: number;
   lineas: number;
+  enviadoSinFotos: boolean;
+  enviadoConFotos: boolean;
 };
 
 export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
@@ -37,7 +39,11 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 >
                   Ver PDF
                 </a>
-                <EnviarEmailPedidoBoton numeroTecmelec={p.numeroTecmelec} conFotos={false} />
+                <EnviarEmailPedidoBoton
+                  numeroTecmelec={p.numeroTecmelec}
+                  conFotos={false}
+                  yaEnviado={p.enviadoSinFotos}
+                />
               </div>
               <div className="flex items-center gap-1.5">
                 <a
@@ -48,7 +54,11 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 >
                   PDF con fotos
                 </a>
-                <EnviarEmailPedidoBoton numeroTecmelec={p.numeroTecmelec} conFotos={true} />
+                <EnviarEmailPedidoBoton
+                  numeroTecmelec={p.numeroTecmelec}
+                  conFotos={true}
+                  yaEnviado={p.enviadoConFotos}
+                />
               </div>
               <VerConversacionBoton numeroTecmelec={p.numeroTecmelec} />
               <CopiarEnlaceProveedorBoton numeroTecmelec={p.numeroTecmelec} />
