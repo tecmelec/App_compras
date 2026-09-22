@@ -137,6 +137,7 @@ export async function buscarMensajeEnviadoPorAsunto(
 export async function enviarEmailConAdjuntoGraph({
   buzon,
   destinatarios,
+  cc,
   asunto,
   cuerpo,
   cuerpoEsHtml,
@@ -145,6 +146,7 @@ export async function enviarEmailConAdjuntoGraph({
 }: {
   buzon: string; // email de la persona/buzón que envía (aparece como remitente real)
   destinatarios: string[];
+  cc?: string[];
   asunto: string;
   cuerpo: string;
   cuerpoEsHtml?: boolean;
@@ -165,6 +167,7 @@ export async function enviarEmailConAdjuntoGraph({
         subject: asunto,
         body: { contentType: cuerpoEsHtml ? 'HTML' : 'Text', content: cuerpo },
         toRecipients: destinatarios.map((email) => ({ emailAddress: { address: email } })),
+        ccRecipients: (cc || []).map((email) => ({ emailAddress: { address: email } })),
         attachments: [
           {
             '@odata.type': '#microsoft.graph.fileAttachment',
