@@ -131,7 +131,8 @@ export async function enviarPedidoPorEmail(
   numeroTecmelec: string,
   conFotos: boolean,
   destinatarios: string[],
-  mensaje: string
+  mensaje: string,
+  cc: string[] = []
 ) {
   const supabase = createClient();
   const {
@@ -169,6 +170,7 @@ export async function enviarPedidoPorEmail(
     const { messageId, conversationId } = await enviarEmailConAdjuntoGraph({
       buzon: user.email,
       destinatarios,
+      cc,
       asunto,
       cuerpo: cuerpoHtml,
       cuerpoEsHtml: true,
@@ -182,6 +184,7 @@ export async function enviarPedidoPorEmail(
       enviado_por: user.id,
       buzon: user.email,
       destinatarios,
+      cc,
       asunto,
       mensaje,
       con_fotos: conFotos,
@@ -200,6 +203,47 @@ export async function enviarPedidoPorEmail(
   } catch (e: any) {
     return { error: e.message || 'No se pudo enviar el email.' };
   }
+}
+
+// Direcciones a las que ya se ha escrito antes (en "Para" o "CC" de cualquier
+// pedido), para sugerirlas como autocompletado al escribir un nuevo
+// destinatario — igual que hace Outlook con los contactos recientes. Se
+// ordenan por nº de veces usadas y, a igualdad, por la más reciente.
+export async function obtenerContactosSugeridos(): Promise<
+  { email: string; veces: number; ultimoUso: string }[]
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data: envios } = await supabase
+    .from('pedido_emails')
+    .select('destinatarios, cc, created_at')
+    .order('created_at', { ascending: false })
+    .limit(300);
+
+  const porEmail = new Map<string, { veces: number; ultimoUso: string }>();
+
+  for (const e of (envios || []) as { destinatarios: string[] | null; cc: string[] | null; created_at: string }[]) {
+    const emails = [...(e.destinatarios || []), ...(e.cc || [])];
+    for (const emailOriginal of emails) {
+      const email = (emailOriginal || '').trim().toLowerCase();
+      if (!email) continue;
+      const actual = porEmail.get(email);
+      if (actual) {
+        actual.veces += 1;
+      } else {
+        porEmail.set(email, { veces: 1, ultimoUso: e.created_at });
+      }
+    }
+  }
+
+  return Array.from(porEmail.entries())
+    .map(([email, datos]) => ({ email, ...datos }))
+    .sort((a, b) => b.veces - a.veces || (a.ultimoUso < b.ultimoUso ? 1 : -1))
+    .slice(0, 30);
 }
 
 // Historial de emails enviados desde la app para este pedido, más la
