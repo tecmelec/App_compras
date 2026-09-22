@@ -69,9 +69,11 @@ function esperar(ms: number) {
 // aquí mismo, que es fiable siempre que el mensaje esté entre los más
 // recientes.
 //
-// Si Graph tarda un poco en indexarlo en Enviados, se reintenta un par de
-// veces antes de rendirse — nunca lanza error: si no lo encuentra, el email
-// ya salió igualmente, solo no se podrá enlazar la conversación después.
+// Si Graph tarda un poco en indexarlo en Enviados, o responde con un error
+// transitorio (5xx — ocurre de vez en cuando en Exchange Online, ajeno a
+// nuestro código), se reintenta con espera creciente (backoff exponencial)
+// antes de rendirse — nunca lanza error: si no lo encuentra, el email ya
+// salió igualmente, solo no se podrá enlazar la conversación después.
 async function buscarMensajeEnviado(
   token: string,
   buzon: string,
@@ -84,7 +86,7 @@ async function buscarMensajeEnviado(
   )}/mailFolders/sentitems/messages?$select=id,conversationId,subject,sentDateTime&$orderby=sentDateTime desc&$top=15`;
 
   for (let intento = 0; intento < intentos; intento++) {
-    if (intento > 0) await esperar(esperaMs);
+    if (intento > 0) await esperar(esperaMs * Math.pow(2, intento - 1));
 
     try {
       const respuesta = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -114,15 +116,16 @@ async function buscarMensajeEnviado(
 // Repite la búsqueda del mensaje en Enviados bastante después del envío (p.
 // ej. cuando el comprador abre "Ver conversación"), para los casos en que el
 // intento justo después de enviar no llegó a tiempo porque Graph tardó más
-// en indexarlo — aquí ya no hay prisa, así que con 1-2 intentos debería
-// bastar siempre. Quien llama decide si actualiza el registro guardado con
-// lo que se encuentre.
+// en indexarlo, o Graph devolvió un error transitorio (5xx) — aquí ya no hay
+// prisa, así que se dan varios intentos con espera creciente (1s, 2s, 4s,
+// 8s) antes de rendirse. Quien llama decide si actualiza el registro
+// guardado con lo que se encuentre.
 export async function buscarMensajeEnviadoPorAsunto(
   buzon: string,
   asunto: string
 ): Promise<{ messageId: string; conversationId: string | null }> {
   const token = await obtenerTokenGraph();
-  return buscarMensajeEnviado(token, buzon, asunto, 2, 1000);
+  return buscarMensajeEnviado(token, buzon, asunto, 5, 1000);
 }
 
 // Envía el email directamente con /sendMail (requiere solo el permiso de
