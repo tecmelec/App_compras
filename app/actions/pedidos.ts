@@ -261,12 +261,29 @@ export async function actualizarLineasTecmelec(
 ) {
   const supabase = createClient();
 
+  // Para saber si la fecha de entrega cambia de verdad: si el comprador la
+  // toca a mano, la confirmación que hubiera dejado el proveedor (por el
+  // enlace público) deja de corresponder a lo que se ve en pantalla y hay
+  // que limpiarla; si no la toca, se deja tal cual está.
+  const { data: actuales } = await supabase
+    .from('pedido_items')
+    .select('id, fecha_estimada_entrega')
+    .in(
+      'id',
+      items.map((i) => i.id)
+    );
+  const fechaActualPorId = new Map((actuales || []).map((a) => [a.id, a.fecha_estimada_entrega]));
+
   for (const item of items) {
+    const fechaNueva = item.fecha_estimada_entrega || null;
+    const fechaCambio = (fechaActualPorId.get(item.id) ?? null) !== fechaNueva;
+
     const { error } = await supabase
       .from('pedido_items')
       .update({
         numero_tecmelec: item.numero_tecmelec || null,
-        fecha_estimada_entrega: item.fecha_estimada_entrega || null,
+        fecha_estimada_entrega: fechaNueva,
+        ...(fechaCambio ? { fecha_estimada_entrega_confirmada_en: null } : {}),
         estado_id: item.estado_id,
         estado_recepcion: item.estado_recepcion,
         proveedor_id: item.proveedor_id,
