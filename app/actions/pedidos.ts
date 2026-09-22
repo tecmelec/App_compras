@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { enviarEmailSolicitud } from '@/lib/email';
 import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
+import { sincronizarFechasConBC } from '@/app/actions/proveedor-fecha-entrega';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -299,6 +300,28 @@ export async function actualizarLineasTecmelec(
   // El "Estado" general se recalcula solo a partir del estado de cada línea
   // (ver recalcularEstadoGeneral) — no se toca aquí si el pedido está Anulado.
   await recalcularEstadoGeneral(supabase, pedidoId);
+
+  // Si el comprador cambia a mano la fecha de una línea que ya tiene Nº
+  // pedido Tecmelec, se intenta reflejar también en BC (mismo mecanismo que
+  // cuando la confirma el proveedor). Es best-effort: no debe impedir que se
+  // guarde el cambio en la app si BC falla.
+  const cambiosPorGrupo = new Map<string, { itemId: string; fecha: string }[]>();
+  for (const item of items) {
+    const fechaNueva = item.fecha_estimada_entrega || null;
+    const fechaCambio = (fechaActualPorId.get(item.id) ?? null) !== fechaNueva;
+    if (!fechaCambio || !fechaNueva || !item.numero_tecmelec) continue;
+
+    if (!cambiosPorGrupo.has(item.numero_tecmelec)) cambiosPorGrupo.set(item.numero_tecmelec, []);
+    cambiosPorGrupo.get(item.numero_tecmelec)!.push({ itemId: item.id, fecha: fechaNueva });
+  }
+
+  for (const [numeroTecmelec, cambios] of cambiosPorGrupo) {
+    try {
+      await sincronizarFechasConBC(supabase, numeroTecmelec, cambios);
+    } catch (e: any) {
+      console.error(`[actualizarLineasTecmelec ${numeroTecmelec}] No se pudo sincronizar con BC:`, e.message || e);
+    }
+  }
 
   return { success: true };
 }
