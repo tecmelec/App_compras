@@ -21,7 +21,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, unidad_medida, proveedor_predeterminado_id))'
+      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, unidad_medida, proveedor_predeterminado_id))'
     )
     .eq('id', params.id)
     .single();
@@ -199,6 +199,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           cantidad: item.cantidad,
           numeroTecmelec: item.numero_tecmelec || '',
           fechaEstimada: item.fecha_estimada_entrega || '',
+          fechaConfirmadaEn: item.fecha_estimada_entrega_confirmada_en || null,
           estadoId: item.estado_id,
           estadoRecepcion: item.estado_recepcion,
           proveedorId: item.proveedor_id || (!item.numero_tecmelec ? item.productos?.proveedor_predeterminado_id || '' : ''),

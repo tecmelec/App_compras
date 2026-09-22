@@ -17,6 +17,7 @@ type ItemForm = {
   cantidad: number;
   numeroTecmelec: string;
   fechaEstimada: string;
+  fechaConfirmadaEn: string | null;
   estadoId: number;
   estadoRecepcion: string;
   proveedorId: string;
@@ -395,7 +396,28 @@ function ItemFila({
           )}
           <div>
             <p className="text-xs text-slate mb-1">Fecha estimada de entrega</p>
-            <input type="date" className="input w-40 py-1" value={fecha} onChange={(e) => onFecha(e.target.value)} />
+            <div className="flex items-center gap-1.5">
+              <input type="date" className="input w-40 py-1" value={fecha} onChange={(e) => onFecha(e.target.value)} />
+              {item.fechaConfirmadaEn && fecha === item.fechaEstimada && (
+                <span
+                  title={`Confirmada por el proveedor el ${new Date(item.fechaConfirmadaEn).toLocaleString('es-ES', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}`}
+                  className="w-5 h-5 rounded-full bg-marcaClaro text-marca flex items-center justify-center shrink-0"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+              )}
+            </div>
+            {item.fechaConfirmadaEn && fecha === item.fechaEstimada && (
+              <p className="text-[11px] text-slate mt-1">
+                Últ. actualización:{' '}
+                {new Date(item.fechaConfirmadaEn).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+              </p>
+            )}
           </div>
         </div>
       </div>
