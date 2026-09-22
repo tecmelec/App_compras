@@ -3,7 +3,11 @@
 import { randomUUID } from 'crypto';
 import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { enviarEmailConAdjuntoGraph, obtenerConversacionGraph } from '@/lib/microsoft-graph';
+import {
+  enviarEmailConAdjuntoGraph,
+  obtenerConversacionGraph,
+  buscarMensajeEnviadoPorAsunto,
+} from '@/lib/microsoft-graph';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
 
 function construirBaseUrl(): string {
@@ -213,7 +217,7 @@ export async function obtenerConversacionPedido(numeroTecmelec: string) {
   try {
     const { data: envios } = await supabase
       .from('pedido_emails')
-      .select('buzon, graph_conversation_id, created_at, enviado_por, profiles(nombre_completo)')
+      .select('id, buzon, asunto, graph_conversation_id, created_at, enviado_por, profiles(nombre_completo)')
       .eq('numero_tecmelec', numeroTecmelec)
       .order('created_at', { ascending: true });
 
@@ -224,6 +228,25 @@ export async function obtenerConversacionPedido(numeroTecmelec: string) {
     // Normalmente hay una sola conversación por pedido; si se envió más de
     // una vez (p. ej. reenvío), se combinan los hilos de cada envío.
     const hilos = new Map<string, string>(); // conversationId -> buzon
+
+    // Si algún envío se quedó sin conversationId (Graph tardó en indexar el
+    // mensaje justo cuando se mandó), se reintenta ahora, que ya no hay
+    // prisa, y se repara el registro guardado para no tener que repetirlo.
+    await Promise.all(
+      (envios as any[])
+        .filter((e) => !e.graph_conversation_id && e.buzon && e.asunto)
+        .map(async (e) => {
+          const encontrado = await buscarMensajeEnviadoPorAsunto(e.buzon, e.asunto).catch(() => null);
+          if (encontrado?.conversationId) {
+            e.graph_conversation_id = encontrado.conversationId;
+            await supabase
+              .from('pedido_emails')
+              .update({ graph_message_id: encontrado.messageId || null, graph_conversation_id: encontrado.conversationId })
+              .eq('id', e.id);
+          }
+        })
+    );
+
     for (const e of envios as any[]) {
       if (e.graph_conversation_id && e.buzon) {
         hilos.set(e.graph_conversation_id, e.buzon);
