@@ -41,8 +41,13 @@ async function resolverNumeroTecmelecPorToken(
 // etc.) no debe impedir que la fecha quede guardada en la app —que es la
 // referencia real para el seguimiento interno—, así que cualquier fallo
 // aquí solo se registra en los logs de Vercel.
-async function sincronizarFechasConBC(
-  supabase: ReturnType<typeof createAdminClient>,
+// Se exporta porque también se usa desde la edición manual del comprador
+// (actualizarLineasTecmelec en app/actions/pedidos.ts) cuando cambia la
+// fecha de una línea a mano, no solo desde el enlace del proveedor — por
+// eso el cliente de Supabase se tipa suelto: puede ser el admin (esta
+// página pública) o el cliente normal autenticado (formulario del comprador).
+export async function sincronizarFechasConBC(
+  supabase: any,
   numeroTecmelec: string,
   cambios: { itemId: string; fecha: string }[]
 ) {
