@@ -1,5 +1,37 @@
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import { obtenerPedidoPorToken } from '@/app/actions/proveedor-fecha-entrega';
 import FechaEntregaForm from './FechaEntregaForm';
+
+// cache() evita repetir la consulta a Supabase: generateMetadata y el propio
+// componente de página se ejecutan por separado, pero ambos piden el mismo
+// token dentro de la misma petición.
+const obtenerPedidoCacheado = cache(obtenerPedidoPorToken);
+
+// Título y descripción para que el enlace se vea bien al compartirlo por
+// WhatsApp, email, etc. (en vez de mostrar la URL en crudo).
+export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
+  const resultado = await obtenerPedidoCacheado(params.token);
+
+  if (!('success' in resultado) || !resultado.success) {
+    return { title: 'Enlace no válido — Tecmelec' };
+  }
+
+  const titulo = `Plazo de entrega · Pedido ${resultado.numeroTecmelec}`;
+  const descripcion = resultado.proveedorNombre
+    ? `Indica la fecha de entrega estimada — ${resultado.proveedorNombre}`
+    : 'Indica la fecha de entrega estimada para este pedido.';
+
+  return {
+    title: titulo,
+    description: descripcion,
+    openGraph: {
+      title: titulo,
+      description: descripcion,
+      siteName: 'Tecmelec',
+    },
+  };
+}
 
 function IconoCalendario({ size = 18 }: { size?: number }) {
   return (
@@ -24,7 +56,7 @@ function IconoCamion() {
 }
 
 export default async function PaginaFechaEntrega({ params }: { params: { token: string } }) {
-  const resultado = await obtenerPedidoPorToken(params.token);
+  const resultado = await obtenerPedidoCacheado(params.token);
 
   return (
     <div className="min-h-screen bg-fondo flex items-start justify-center p-4 md:p-10">
