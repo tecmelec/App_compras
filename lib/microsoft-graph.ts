@@ -52,10 +52,56 @@ async function obtenerTokenGraph(): Promise<string> {
   return tokenCache.token;
 }
 
-// Crea el mensaje como borrador y luego lo envía (en vez de usar /sendMail
-// directamente), porque así Graph nos devuelve el Nº de mensaje y el Nº de
-// conversación — los necesitamos para poder recuperar después el hilo
-// completo (incluidas las respuestas del proveedor).
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Busca en la carpeta de Enviados el mensaje que se acaba de mandar con
+// /sendMail, para sacar su Id y su conversationId (sendMail no los devuelve
+// directamente, a diferencia de crear+enviar un borrador). Se identifica por
+// asunto + fecha más reciente; el asunto ya incluye el Nº de pedido, así que
+// es suficientemente único. Si Graph tarda un poco en indexarlo en Enviados,
+// se reintenta un par de veces antes de rendirse — nunca lanza error: si no
+// lo encuentra, el email ya salió igualmente, solo no se podrá enlazar la
+// conversación después.
+async function buscarMensajeEnviado(
+  token: string,
+  buzon: string,
+  asunto: string
+): Promise<{ messageId: string; conversationId: string | null }> {
+  const filtro = `subject eq '${asunto.replace(/'/g, "''")}'`;
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
+    buzon
+  )}/mailFolders/sentitems/messages?$filter=${encodeURIComponent(
+    filtro
+  )}&$select=id,conversationId,sentDateTime&$orderby=sentDateTime desc&$top=1`;
+
+  for (let intento = 0; intento < 3; intento++) {
+    if (intento > 0) await esperar(1500);
+
+    try {
+      const respuesta = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!respuesta.ok) continue;
+
+      const data = await respuesta.json();
+      const mensaje = data.value?.[0];
+      if (mensaje?.id) {
+        return { messageId: mensaje.id, conversationId: mensaje.conversationId || null };
+      }
+    } catch {
+      // Se reintenta en la siguiente vuelta.
+    }
+  }
+
+  return { messageId: '', conversationId: null };
+}
+
+// Envía el email directamente con /sendMail (requiere solo el permiso de
+// aplicación Mail.Send). No usamos crear-borrador + enviar por separado
+// porque ese primer paso (POST /messages) necesita Mail.ReadWrite, que no
+// forma parte de los permisos concedidos — con Mail.Send + Mail.Read (que sí
+// están concedidos) basta: se manda con /sendMail y luego se busca el
+// mensaje en Enviados para recuperar su Id y conversationId.
 export async function enviarEmailConAdjuntoGraph({
   buzon,
   destinatarios,
@@ -74,41 +120,30 @@ export async function enviarEmailConAdjuntoGraph({
   contenidoBase64: string;
 }): Promise<{ messageId: string; conversationId: string | null }> {
   const token = await obtenerTokenGraph();
-  const headersComunes = {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
 
-  const urlCrear = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages`;
-  const respuestaCrear = await fetch(urlCrear, {
-    method: 'POST',
-    headers: headersComunes,
-    body: JSON.stringify({
-      subject: asunto,
-      body: { contentType: cuerpoEsHtml ? 'HTML' : 'Text', content: cuerpo },
-      toRecipients: destinatarios.map((email) => ({ emailAddress: { address: email } })),
-      attachments: [
-        {
-          '@odata.type': '#microsoft.graph.fileAttachment',
-          name: nombreArchivo,
-          contentType: 'application/pdf',
-          contentBytes: contenidoBase64,
-        },
-      ],
-    }),
-  });
-
-  if (!respuestaCrear.ok) {
-    const texto = await respuestaCrear.text();
-    throw new Error(`Microsoft Graph rechazó la creación del email: ${texto}`);
-  }
-
-  const mensajeCreado = await respuestaCrear.json();
-
-  const urlEnviar = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages/${mensajeCreado.id}/send`;
+  const urlEnviar = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/sendMail`;
   const respuestaEnviar = await fetch(urlEnviar, {
     method: 'POST',
-    headers: headersComunes,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      message: {
+        subject: asunto,
+        body: { contentType: cuerpoEsHtml ? 'HTML' : 'Text', content: cuerpo },
+        toRecipients: destinatarios.map((email) => ({ emailAddress: { address: email } })),
+        attachments: [
+          {
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: nombreArchivo,
+            contentType: 'application/pdf',
+            contentBytes: contenidoBase64,
+          },
+        ],
+      },
+      saveToSentItems: true,
+    }),
   });
 
   if (!respuestaEnviar.ok) {
@@ -116,7 +151,7 @@ export async function enviarEmailConAdjuntoGraph({
     throw new Error(`Microsoft Graph rechazó el envío: ${texto}`);
   }
 
-  return { messageId: mensajeCreado.id, conversationId: mensajeCreado.conversationId || null };
+  return buscarMensajeEnviado(token, buzon, asunto);
 }
 
 export type MensajeConversacionGraph = {
