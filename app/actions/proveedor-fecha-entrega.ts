@@ -160,7 +160,10 @@ export async function guardarFechaEntregaProveedor(
 
     const { error } = await supabase
       .from('pedido_items')
-      .update({ fecha_estimada_entrega: payload.fecha })
+      .update({
+        fecha_estimada_entrega: payload.fecha,
+        fecha_estimada_entrega_confirmada_en: new Date().toISOString(),
+      })
       .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
@@ -185,7 +188,10 @@ export async function guardarFechaEntregaProveedor(
   for (const f of fechasValidas) {
     const { error } = await supabase
       .from('pedido_items')
-      .update({ fecha_estimada_entrega: f.fecha })
+      .update({
+        fecha_estimada_entrega: f.fecha,
+        fecha_estimada_entrega_confirmada_en: new Date().toISOString(),
+      })
       .eq('id', f.itemId)
       .eq('numero_tecmelec', numeroTecmelec);
 
