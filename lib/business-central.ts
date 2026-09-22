@@ -62,6 +62,14 @@ type LineaPedidoCompraBC = {
   Quantity_Received: number;
   Expected_Receipt_Date: string | null;
   Line_Amount: number;
+  // No van en el $select de las lecturas normales, pero BC los incluye igual
+  // por defecto en cada registro — los necesitamos solo para poder escribir
+  // de vuelta en esta línea concreta (Document_Type + Line_No forman la
+  // clave junto con Document_No; el etag es el control de concurrencia que
+  // exige BC en cualquier PATCH).
+  Document_Type?: string;
+  Line_No?: number;
+  '@odata.etag'?: string;
 };
 
 let tokenCache: { token: string; expira: number } | null = null;
@@ -156,6 +164,56 @@ async function crearRegistroBC(url: string, cuerpo: Record<string, any>) {
   }
 
   return respuesta.json();
+}
+
+// Actualiza (PATCH) un registro ya existente en BC. Requiere el etag que BC
+// devolvió al leerlo (control de concurrencia); si no lo tenemos, se manda
+// '*' para saltárselo, aunque lo normal es tenerlo siempre que el registro
+// se acaba de consultar justo antes.
+async function actualizarRegistroBC(url: string, etag: string | undefined, cuerpo: Record<string, any>) {
+  const token = await obtenerToken();
+
+  const respuesta = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'If-Match': etag || '*',
+    },
+    body: JSON.stringify(cuerpo),
+  });
+
+  if (!respuesta.ok) {
+    const texto = await respuesta.text();
+    throw new Error(`Error actualizando registro en Business Central: ${respuesta.status} ${texto}`);
+  }
+
+  return respuesta.json();
+}
+
+// Actualiza la fecha de recepción esperada de una línea de pedido de compra
+// ya existente en BC (Expected_Receipt_Date), a partir de una línea obtenida
+// previamente con obtenerLineasPedidoCompraBC (necesita su Document_No,
+// Line_No y etag). Si BC tiene el documento en un estado que no permite
+// tocar esa línea (p. ej. bloqueada), lanza y quien llame decide si es
+// crítico o solo se registra el aviso.
+export async function actualizarFechaEntregaLineaCompraBC(
+  linea: LineaPedidoCompraBC,
+  fecha: string
+): Promise<void> {
+  if (linea.Line_No === undefined) {
+    throw new Error('La línea de BC no trae Line_No, no se puede localizar para actualizarla.');
+  }
+
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_COMPRA!);
+  const documentType = linea.Document_Type || 'Order';
+  const url = `${base}(Document_Type='${documentType.replace(/'/g, "''")}',Document_No='${linea.Document_No.replace(
+    /'/g,
+    "''"
+  )}',Line_No=${linea.Line_No})`;
+
+  await actualizarRegistroBC(url, linea['@odata.etag'], { Expected_Receipt_Date: fecha });
 }
 
 export async function obtenerCrudoBC(servicio: string): Promise<any> {
