@@ -67,7 +67,9 @@ function esperar(ms: number) {
 async function buscarMensajeEnviado(
   token: string,
   buzon: string,
-  asunto: string
+  asunto: string,
+  intentos: number,
+  esperaMs: number
 ): Promise<{ messageId: string; conversationId: string | null }> {
   const filtro = `subject eq '${asunto.replace(/'/g, "''")}'`;
   const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
@@ -76,8 +78,8 @@ async function buscarMensajeEnviado(
     filtro
   )}&$select=id,conversationId,sentDateTime&$orderby=sentDateTime desc&$top=1`;
 
-  for (let intento = 0; intento < 3; intento++) {
-    if (intento > 0) await esperar(1500);
+  for (let intento = 0; intento < intentos; intento++) {
+    if (intento > 0) await esperar(esperaMs);
 
     try {
       const respuesta = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
@@ -94,6 +96,20 @@ async function buscarMensajeEnviado(
   }
 
   return { messageId: '', conversationId: null };
+}
+
+// Repite la búsqueda del mensaje en Enviados bastante después del envío (p.
+// ej. cuando el comprador abre "Ver conversación"), para los casos en que el
+// intento justo después de enviar no llegó a tiempo porque Graph tardó más
+// en indexarlo — aquí ya no hay prisa, así que con 1-2 intentos debería
+// bastar siempre. Quien llama decide si actualiza el registro guardado con
+// lo que se encuentre.
+export async function buscarMensajeEnviadoPorAsunto(
+  buzon: string,
+  asunto: string
+): Promise<{ messageId: string; conversationId: string | null }> {
+  const token = await obtenerTokenGraph();
+  return buscarMensajeEnviado(token, buzon, asunto, 2, 1000);
 }
 
 // Envía el email directamente con /sendMail (requiere solo el permiso de
@@ -151,7 +167,7 @@ export async function enviarEmailConAdjuntoGraph({
     throw new Error(`Microsoft Graph rechazó el envío: ${texto}`);
   }
 
-  return buscarMensajeEnviado(token, buzon, asunto);
+  return buscarMensajeEnviado(token, buzon, asunto, 4, 1500);
 }
 
 export type MensajeConversacionGraph = {
