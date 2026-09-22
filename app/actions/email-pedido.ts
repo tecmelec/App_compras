@@ -236,13 +236,26 @@ export async function obtenerConversacionPedido(numeroTecmelec: string) {
       (envios as any[])
         .filter((e) => !e.graph_conversation_id && e.buzon && e.asunto)
         .map(async (e) => {
-          const encontrado = await buscarMensajeEnviadoPorAsunto(e.buzon, e.asunto).catch(() => null);
+          const encontrado = await buscarMensajeEnviadoPorAsunto(e.buzon, e.asunto).catch((err) => {
+            console.error(
+              `No se pudo re-buscar en Graph el mensaje enviado (buzon=${e.buzon}, asunto="${e.asunto}"):`,
+              err
+            );
+            return null;
+          });
           if (encontrado?.conversationId) {
             e.graph_conversation_id = encontrado.conversationId;
-            await supabase
+            const { error: errorUpdate } = await supabase
               .from('pedido_emails')
               .update({ graph_message_id: encontrado.messageId || null, graph_conversation_id: encontrado.conversationId })
               .eq('id', e.id);
+            if (errorUpdate) {
+              console.error('No se pudo guardar el conversationId recuperado en pedido_emails:', errorUpdate);
+            }
+          } else {
+            console.error(
+              `No se encontró en Enviados el mensaje (buzon=${e.buzon}, asunto="${e.asunto}") al reintentar buscar el conversationId.`
+            );
           }
         })
     );
