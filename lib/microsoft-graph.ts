@@ -198,6 +198,11 @@ export type MensajeConversacionGraph = {
 
 // Trae todos los mensajes de una conversación (el nuestro + las respuestas
 // del proveedor que hayan llegado a ese buzón), ordenados por fecha.
+//
+// No se combina $filter con $orderby (mismo problema visto en
+// buscarMensajeEnviado: Graph puede devolver 0 resultados en silencio para
+// esa combinación en ciertos buzones); se ordena aquí mismo tras traer los
+// resultados del filtro.
 export async function obtenerConversacionGraph(
   buzon: string,
   conversationId: string
@@ -208,7 +213,7 @@ export async function obtenerConversacionGraph(
   const seleccion = 'id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isDraft';
   const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(
     buzon
-  )}/messages?$filter=${encodeURIComponent(filtro)}&$select=${seleccion}&$orderby=receivedDateTime asc&$top=50`;
+  )}/messages?$filter=${encodeURIComponent(filtro)}&$select=${seleccion}&$top=50`;
 
   const respuesta = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -216,18 +221,26 @@ export async function obtenerConversacionGraph(
 
   if (!respuesta.ok) {
     const texto = await respuesta.text();
+    console.error(`obtenerConversacionGraph: Graph respondió ${respuesta.status} (buzon=${buzon}, conversationId=${conversationId}):`, texto);
     throw new Error(`No se pudo leer la conversación en Microsoft Graph: ${texto}`);
   }
 
   const data = await respuesta.json();
+  const mensajes = data.value || [];
 
-  return (data.value || []).map((m: any) => ({
-    id: m.id,
-    de: m.from?.emailAddress?.address || '',
-    deNombre: m.from?.emailAddress?.name || m.from?.emailAddress?.address || '',
-    fecha: m.receivedDateTime || m.sentDateTime,
-    asunto: m.subject || '',
-    resumen: m.bodyPreview || '',
-    esBorrador: !!m.isDraft,
-  }));
+  console.error(
+    `obtenerConversacionGraph: ${mensajes.length} mensaje(s) encontrados (buzon=${buzon}, conversationId=${conversationId})`
+  );
+
+  return mensajes
+    .map((m: any) => ({
+      id: m.id,
+      de: m.from?.emailAddress?.address || '',
+      deNombre: m.from?.emailAddress?.name || m.from?.emailAddress?.address || '',
+      fecha: m.receivedDateTime || m.sentDateTime,
+      asunto: m.subject || '',
+      resumen: m.bodyPreview || '',
+      esBorrador: !!m.isDraft,
+    }))
+    .sort((a: MensajeConversacionGraph, b: MensajeConversacionGraph) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 }
