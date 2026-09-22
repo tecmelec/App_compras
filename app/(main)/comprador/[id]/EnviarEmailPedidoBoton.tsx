@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { enviarPedidoPorEmail, obtenerDatosEmailPedido } from '@/app/actions/email-pedido';
+import { enviarPedidoPorEmail, obtenerDatosEmailPedido, obtenerContactosSugeridos } from '@/app/actions/email-pedido';
+import CampoDestinatarios, { ContactoSugerido } from './CampoDestinatarios';
 
 const MENSAJE_POR_DEFECTO = (numeroTecmelec: string) => `Buenas,\nAdjuntamos el pedido de compra ${numeroTecmelec}.`;
 
@@ -17,7 +18,10 @@ export default function EnviarEmailPedidoBoton({
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [enviando, setEnviando] = useState(false);
-  const [para, setPara] = useState('');
+  const [para, setPara] = useState<string[]>([]);
+  const [cc, setCc] = useState<string[]>([]);
+  const [mostrarCc, setMostrarCc] = useState(false);
+  const [sugerencias, setSugerencias] = useState<ContactoSugerido[]>([]);
   const [mensaje, setMensaje] = useState('');
   const [enviado, setEnviado] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,27 +44,25 @@ export default function EnviarEmailPedidoBoton({
     setError(null);
     setAbierto(true);
     setCargando(true);
+    setCc([]);
+    setMostrarCc(false);
 
-    const r = await obtenerDatosEmailPedido(numeroTecmelec);
+    const [r, contactos] = await Promise.all([obtenerDatosEmailPedido(numeroTecmelec), obtenerContactosSugeridos()]);
 
     setCargando(false);
+    setSugerencias(contactos);
 
     if (r.error) {
       setError(r.error);
       return;
     }
 
-    setPara((r.emails || []).join(', '));
+    setPara((r.emails || []).map((e) => e.trim().toLowerCase()).filter(Boolean));
     setMensaje(MENSAJE_POR_DEFECTO(numeroTecmelec));
   }
 
   async function handleEnviar() {
-    const destinatarios = para
-      .split(/[;,]/)
-      .map((e) => e.trim())
-      .filter(Boolean);
-
-    if (destinatarios.length === 0) {
+    if (para.length === 0) {
       setError('Añade al menos un destinatario.');
       return;
     }
@@ -68,7 +70,7 @@ export default function EnviarEmailPedidoBoton({
     setEnviando(true);
     setError(null);
 
-    const r = await enviarPedidoPorEmail(numeroTecmelec, conFotos, destinatarios, mensaje);
+    const r = await enviarPedidoPorEmail(numeroTecmelec, conFotos, para, mensaje, cc);
 
     setEnviando(false);
 
@@ -77,7 +79,7 @@ export default function EnviarEmailPedidoBoton({
       return;
     }
 
-    setEnviado(r.destinatarios || destinatarios);
+    setEnviado(r.destinatarios || para);
   }
 
   return (
@@ -105,24 +107,42 @@ export default function EnviarEmailPedidoBoton({
       </button>
 
       {abierto && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-borde bg-white shadow-lg p-4 text-sm">
+        <div className="absolute right-0 z-20 mt-2 w-96 rounded-lg border border-borde bg-white shadow-lg p-4 text-sm">
           {cargando && <p className="text-xs text-slate">Cargando datos del proveedor…</p>}
 
           {!cargando && !enviado && (
             <>
-              <p className="text-xs font-semibold text-grafito mb-2">
-                Pedido {numeroTecmelec}
-                {conFotos ? ' (con fotos)' : ''}
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-grafito">
+                  Pedido {numeroTecmelec}
+                  {conFotos ? ' (con fotos)' : ''}
+                </p>
+                {!mostrarCc && (
+                  <button
+                    type="button"
+                    onClick={() => setMostrarCc(true)}
+                    className="text-[11px] text-marca hover:underline"
+                  >
+                    Añadir CC
+                  </button>
+                )}
+              </div>
 
-              <label className="block text-xs text-slate mb-1">Para</label>
-              <input
-                type="text"
-                value={para}
-                onChange={(e) => setPara(e.target.value)}
-                placeholder="email@proveedor.com, otro@proveedor.com"
-                className="input w-full text-xs mb-3"
-              />
+              <div className="mb-3">
+                <CampoDestinatarios
+                  label="Para"
+                  emails={para}
+                  onChange={setPara}
+                  sugerencias={sugerencias}
+                  placeholder="email@proveedor.com"
+                />
+              </div>
+
+              {mostrarCc && (
+                <div className="mb-3">
+                  <CampoDestinatarios label="CC" emails={cc} onChange={setCc} sugerencias={sugerencias} placeholder="email@empresa.com" />
+                </div>
+              )}
 
               <label className="block text-xs text-slate mb-1">Mensaje</label>
               <textarea
