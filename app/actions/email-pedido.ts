@@ -161,6 +161,27 @@ export async function enviarPedidoPorEmail(
       return { error: 'Pedido no encontrado.' };
     }
 
+    // No confiar solo en que la interfaz tenga el botón deshabilitado: se
+    // vuelve a comprobar aquí que TODAS las líneas de este Pedido Tecmelec
+    // han alcanzado (al menos) el estado "Pedido lanzado" antes de enviarlo.
+    const [{ data: lineasGrupo }, { data: estadosPedido }] = await Promise.all([
+      supabase.from('pedido_items').select('estado_id').eq('numero_tecmelec', numeroTecmelec),
+      supabase.from('estados_pedido').select('id, nombre, orden'),
+    ]);
+
+    const estadoLanzado = (estadosPedido || []).find((e) => e.nombre?.trim().toLowerCase() === 'pedido lanzado');
+    if (estadoLanzado) {
+      const ordenPorEstadoId = new Map((estadosPedido || []).map((e) => [e.id, e.orden]));
+      const ordenMinimo = Math.min(
+        ...(lineasGrupo || []).map((l) => ordenPorEstadoId.get(l.estado_id) ?? -Infinity)
+      );
+      if (ordenMinimo < estadoLanzado.orden) {
+        return {
+          error: 'Este pedido debe estar en estado "Pedido lanzado" (o posterior) en Business Central antes de poder enviarlo por email.',
+        };
+      }
+    }
+
     const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
     const asunto = `PEDIDO DE COMPRA ${numeroTecmelec}`;
     const token = randomUUID();
