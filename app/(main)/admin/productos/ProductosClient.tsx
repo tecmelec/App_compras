@@ -500,8 +500,9 @@ function ProductoForm({
             onChange={(e) => setMultiploCompra(e.target.value)}
           />
           <p className="text-xs text-slate mt-1">
-            Deja 1 si no hay mínimo. Con un valor mayor, en la tienda solo se podrán pedir cantidades múltiplos de
-            ese número (p. ej. 25 → 25, 50, 75…).
+            Se rellena solo desde el campo &quot;Multiplo_de&quot; de la ficha del artículo en Business Central en
+            cada sincronización; también se puede editar a mano. Con un valor mayor que 1, en la tienda solo se
+            podrán pedir cantidades múltiplos de ese número (p. ej. 25 → 25, 50, 75…).
           </p>
         </div>
 
