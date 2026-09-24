@@ -141,8 +141,22 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   const idsProductos = items.map((i) => i.producto_id);
   const { data: productosDb } = await supabase
     .from('productos')
-    .select('id, precio')
+    .select('id, precio, nombre, multiplo_compra')
     .in('id', idsProductos);
+
+  // No confiar tampoco en la cantidad del cliente: si el producto tiene un
+  // múltiplo de compra, se vuelve a comprobar aquí (la validación de la
+  // tienda es solo para guiar al usuario, no una garantía).
+  const multiplos = new Map((productosDb || []).map((p) => [p.id, { multiplo: p.multiplo_compra || 1, nombre: p.nombre }]));
+  for (const item of items) {
+    const info = multiplos.get(item.producto_id);
+    const multiplo = info?.multiplo || 1;
+    if (multiplo > 1 && item.cantidad % multiplo !== 0) {
+      return {
+        error: `La cantidad de "${info?.nombre || item.nombre}" debe ser múltiplo de ${multiplo} (has pedido ${item.cantidad}).`,
+      };
+    }
+  }
 
   const precios = new Map((productosDb || []).map((p) => [p.id, p.precio]));
   const totalEstimado = items.reduce(
