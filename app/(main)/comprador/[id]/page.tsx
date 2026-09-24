@@ -79,6 +79,16 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     : { data: [] as { numero_tecmelec: string; con_fotos: boolean }[] };
   const enviosPorGrupo = new Set((emailsEnviados || []).map((e: any) => `${e.numero_tecmelec}|${e.con_fotos}`));
 
+  const { data: marcasPdfEnviado } = numerosTecmelecLista.length
+    ? await supabase
+        .from('pedido_compra_pdf_enviado')
+        .select('numero_tecmelec, pdf_enviado')
+        .in('numero_tecmelec', numerosTecmelecLista)
+    : { data: [] as { numero_tecmelec: string; pdf_enviado: boolean }[] };
+  const pdfEnviadoPorGrupo = new Set(
+    (marcasPdfEnviado || []).filter((m: any) => m.pdf_enviado).map((m: any) => m.numero_tecmelec as string)
+  );
+
   const pedidosBC = Array.from(gruposPorTecmelec.entries()).map(([numeroTecmelec, g]) => ({
     numeroTecmelec,
     proveedorNombre: proveedoresPorId.get(g.proveedorId) || '',
@@ -86,6 +96,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     lineas: g.lineas,
     enviadoSinFotos: enviosPorGrupo.has(`${numeroTecmelec}|false`),
     enviadoConFotos: enviosPorGrupo.has(`${numeroTecmelec}|true`),
+    pdfEnviado: pdfEnviadoPorGrupo.has(numeroTecmelec),
     // Si no hay un estado "Pedido lanzado" configurado, no bloqueamos nada (fail-open).
     puedeEnviarEmail: ordenLanzado === null || (g.ordenMinimo !== null && g.ordenMinimo >= ordenLanzado),
   }));
