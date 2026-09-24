@@ -13,10 +13,19 @@ type Producto = {
   precio?: number;
   bc_item_no?: string | null;
   unidad_medida?: string | null;
+  multiplo_compra?: number | null;
 };
 
 function formatoPrecio(precio: number): string {
   return precio.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function validarCantidad(cantidad: number, multiplo: number): string | null {
+  if (!Number.isFinite(cantidad) || cantidad <= 0) return 'Indica una cantidad válida.';
+  if (multiplo > 1 && cantidad % multiplo !== 0) {
+    return `La cantidad debe ser múltiplo de ${multiplo}.`;
+  }
+  return null;
 }
 
 export default function ProductCard({
@@ -31,12 +40,26 @@ export default function ProductCard({
   onToggleFavorito?: () => void;
 }) {
   const { addItem } = useCart();
-  const [cantidad, setCantidad] = useState(1);
+  const multiplo = producto.multiplo_compra && producto.multiplo_compra > 1 ? producto.multiplo_compra : 1;
+  const [cantidad, setCantidad] = useState(multiplo);
   const [agregado, setAgregado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function handleAdd() {
+    const mensaje = validarCantidad(cantidad, multiplo);
+    if (mensaje) {
+      setError(mensaje);
+      return;
+    }
+    setError(null);
     addItem(
-      { producto_id: producto.id, nombre: producto.nombre, imagen_url: producto.imagen_url },
+      {
+        producto_id: producto.id,
+        nombre: producto.nombre,
+        imagen_url: producto.imagen_url,
+        multiplo_compra: producto.multiplo_compra,
+        unidad_medida: producto.unidad_medida,
+      },
       cantidad
     );
     setAgregado(true);
@@ -94,11 +117,32 @@ export default function ProductCard({
           </p>
         )}
 
+        {multiplo > 1 && (
+          <div className="flex items-center gap-1.5 mt-2 text-xs">
+            <span className="w-5 h-5 rounded-full bg-marcaClaro text-marca flex items-center justify-center shrink-0">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.73z" />
+                <path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" />
+              </svg>
+            </span>
+            <span className="text-marca font-medium">Múltiplo de {multiplo}</span>
+            <span className="text-slate">
+              (pedido mínimo {multiplo} {producto.unidad_medida || 'ud.'})
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 mt-3">
           <div className="flex items-center shrink-0">
             <button
               type="button"
-              onClick={() => setCantidad((c) => Math.max(1, c - 1))}
+              onClick={() =>
+                setCantidad((c) => {
+                  const nueva = Math.max(multiplo, c - multiplo);
+                  setError(null);
+                  return nueva;
+                })
+              }
               className="btn-stepper"
               aria-label="Restar"
             >
@@ -106,15 +150,25 @@ export default function ProductCard({
             </button>
             <input
               type="number"
-              min={1}
+              min={multiplo}
+              step={multiplo}
               value={cantidad}
-              onChange={(e) => setCantidad(Math.max(1, Number(e.target.value)))}
+              onChange={(e) => {
+                const valor = Number(e.target.value);
+                setCantidad(valor);
+                setError(validarCantidad(valor, multiplo));
+              }}
               onFocus={(e) => e.target.select()}
               className="w-10 h-9 text-center border-y border-borde text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
             <button
               type="button"
-              onClick={() => setCantidad((c) => c + 1)}
+              onClick={() =>
+                setCantidad((c) => {
+                  setError(null);
+                  return c + multiplo;
+                })
+              }
               className="btn-stepper"
               aria-label="Sumar"
             >
@@ -140,6 +194,8 @@ export default function ProductCard({
             )}
           </button>
         </div>
+
+        {error && <p className="text-xs text-rojo mt-1.5">{error}</p>}
       </div>
     </div>
   );
