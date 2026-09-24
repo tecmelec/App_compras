@@ -56,6 +56,7 @@ export async function sincronizarProductosBC() {
       nombre: item.Description,
       unidad_medida: item.Base_Unit_of_Measure,
       precio: item.Unit_Price,
+      multiplo_compra: item.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1,
     };
     if (proveedorPredetId) cambiosComunes.proveedor_predeterminado_id = proveedorPredetId;
 
