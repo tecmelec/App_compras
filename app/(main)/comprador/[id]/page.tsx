@@ -28,7 +28,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
 
   const { data: estados } = await supabase
     .from('estados_pedido')
-    .select('id, nombre')
+    .select('id, nombre, orden')
     .order('orden');
 
   const { data: proveedores } = await obtenerTodosLosProveedores(supabase);
@@ -41,19 +41,35 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     (proveedores || []).map((pr: any) => [pr.id, `${pr.bc_proveedor_no} — ${pr.nombre}`])
   );
 
-  const gruposPorTecmelec = new Map<string, { proveedorId: string; total: number; lineas: number }>();
+  // Orden mínimo que debe tener el estado de TODAS las líneas del grupo para
+  // considerar que ese Pedido Tecmelec ya está "lanzado" en Business Central
+  // (o más allá: recibido parcial/completo comparten estado_id en ese punto).
+  // Antes de eso, no tiene sentido dejar enviarlo por email al proveedor.
+  const ordenPorEstadoId = new Map<number, number>((estados || []).map((e: any) => [e.id, e.orden]));
+  const estadoLanzado = (estados || []).find((e: any) => e.nombre?.trim().toLowerCase() === 'pedido lanzado');
+  const ordenLanzado = estadoLanzado?.orden ?? null;
+
+  const gruposPorTecmelec = new Map<
+    string,
+    { proveedorId: string; total: number; lineas: number; ordenMinimo: number | null }
+  >();
   for (const item of p.pedido_items as any[]) {
     if (!item.numero_tecmelec) continue;
     const precio = item.precio_unitario ?? item.productos?.precio ?? 0;
+    const ordenItem = ordenPorEstadoId.get(item.estado_id) ?? null;
     const existente = gruposPorTecmelec.get(item.numero_tecmelec);
     if (existente) {
       existente.total += precio * item.cantidad;
       existente.lineas += 1;
+      if (ordenItem !== null && (existente.ordenMinimo === null || ordenItem < existente.ordenMinimo)) {
+        existente.ordenMinimo = ordenItem;
+      }
     } else {
       gruposPorTecmelec.set(item.numero_tecmelec, {
         proveedorId: item.proveedor_id,
         total: precio * item.cantidad,
         lineas: 1,
+        ordenMinimo: ordenItem,
       });
     }
   }
@@ -70,6 +86,8 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     lineas: g.lineas,
     enviadoSinFotos: enviosPorGrupo.has(`${numeroTecmelec}|false`),
     enviadoConFotos: enviosPorGrupo.has(`${numeroTecmelec}|true`),
+    // Si no hay un estado "Pedido lanzado" configurado, no bloqueamos nada (fail-open).
+    puedeEnviarEmail: ordenLanzado === null || (g.ordenMinimo !== null && g.ordenMinimo >= ordenLanzado),
   }));
 
   return (

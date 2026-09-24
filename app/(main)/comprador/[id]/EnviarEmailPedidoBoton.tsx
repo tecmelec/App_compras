@@ -15,10 +15,12 @@ export default function EnviarEmailPedidoBoton({
   numeroTecmelec,
   conFotos,
   yaEnviado = false,
+  puedeEnviar = true,
 }: {
   numeroTecmelec: string;
   conFotos: boolean;
   yaEnviado?: boolean;
+  puedeEnviar?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -99,18 +101,23 @@ export default function EnviarEmailPedidoBoton({
     <div className="relative inline-block" ref={ref}>
       <button
         type="button"
-        onClick={abrir}
+        onClick={puedeEnviar ? abrir : undefined}
+        disabled={!puedeEnviar}
         title={
-          enviadoOk
-            ? `Ya enviado por email${conFotos ? ' (con fotos)' : ''} — pulsa para reenviar`
-            : conFotos
-              ? 'Enviar por email (con fotos)'
-              : 'Enviar por email'
+          !puedeEnviar
+            ? 'Este pedido debe estar en estado "Pedido lanzado" (o posterior) en Business Central antes de poder enviarlo por email al proveedor.'
+            : enviadoOk
+              ? `Ya enviado por email${conFotos ? ' (con fotos)' : ''} — pulsa para reenviar`
+              : conFotos
+                ? 'Enviar por email (con fotos)'
+                : 'Enviar por email'
         }
         className={
-          enviadoOk
-            ? 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-marcaClaro text-marca hover:bg-marca hover:text-white'
-            : 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate/20 text-slate hover:bg-slate/30 hover:text-grafito'
+          !puedeEnviar
+            ? 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate/10 text-slate/40 cursor-not-allowed'
+            : enviadoOk
+              ? 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-marcaClaro text-marca hover:bg-marca hover:text-white'
+              : 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate/20 text-slate hover:bg-slate/30 hover:text-grafito'
         }
       >
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
