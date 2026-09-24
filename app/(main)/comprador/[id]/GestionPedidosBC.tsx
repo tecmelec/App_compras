@@ -3,6 +3,7 @@
 import EnviarEmailPedidoBoton from './EnviarEmailPedidoBoton';
 import VerConversacionBoton from './VerConversacionBoton';
 import CopiarEnlaceProveedorBoton from './CopiarEnlaceProveedorBoton';
+import PdfEnviadoCheck from './PdfEnviadoCheck';
 
 type Fila = {
   numeroTecmelec: string;
@@ -12,6 +13,7 @@ type Fila = {
   enviadoSinFotos: boolean;
   enviadoConFotos: boolean;
   puedeEnviarEmail: boolean;
+  pdfEnviado: boolean;
 };
 
 export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
@@ -31,6 +33,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
+              <PdfEnviadoCheck numeroTecmelec={p.numeroTecmelec} pdfEnviado={p.pdfEnviado} />
               <div className="flex items-center gap-1.5">
                 <a
                   href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf`}

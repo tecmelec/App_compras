@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   enviarPedidoPorEmail,
   obtenerDatosEmailPedido,
@@ -33,6 +34,7 @@ export default function EnviarEmailPedidoBoton({
   const [enviado, setEnviado] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Verde si ya se envió antes (dato del servidor, persiste tras recargar) o
   // si se acaba de enviar ahora mismo en esta misma sesión.
@@ -87,6 +89,8 @@ export default function EnviarEmailPedidoBoton({
     }
 
     setEnviado(r.destinatarios || para);
+    // Refresca los datos del servidor para que el check "PDF enviado" aparezca marcado.
+    router.refresh();
   }
 
   function ocultarSugerencia(email: string) {
