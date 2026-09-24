@@ -7,6 +7,8 @@ export type CartItem = {
   nombre: string;
   imagen_url: string | null;
   cantidad: number;
+  multiplo_compra?: number | null;
+  unidad_medida?: string | null;
 };
 
 type CartContextType = {
@@ -55,7 +57,7 @@ export function CartProvider({ userId, children }: { userId: string; children: R
       const existing = prev.find((i) => i.producto_id === item.producto_id);
       if (existing) {
         return prev.map((i) =>
-          i.producto_id === item.producto_id ? { ...i, cantidad: i.cantidad + cantidad } : i
+          i.producto_id === item.producto_id ? { ...i, ...item, cantidad: i.cantidad + cantidad } : i
         );
       }
       return [...prev, { ...item, cantidad }];
