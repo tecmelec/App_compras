@@ -220,10 +220,37 @@ export async function enviarPedidoPorEmail(
       console.error('No se pudo guardar el registro de pedido_emails:', errorGuardado);
     }
 
+    // Marca automática de "PDF enviado" (el comprador puede desmarcarla luego a mano).
+    const { error: errorMarca } = await supabase.rpc('marcar_pdf_enviado', {
+      p_numero_tecmelec: numeroTecmelec,
+      p_valor: true,
+    });
+    if (errorMarca) {
+      console.error(`No se pudo marcar "PDF enviado" para ${numeroTecmelec}:`, errorMarca);
+    }
+
     return { success: true, destinatarios };
   } catch (e: any) {
     return { error: e.message || 'No se pudo enviar el email.' };
   }
+}
+
+// Marca o desmarca a mano el check "PDF enviado" de un Pedido Tecmelec.
+// Los permisos (admin, comprador asignado o su sustituto) se comprueban en
+// la función marcar_pdf_enviado de la base de datos.
+export async function marcarPdfEnviado(numeroTecmelec: string, valor: boolean) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado.' };
+
+  const { error } = await supabase.rpc('marcar_pdf_enviado', {
+    p_numero_tecmelec: numeroTecmelec,
+    p_valor: valor,
+  });
+  if (error) return { error: error.message || 'No se pudo guardar.' };
+  return { success: true };
 }
 
 // Direcciones a las que ya se ha escrito antes (en "Para" o "CC" de cualquier
