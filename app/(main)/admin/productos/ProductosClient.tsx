@@ -19,6 +19,7 @@ type Producto = {
   unidad_medida: string | null;
   bc_item_no: string | null;
   proveedor_predeterminado_id: string | null;
+  multiplo_compra: number;
 };
 
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -286,6 +287,8 @@ export default function ProductosClient({
                 </div>
               </ColumnaFiltroOrden>
 
+              <th className="px-4 py-3">Múltiplo</th>
+
               <ColumnaFiltroOrden
                 titulo="Visible"
                 campoOrden="visible"
@@ -317,7 +320,7 @@ export default function ProductosClient({
           <tbody className="divide-y divide-borde">
             {ordenados.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={9} className="px-4 py-6 text-center text-slate text-sm">
                   No hay productos que coincidan con los filtros.
                 </td>
               </tr>
@@ -337,6 +340,7 @@ export default function ProductosClient({
                     <td className="px-4 py-3 text-slate">{p.unidad_medida || '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
                     <td className="px-4 py-3 font-mono text-grafito">{p.precio?.toFixed(2)} €</td>
+                    <td className="px-4 py-3 text-slate">{p.multiplo_compra > 1 ? p.multiplo_compra : '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.visible ? 'Sí' : 'No'}</td>
                     <td className="px-4 py-3 text-right">
                       <button
@@ -349,7 +353,7 @@ export default function ProductosClient({
                   </tr>
                   {editandoId === p.id && (
                     <tr>
-                      <td colSpan={8} className="bg-fondo p-4">
+                      <td colSpan={9} className="bg-fondo p-4">
                         <ProductoForm
                           producto={p}
                           proveedores={proveedores}
@@ -391,6 +395,7 @@ function ProductoForm({
   const [categoria, setCategoria] = useState(producto?.categoria || '');
   const [precio, setPrecio] = useState(producto?.precio?.toString() || '0');
   const [bcItemNo, setBcItemNo] = useState(producto?.bc_item_no || '');
+  const [multiploCompra, setMultiploCompra] = useState(producto?.multiplo_compra?.toString() || '1');
   const [proveedorPredetId, setProveedorPredetId] = useState(producto?.proveedor_predeterminado_id || '');
   const [visible, setVisible] = useState(producto?.visible ?? true);
   const [imagenUrl, setImagenUrl] = useState(producto?.imagen_url || '');
@@ -435,6 +440,7 @@ function ProductoForm({
       precio: Number(precio) || 0,
       bc_item_no: bcItemNo.trim() || null,
       proveedor_predeterminado_id: proveedorPredetId || null,
+      multiplo_compra: Math.max(1, Math.round(Number(multiploCompra)) || 1),
     };
 
     const resultado = esEdicion
@@ -481,6 +487,22 @@ function ProductoForm({
             value={precio}
             onChange={(e) => setPrecio(e.target.value)}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-grafito mb-1">Múltiplo de compra</label>
+          <input
+            className="input font-mono"
+            type="number"
+            step="1"
+            min="1"
+            value={multiploCompra}
+            onChange={(e) => setMultiploCompra(e.target.value)}
+          />
+          <p className="text-xs text-slate mt-1">
+            Deja 1 si no hay mínimo. Con un valor mayor, en la tienda solo se podrán pedir cantidades múltiplos de
+            ese número (p. ej. 25 → 25, 50, 75…).
+          </p>
         </div>
 
         <div className="col-span-2">
