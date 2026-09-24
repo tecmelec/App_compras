@@ -11,6 +11,7 @@ type Fila = {
   lineas: number;
   enviadoSinFotos: boolean;
   enviadoConFotos: boolean;
+  puedeEnviarEmail: boolean;
 };
 
 export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
@@ -43,6 +44,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                   numeroTecmelec={p.numeroTecmelec}
                   conFotos={false}
                   yaEnviado={p.enviadoSinFotos}
+                  puedeEnviar={p.puedeEnviarEmail}
                 />
               </div>
               <div className="flex items-center gap-1.5">
@@ -58,6 +60,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                   numeroTecmelec={p.numeroTecmelec}
                   conFotos={true}
                   yaEnviado={p.enviadoConFotos}
+                  puedeEnviar={p.puedeEnviarEmail}
                 />
               </div>
               <VerConversacionBoton numeroTecmelec={p.numeroTecmelec} />
