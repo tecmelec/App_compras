@@ -15,6 +15,7 @@ type Producto = {
   precio?: number;
   bc_item_no?: string | null;
   unidad_medida?: string | null;
+  multiplo_compra?: number | null;
 };
 
 export default function TiendaClient({

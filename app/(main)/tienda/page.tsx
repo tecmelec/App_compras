@@ -20,7 +20,7 @@ export default async function TiendaPage() {
 
   const { data: productos } = await supabase
     .from('productos')
-    .select('id, nombre, descripcion, imagen_url, categoria, precio, bc_item_no, unidad_medida')
+    .select('id, nombre, descripcion, imagen_url, categoria, precio, bc_item_no, unidad_medida, multiplo_compra')
     .eq('visible', true)
     .order('categoria');
 
