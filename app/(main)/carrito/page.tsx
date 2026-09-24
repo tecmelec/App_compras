@@ -1,11 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { crearPedido } from '@/app/actions/pedidos';
 import SolicitudModal from './SolicitudModal';
+
+function validarCantidad(cantidad: number, multiplo: number): string | null {
+  if (!Number.isFinite(cantidad) || cantidad <= 0) return 'Indica una cantidad válida.';
+  if (multiplo > 1 && cantidad % multiplo !== 0) {
+    return `Debe ser múltiplo de ${multiplo}.`;
+  }
+  return null;
+}
 
 export default function CarritoPage() {
   const { items, updateCantidad, removeItem, clear } = useCart();
@@ -13,6 +21,18 @@ export default function CarritoPage() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  const erroresPorItem = useMemo(() => {
+    const mapa = new Map<string, string>();
+    for (const item of items) {
+      const multiplo = item.multiplo_compra && item.multiplo_compra > 1 ? item.multiplo_compra : 1;
+      const mensaje = validarCantidad(item.cantidad, multiplo);
+      if (mensaje) mapa.set(item.producto_id, mensaje);
+    }
+    return mapa;
+  }, [items]);
+
+  const hayErrores = erroresPorItem.size > 0;
 
   async function handleConfirmar(datos: {
     proyecto_id: string;
@@ -55,30 +75,64 @@ export default function CarritoPage() {
       ) : (
         <>
           <div className="bg-white border border-borde rounded-lg divide-y divide-borde">
-            {items.map((item) => (
-              <div key={item.producto_id} className="flex items-center gap-4 p-4">
-                <div className="w-14 h-14 bg-fondo rounded-md relative shrink-0 overflow-hidden">
-                  {item.imagen_url && (
-                    <Image src={item.imagen_url} alt={item.nombre} fill className="object-cover" />
-                  )}
+            {items.map((item) => {
+              const multiplo = item.multiplo_compra && item.multiplo_compra > 1 ? item.multiplo_compra : 1;
+              const errorItem = erroresPorItem.get(item.producto_id);
+              return (
+                <div key={item.producto_id} className="flex items-center gap-4 p-4">
+                  <div className="w-14 h-14 bg-fondo rounded-md relative shrink-0 overflow-hidden">
+                    {item.imagen_url && (
+                      <Image src={item.imagen_url} alt={item.nombre} fill className="object-cover" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-grafito truncate">{item.nombre}</p>
+                    {multiplo > 1 && (
+                      <p className="text-xs mt-0.5">
+                        <span className="text-marca font-medium">Múltiplo de {multiplo}</span>{' '}
+                        <span className="text-slate">
+                          (pedido mínimo {multiplo} {item.unidad_medida || 'ud.'})
+                        </span>
+                      </p>
+                    )}
+                    {errorItem && <p className="text-xs text-rojo mt-0.5">{errorItem}</p>}
+                  </div>
+                  <div className="flex items-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => updateCantidad(item.producto_id, Math.max(multiplo, item.cantidad - multiplo))}
+                      className="btn-stepper"
+                      aria-label="Restar"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={multiplo}
+                      step={multiplo}
+                      value={item.cantidad}
+                      onChange={(e) => updateCantidad(item.producto_id, Number(e.target.value))}
+                      onFocus={(e) => e.target.select()}
+                      className="w-16 h-9 text-center border-y border-borde text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updateCantidad(item.producto_id, item.cantidad + multiplo)}
+                      className="btn-stepper"
+                      aria-label="Sumar"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => removeItem(item.producto_id)}
+                    className="text-sm text-rojo hover:underline shrink-0"
+                  >
+                    Quitar
+                  </button>
                 </div>
-                <p className="flex-1 text-sm font-medium text-grafito">{item.nombre}</p>
-                <input
-                  type="number"
-                  min={1}
-                  value={item.cantidad}
-                  onChange={(e) => updateCantidad(item.producto_id, Number(e.target.value))}
-                  onFocus={(e) => e.target.select()}
-                  className="input w-20"
-                />
-                <button
-                  onClick={() => removeItem(item.producto_id)}
-                  className="text-sm text-rojo hover:underline"
-                >
-                  Quitar
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {error && (
@@ -87,7 +141,12 @@ export default function CarritoPage() {
             </p>
           )}
 
-          <button onClick={() => setMostrarModal(true)} className="btn-primary mt-6">
+          <button
+            onClick={() => setMostrarModal(true)}
+            disabled={hayErrores}
+            title={hayErrores ? 'Corrige las cantidades marcadas antes de continuar.' : undefined}
+            className="btn-primary mt-6 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
             Solicitar materiales
           </button>
         </>
