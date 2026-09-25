@@ -17,6 +17,9 @@ export type PedidoFila = {
   requiere_aprobacion: boolean;
   aprobado: boolean | null;
   estado: string | null;
+  // true = todos sus Pedidos Tecmelec con "PDF enviado"; false = falta alguno;
+  // null = la solicitud aún no tiene Nº de pedido Tecmelec.
+  pdf_enviado?: boolean | null;
   created_at: string;
 };
 
@@ -29,6 +32,7 @@ type Filtros = {
   compradores: string[];
   aprobaciones: string[];
   estados: string[];
+  pdfEnviado: string[];
   precioMin: string;
   precioMax: string;
   fechaDesde: string;
@@ -44,6 +48,7 @@ const FILTROS_VACIOS: Filtros = {
   compradores: [],
   aprobaciones: [],
   estados: [],
+  pdfEnviado: [],
   precioMin: '',
   precioMax: '',
   fechaDesde: '',
@@ -57,6 +62,17 @@ const OPCIONES_APROBACION = [
   { value: 'rechazada', label: 'Rechazada' },
 ];
 
+const OPCIONES_PDF_ENVIADO = [
+  { value: 'si', label: 'Sí' },
+  { value: 'no', label: 'No' },
+  { value: 'sin', label: 'Sin pedido Tecmelec' },
+];
+
+function pdfEnviadoDe(p: PedidoFila): 'si' | 'no' | 'sin' {
+  if (p.pdf_enviado === null || p.pdf_enviado === undefined) return 'sin';
+  return p.pdf_enviado ? 'si' : 'no';
+}
+
 function aprobacionDe(p: PedidoFila): 'automatica' | 'pendiente' | 'aprobada' | 'rechazada' {
   if (!p.requiere_aprobacion) return 'automatica';
   if (p.aprobado === null) return 'pendiente';
@@ -67,10 +83,12 @@ export default function SolicitudesFiltrables({
   pedidos,
   linkBase,
   mostrarComprador = false,
+  mostrarPdfEnviado = false,
 }: {
   pedidos: PedidoFila[];
   linkBase: string;
   mostrarComprador?: boolean;
+  mostrarPdfEnviado?: boolean;
 }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [columnaAbierta, setColumnaAbierta] = useState<string | null>(null);
@@ -116,6 +134,8 @@ export default function SolicitudesFiltrables({
       return false;
     if (filtros.aprobaciones.length > 0 && !filtros.aprobaciones.includes(aprobacionDe(p))) return false;
     if (filtros.estados.length > 0 && !filtros.estados.includes(p.estado || '')) return false;
+    if (mostrarPdfEnviado && filtros.pdfEnviado.length > 0 && !filtros.pdfEnviado.includes(pdfEnviadoDe(p)))
+      return false;
     if (filtros.precioMin && p.total_estimado < Number(filtros.precioMin)) return false;
     if (filtros.precioMax && p.total_estimado > Number(filtros.precioMax)) return false;
     if (filtros.fechaDesde && new Date(p.created_at) < new Date(filtros.fechaDesde)) return false;
@@ -127,7 +147,10 @@ export default function SolicitudesFiltrables({
     setFiltros((prev) => ({ ...prev, [campo]: valor }));
   }
 
-  function alternarValorLista(campo: 'solicitantes' | 'compradores' | 'aprobaciones' | 'estados', valor: string) {
+  function alternarValorLista(
+    campo: 'solicitantes' | 'compradores' | 'aprobaciones' | 'estados' | 'pdfEnviado',
+    valor: string
+  ) {
     setFiltros((prev) => {
       const lista = prev[campo];
       const nueva = lista.includes(valor) ? lista.filter((v) => v !== valor) : [...lista, valor];
@@ -317,6 +340,24 @@ export default function SolicitudesFiltrables({
                 />
               </ColumnaFiltro>
 
+              {mostrarPdfEnviado && (
+                <ColumnaFiltro
+                  titulo="PDF enviado"
+                  columnaId="pdfEnviado"
+                  columnaAbierta={columnaAbierta}
+                  setColumnaAbierta={setColumnaAbierta}
+                  activo={filtros.pdfEnviado.length > 0}
+                  onLimpiar={() => actualizar('pdfEnviado', [])}
+                >
+                  <ListaChecks
+                    opciones={OPCIONES_PDF_ENVIADO.map((o) => o.value)}
+                    etiquetas={Object.fromEntries(OPCIONES_PDF_ENVIADO.map((o) => [o.value, o.label]))}
+                    seleccionadas={filtros.pdfEnviado}
+                    onToggle={(v) => alternarValorLista('pdfEnviado', v)}
+                  />
+                </ColumnaFiltro>
+              )}
+
               <ColumnaFiltro
                 titulo="Fecha"
                 columnaId="fecha"
@@ -345,7 +386,7 @@ export default function SolicitudesFiltrables({
           <tbody className="divide-y divide-borde">
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={10} className="px-4 py-6 text-center text-slate text-sm">
                   No hay solicitudes que coincidan con los filtros.
                 </td>
               </tr>
@@ -373,6 +414,13 @@ export default function SolicitudesFiltrables({
                   <td className="px-4 py-3">
                     <EstadoBadge estado={p.estado || undefined} />
                   </td>
+                  {mostrarPdfEnviado && (
+                    <td className="px-4 py-3">
+                      {pdfEnviadoDe(p) === 'si' && <span className="badge badge-entregado">Sí</span>}
+                      {pdfEnviadoDe(p) === 'no' && <span className="badge badge-cancelado">No</span>}
+                      {pdfEnviadoDe(p) === 'sin' && <span className="text-slate">—</span>}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-slate">
                     {new Date(p.created_at).toLocaleDateString('es-CL')}
                   </td>

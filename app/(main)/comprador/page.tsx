@@ -20,6 +20,25 @@ export default async function CompradorPage() {
     .in('comprador_id', ids)
     .order('created_at', { ascending: false });
 
+  // "PDF enviado" por solicitud: Sí solo si TODOS sus Pedidos Tecmelec tienen
+  // el check marcado en "Gestión de pedidos"; null si aún no tiene ninguno.
+  const numerosTecmelecPorPedido = new Map<string, string[]>(
+    (pedidos || []).map((p: any) => [
+      p.id,
+      Array.from(new Set((p.pedido_items || []).map((i: any) => i.numero_tecmelec).filter(Boolean))) as string[],
+    ])
+  );
+  const todosLosNumeros = Array.from(new Set(Array.from(numerosTecmelecPorPedido.values()).flat()));
+  const { data: marcasPdf } = todosLosNumeros.length
+    ? await supabase
+        .from('pedido_compra_pdf_enviado')
+        .select('numero_tecmelec, pdf_enviado')
+        .in('numero_tecmelec', todosLosNumeros)
+    : { data: [] as { numero_tecmelec: string; pdf_enviado: boolean }[] };
+  const numerosConPdfEnviado = new Set(
+    (marcasPdf || []).filter((m: any) => m.pdf_enviado).map((m: any) => m.numero_tecmelec as string)
+  );
+
   const filas: PedidoFila[] = (pedidos || []).map((p: any) => ({
     id: p.id,
     numero_app: p.numero_app,
@@ -31,6 +50,11 @@ export default async function CompradorPage() {
     requiere_aprobacion: p.requiere_aprobacion,
     aprobado: p.aprobado,
     estado: p.estado_general || null,
+    pdf_enviado: (() => {
+      const numeros = numerosTecmelecPorPedido.get(p.id) || [];
+      if (numeros.length === 0) return null;
+      return numeros.every((n) => numerosConPdfEnviado.has(n));
+    })(),
     created_at: p.created_at,
   }));
 
@@ -44,7 +68,7 @@ export default async function CompradorPage() {
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No tienes solicitudes pendientes.</p>
       ) : (
-        <SolicitudesFiltrables pedidos={filas} linkBase="/comprador" />
+        <SolicitudesFiltrables pedidos={filas} linkBase="/comprador" mostrarPdfEnviado />
       )}
     </div>
   );
