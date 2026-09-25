@@ -9,6 +9,7 @@ type ItemBC = {
   Unit_Price: number;
   Vendor_No: string;
   Multiplo_de?: number;
+  Item_Category_Code?: string;
 };
 
 type ProyectoBC = {

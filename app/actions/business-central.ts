@@ -60,6 +60,11 @@ export async function sincronizarProductosBC() {
     };
     if (proveedorPredetId) cambiosComunes.proveedor_predeterminado_id = proveedorPredetId;
 
+    // Categoría = Item_Category_Code de BC. Si en BC está vacía, no se toca la
+    // que hubiera (p. ej. puesta a mano en /admin/productos).
+    const categoriaBC = (item.Item_Category_Code || '').trim();
+    if (categoriaBC) cambiosComunes.categoria = categoriaBC;
+
     if (idExistente) {
       const { error } = await supabase.from('productos').update(cambiosComunes).eq('id', idExistente);
 
