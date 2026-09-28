@@ -4,11 +4,11 @@
 /// del pedido de compra, para que arranque el flujo de trabajo de aprobación.
 ///
 /// Se publica en la página "Servicios web" como:
-///   Tipo de objeto: Codeunit · Id. objeto: 50100 · Nombre servicio: TMCAprobacionPedidos · Publicado: Sí
+///   Tipo de objeto: Codeunit · Id. objeto: 50160 · Nombre servicio: TMCAprobacionPedidos · Publicado: Sí
 /// y la app lo invoca con:
 ///   POST .../ODataV4/TMCAprobacionPedidos_EnviarAprobacion?company=...  { "documentNo": "PC2608176" }
 /// </summary>
-codeunit 50100 "TMC Aprobacion Pedido Compra"
+codeunit 50160 "TMC Aprobacion Pedido Compra"
 {
     procedure EnviarAprobacion(documentNo: Text): Text
     var
