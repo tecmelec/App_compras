@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedidos';
 import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
+import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 
 type Estado = { id: number; nombre: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -15,6 +16,9 @@ type ItemForm = {
   imagenUrl: string | null;
   precio: number;
   cantidad: number;
+  cantidadOriginal?: number | null;
+  rechazadaPorAprobador?: boolean;
+  unidad?: string;
   numeroTecmelec: string;
   fechaEstimada: string;
   fechaConfirmadaEn: string | null;
@@ -378,7 +382,21 @@ function ItemFila({
           </div>
           <div>
             <p className="text-sm font-medium text-grafito">{item.nombre}</p>
-            <p className="font-mono text-slate text-xs mt-0.5">x{item.cantidad}</p>
+            <p className="font-mono text-slate text-xs mt-0.5 flex items-center gap-0.5">
+              {item.cantidadOriginal != null && item.cantidadOriginal !== item.cantidad && !item.rechazadaPorAprobador && (
+                <CantidadModificadaAviso
+                  cantidadOriginal={item.cantidadOriginal}
+                  cantidadAprobada={item.cantidad}
+                  unidad={item.unidad || 'ud.'}
+                  perspectiva="comprador"
+                  alinear="izquierda"
+                />
+              )}
+              <span className={item.rechazadaPorAprobador ? 'line-through' : ''}>x{item.cantidad}</span>
+            </p>
+            {item.rechazadaPorAprobador && (
+              <span className="badge badge-cancelado mt-1 inline-block">Rechazada por el aprobador</span>
+            )}
           </div>
         </div>
 
