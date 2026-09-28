@@ -4,7 +4,7 @@ import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import GestionPedidosBC from './GestionPedidosBC';
-import { rangoFechasEstimadas } from '@/lib/pedidos-utils';
+import { rangoFechasEstimadas, puedeCrearPedidoBC } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
@@ -108,7 +108,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <p className="font-mono text-sm text-marca">{p.numero_app}</p>
           <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
         </div>
-        <CrearPedidoBCBoton pedidoId={p.id} />
+        <CrearPedidoBCBoton pedidoId={p.id} puedeCrear={puedeCrearPedidoBC(p.pedido_items, estados || [])} />
       </div>
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">

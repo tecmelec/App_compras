@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { previsualizarPedidoCompraBC, crearPedidosCompraBC } from '@/app/actions/business-central';
+import { MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO } from '@/lib/pedidos-utils';
 
 type Grupo = {
   proveedorId: string;
@@ -23,7 +24,13 @@ type Previa = {
   yaVinculadas: string[];
 };
 
-export default function CrearPedidoBCBoton({ pedidoId }: { pedidoId: string }) {
+export default function CrearPedidoBCBoton({
+  pedidoId,
+  puedeCrear = true,
+}: {
+  pedidoId: string;
+  puedeCrear?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [previa, setPrevia] = useState<Previa | null>(null);
@@ -63,7 +70,12 @@ export default function CrearPedidoBCBoton({ pedidoId }: { pedidoId: string }) {
 
   return (
     <>
-      <button onClick={handleAbrir} className="btn-primary whitespace-nowrap">
+      <button
+        onClick={puedeCrear ? handleAbrir : undefined}
+        disabled={!puedeCrear}
+        title={puedeCrear ? undefined : MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO}
+        className="btn-primary whitespace-nowrap"
+      >
         + Crear pedido en BC
       </button>
 

@@ -103,3 +103,28 @@ export async function recalcularEstadoGeneral(supabase: SupabaseClient, pedidoId
     await supabase.from('pedidos').update({ estado_general: nuevoEstado }).eq('id', pedidoId);
   }
 }
+
+// ¿Se puede crear ya el pedido de compra en BC? Solo cuando TODAS las líneas
+// pendientes de pedir (sin Nº pedido Tecmelec) han alcanzado, al menos, el
+// estado "Solicitud aprobada". Si todas ya tienen Nº, se miran todas.
+// Si no existe un estado con ese nombre exacto, no se bloquea (fail-open).
+export function puedeCrearPedidoBC(
+  items: { estado_id: number | null; numero_tecmelec: string | null }[],
+  estados: { id: number; nombre: string | null; orden: number }[]
+): boolean {
+  const aprobada = estados.find((e) => e.nombre?.trim().toLowerCase() === 'solicitud aprobada');
+  if (!aprobada) return true;
+
+  const ordenPorId = new Map(estados.map((e) => [e.id, e.orden]));
+  const pendientes = items.filter((i) => !i.numero_tecmelec);
+  const lineas = pendientes.length > 0 ? pendientes : items;
+  if (lineas.length === 0) return false;
+
+  return lineas.every((i) => {
+    const orden = i.estado_id != null ? ordenPorId.get(i.estado_id) : undefined;
+    return orden !== undefined && orden >= aprobada.orden;
+  });
+}
+
+export const MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO =
+  'La solicitud debe estar en estado "Solicitud aprobada" (o posterior) antes de poder crear el pedido de compra en Business Central.';

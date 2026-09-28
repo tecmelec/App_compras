@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { puedeCrearPedidoBC, MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO } from '@/lib/pedidos-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guard';
 import {
@@ -859,6 +860,16 @@ const JOB_TASK_NO_FIJA = '95.01';
 
 export async function crearPedidosCompraBC(pedidoId: string) {
   const supabase = createClient();
+
+  // No confiar solo en el botón deshabilitado: se vuelve a comprobar aquí.
+  const [{ data: lineasSolicitud }, { data: estadosPedido }] = await Promise.all([
+    supabase.from('pedido_items').select('estado_id, numero_tecmelec').eq('pedido_id', pedidoId),
+    supabase.from('estados_pedido').select('id, nombre, orden'),
+  ]);
+  if (!puedeCrearPedidoBC(lineasSolicitud || [], estadosPedido || [])) {
+    return { error: MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO };
+  }
+
   const previa = await agruparPorProveedorParaBC(supabase, pedidoId);
 
   if (previa.grupos.length === 0) {
