@@ -632,7 +632,8 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
   const { data: items } = await supabase
     .from('pedido_items')
     .select('id, cantidad, numero_tecmelec, precio_unitario, proveedor_id, productos(nombre, bc_item_no, precio)')
-    .eq('pedido_id', pedidoId);
+    .eq('pedido_id', pedidoId)
+    .eq('rechazada_por_aprobador', false); // las rechazadas por el aprobador no se piden
 
   const sinProveedor: any[] = [];
   const sinCodigoBC: any[] = [];
@@ -863,7 +864,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
 
   // No confiar solo en el botón deshabilitado: se vuelve a comprobar aquí.
   const [{ data: lineasSolicitud }, { data: estadosPedido }, { data: solicitud }] = await Promise.all([
-    supabase.from('pedido_items').select('estado_id, numero_tecmelec').eq('pedido_id', pedidoId),
+    supabase.from('pedido_items').select('estado_id, numero_tecmelec, rechazada_por_aprobador').eq('pedido_id', pedidoId),
     supabase.from('estados_pedido').select('id, nombre, orden'),
     supabase.from('pedidos').select('requiere_aprobacion, aprobado').eq('id', pedidoId).single(),
   ]);

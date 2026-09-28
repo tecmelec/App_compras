@@ -6,6 +6,7 @@ import ProgresoEstado from '@/components/ProgresoEstado';
 import EstadoBadge from '@/components/EstadoBadge';
 import ContactarComprasBoton from '@/components/ContactarComprasBoton';
 import SeguirPedidoToggle from '@/components/SeguirPedidoToggle';
+import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
@@ -28,7 +29,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -92,18 +93,18 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
     return { anulado: false, id: secuencia[indiceFinal]?.id ?? idManual };
   }
 
-  // Agrupa las líneas por Nº pedido Tecmelec (las que todavía no tienen uno van juntas aparte)
+  // Agrupa las líneas por Nº pedido Tecmelec (las que todavía no tienen uno van juntas aparte,
+  // y las rechazadas por el aprobador en su propio bloque al final)
   const grupos = new Map<string, any[]>();
   for (const item of p.pedido_items) {
-    const clave = item.numero_tecmelec || '__sin_asignar__';
+    const clave = item.rechazada_por_aprobador ? '__rechazadas__' : item.numero_tecmelec || '__sin_asignar__';
     if (!grupos.has(clave)) grupos.set(clave, []);
     grupos.get(clave)!.push(item);
   }
-  const gruposOrdenados = Array.from(grupos.entries()).sort(([a], [b]) => {
-    if (a === '__sin_asignar__') return 1;
-    if (b === '__sin_asignar__') return -1;
-    return a.localeCompare(b);
-  });
+  const pesoGrupo = (clave: string) => (clave === '__rechazadas__' ? 2 : clave === '__sin_asignar__' ? 1 : 0);
+  const gruposOrdenados = Array.from(grupos.entries()).sort(
+    ([a], [b]) => pesoGrupo(a) - pesoGrupo(b) || a.localeCompare(b)
+  );
 
   return (
     <div className="p-8 max-w-4xl">
@@ -239,7 +240,8 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
       </div>
 
       {gruposOrdenados.map(([numeroTecmelec, itemsGrupo]) => {
-        const resultado = calcularEstadoGrupo(itemsGrupo);
+        const esRechazadas = numeroTecmelec === '__rechazadas__';
+        const resultado = esRechazadas ? { anulado: true, id: null } : calcularEstadoGrupo(itemsGrupo);
         const nombreEstadoGrupo = resultado.anulado ? 'Anulado' : estadosPorId.get(resultado.id!);
         return (
           <div key={numeroTecmelec} className="bg-white border border-borde rounded-xl p-6 mb-6">
@@ -253,27 +255,35 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                 </IconoDato>
                 <div>
                   <p className="font-medium text-grafito">
-                    {numeroTecmelec === '__sin_asignar__'
-                      ? 'Pendiente de asignar a un pedido Tecmelec'
-                      : `Pedido Tecmelec ${numeroTecmelec}`}
+                    {esRechazadas
+                      ? 'Líneas rechazadas por el responsable'
+                      : numeroTecmelec === '__sin_asignar__'
+                        ? 'Pendiente de asignar a un pedido Tecmelec'
+                        : `Pedido Tecmelec ${numeroTecmelec}`}
                   </p>
-                  {itemsGrupo[0].proveedores?.nombre && (
+                  {!esRechazadas && itemsGrupo[0].proveedores?.nombre && (
                     <p className="text-sm text-grafito">Proveedor: {itemsGrupo[0].proveedores.nombre}</p>
                   )}
-                  <p className="text-sm text-slate">Puedes seguir el estado de esta parte de tu solicitud aquí.</p>
+                  <p className="text-sm text-slate">
+                    {esRechazadas
+                      ? 'El responsable aprobó tu solicitud, pero no estos artículos: no se van a pedir.'
+                      : 'Puedes seguir el estado de esta parte de tu solicitud aquí.'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                {!esRechazadas && (
                 <SeguirPedidoToggle
                   pedidoId={p.id}
                   numeroTecmelec={numeroTecmelec === '__sin_asignar__' ? '' : numeroTecmelec}
                   valorInicial={seguimientoPorGrupo.has(numeroTecmelec) ? seguimientoPorGrupo.get(numeroTecmelec)! : p.seguir_pedido}
                 />
+                )}
                 <EstadoBadge estado={nombreEstadoGrupo} />
               </div>
             </div>
 
-            {resultado.anulado ? (
+            {esRechazadas ? null : resultado.anulado ? (
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-rojo inline-block" />
                 <span className="font-medium text-rojo">
@@ -320,10 +330,23 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                         : 'Por definir'}
                     </p>
                   </div>
-                  <div className="text-sm font-mono text-grafito w-16 text-right">
-                    {item.cantidad} {item.productos?.unidad_medida || 'ud.'}
+                  <div className="text-sm font-mono text-grafito min-w-[4rem] text-right flex items-center justify-end gap-0.5">
+                    {!esRechazadas && item.cantidad_original != null && item.cantidad_original !== item.cantidad && (
+                      <CantidadModificadaAviso
+                        cantidadOriginal={item.cantidad_original}
+                        cantidadAprobada={item.cantidad}
+                        unidad={item.productos?.unidad_medida || 'ud.'}
+                      />
+                    )}
+                    <span className={esRechazadas ? 'text-slate line-through' : ''}>
+                      {item.cantidad} {item.productos?.unidad_medida || 'ud.'}
+                    </span>
                   </div>
-                  <EstadoBadge estado={item.estado_recepcion} />
+                  {esRechazadas ? (
+                    <span className="badge badge-cancelado">Rechazada</span>
+                  ) : (
+                    <EstadoBadge estado={item.estado_recepcion} />
+                  )}
                 </div>
               ))}
             </div>

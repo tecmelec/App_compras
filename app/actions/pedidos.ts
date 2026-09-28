@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
 import { enviarEmailSolicitud } from '@/lib/email';
 import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { sincronizarFechasConBC } from '@/app/actions/proveedor-fecha-entrega';
@@ -338,6 +339,36 @@ export async function actualizarLineasTecmelec(
   }
 
   return { success: true };
+}
+
+// Aprobación con cambios por línea: el responsable puede modificar cantidades
+// o rechazar líneas sueltas. Todo se aplica de una vez en la base de datos
+// (función aprobar_solicitud_con_cambios), que también comprueba permisos,
+// múltiplos de compra y recalcula el total. Si rechaza todas las líneas, la
+// solicitud queda rechazada.
+export async function aprobarSolicitudConCambios(
+  pedidoId: string,
+  lineas: { id: string; cantidad?: number; rechazada?: boolean }[]
+) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Debes iniciar sesión.' };
+
+  const { data, error } = await supabase.rpc('aprobar_solicitud_con_cambios', {
+    p_pedido_id: pedidoId,
+    p_lineas: lineas,
+  });
+
+  if (error) return { error: error.message || 'No se pudo registrar la decisión.' };
+
+  await recalcularEstadoGeneral(supabase, pedidoId);
+  revalidatePath(`/responsable/${pedidoId}`);
+  revalidatePath(`/mis-pedidos/${pedidoId}`);
+  revalidatePath(`/comprador/${pedidoId}`);
+
+  return { success: true, resultado: data as 'aprobada' | 'rechazada' };
 }
 
 export async function responderAprobacion(pedidoId: string, aprobado: boolean) {

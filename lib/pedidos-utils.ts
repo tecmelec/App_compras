@@ -88,7 +88,12 @@ export async function recalcularEstadoGeneral(supabase: SupabaseClient, pedidoId
   const estadoLanzado = (estados || []).find((e: any) => e.nombre === 'Pedido lanzado');
   if (!estadoLanzado) return; // el admin renombró/quitó ese estado en /admin/estados; no se puede calcular
 
-  const { data: items } = await supabase.from('pedido_items').select('estado_id').eq('pedido_id', pedidoId);
+  // Las líneas rechazadas por el aprobador no cuentan: no se van a pedir.
+  const { data: items } = await supabase
+    .from('pedido_items')
+    .select('estado_id')
+    .eq('pedido_id', pedidoId)
+    .eq('rechazada_por_aprobador', false);
   if (!items || items.length === 0) return;
 
   const ordenPorId = new Map((estados || []).map((e: any) => [e.id, e.orden]));
@@ -113,10 +118,11 @@ export async function recalcularEstadoGeneral(supabase: SupabaseClient, pedidoId
 // Tecmelec; si todas lo tienen, todas).
 // Si no existe un estado con ese nombre exacto, no se bloquea (fail-open).
 export function puedeCrearPedidoBC(
-  items: { estado_id: number | null; numero_tecmelec: string | null }[],
+  todosLosItems: { estado_id: number | null; numero_tecmelec: string | null; rechazada_por_aprobador?: boolean }[],
   estados: { id: number; nombre: string | null; orden: number }[],
   aprobacion?: { requiere_aprobacion: boolean | null; aprobado: boolean | null }
 ): boolean {
+  const items = todosLosItems.filter((i) => !i.rechazada_por_aprobador);
   if (aprobacion?.aprobado === false) return false;
   if (aprobacion && (!aprobacion.requiere_aprobacion || aprobacion.aprobado === true)) return true;
 
