@@ -6,9 +6,15 @@ extensión mínima expone ese mismo proceso como servicio web para que la app
 Tienda Tecmelec lo lance automáticamente justo después de crear el pedido.
 
 ## Contenido
-- `src/AprobacionPedidoCompra.Codeunit.al` — codeunit 50160 con el procedimiento
-  `EnviarAprobacion(documentNo)`. Llama a `Approvals Mgmt.`
-  (`CheckPurchaseApprovalPossible` + `OnSendPurchaseDocForApproval`), igual que el botón estándar.
+- `src/AprobacionPedidoCompra.Codeunit.al` — codeunit 50160 con dos procedimientos:
+  - `EnviarAprobacion(documentNo)` — envía como el usuario de aplicación.
+  - `EnviarAprobacionComo(documentNo, bcUserSecurityId)` *(v1.1)* — envía "en nombre de" el
+    comprador que pulsó el botón en la app: copia su aprobador y límites de *Configuración de
+    usuarios de aprobación* en la ficha del usuario de aplicación (misma cadena de aprobadores),
+    le asigna el pedido (*Id. usuario asignado*) y lo deja como *Id. remitente* de los movimientos
+    de aprobación (le llegan los avisos y lo ve en *Solicitudes enviadas*).
+  Ambos llaman a `Approvals Mgmt.` (`CheckPurchaseApprovalPossible` + `OnSendPurchaseDocForApproval`),
+  igual que el botón estándar.
 - `src/TMCAprobacion.PermissionSet.al` — conjunto de permisos `TMC APROBACION`.
 
 > Revisar antes de compilar: el rango de IDs (50160–50169) no debe chocar con otras
@@ -23,10 +29,12 @@ Tienda Tecmelec lo lance automáticamente justo después de crear el pedido.
    - Nombre del servicio: **TMCAprobacionPedidos** · Publicado: **Sí**
 3. **Usuarios** → el usuario de aplicación de la app (registro de Azure AD de `BC_CLIENT_ID`)
    → añadir el conjunto de permisos **TMC APROBACION**.
-4. **Configuración de usuarios de aprobación**: el flujo *MS-POAPW-01* envía la solicitud
-   en nombre de quien la lanza, que aquí es ese **usuario de aplicación**. Si el tipo de
-   aprobador del flujo es "Aprobador" (cadena de Configuración de usuarios de aprobación),
-   ese usuario tiene que estar dado de alta ahí con su aprobador; si no, BC da error al enviar.
+4. **Usuarios** → el usuario de aplicación debe tener **Nombre de usuario** (p. ej. `APP_COMPRAS`).
+   Con la v1.1 no hace falta darlo de alta a mano en *Configuración de usuarios de aprobación*:
+   la extensión crea/actualiza su ficha con el aprobador del comprador en cada envío.
+5. Cada comprador que use el botón debe estar en *Configuración de usuarios de aprobación*
+   con su aprobador, y tener su ID de usuario de BC en la ficha de usuario de la app
+   (*Administración → Usuarios → ID de usuario en BC*).
 
 ## Paso en la app (Vercel)
 Añadir la variable de entorno `BC_ODATA_SERVICE_APROBACION = TMCAprobacionPedidos`

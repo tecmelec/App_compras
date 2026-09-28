@@ -5,5 +5,9 @@ permissionset 50160 "TMC APROBACION"
     Assignable = true;
     Caption = 'Tecmelec - Enviar pedidos a aprobación desde la App';
     Permissions =
-        codeunit "TMC Aprobacion Pedido Compra" = X;
+        codeunit "TMC Aprobacion Pedido Compra" = X,
+        tabledata User = R,
+        tabledata "User Setup" = RIM,
+        tabledata "Approval Entry" = RM,
+        tabledata "Purchase Header" = RM;
 }

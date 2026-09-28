@@ -407,24 +407,25 @@ export async function crearLineaPlanificacionBC(datos: {
 // igual que el botón "Solicitar aprobación > Enviar solicitud aprobación".
 // BC no expone esa acción por API, así que se llama a un codeunit propio
 // publicado como servicio web (ver bc-extension/tecmelec-aprobacion-pedidos).
+// Si se indica el ID de usuario de BC de quien pulsa el botón, se envía "en su
+// nombre" (EnviarAprobacionComo, extensión v1.1); si esa acción aún no existe
+// en BC (extensión v1.0), se envía como el usuario de aplicación.
 // Devuelve null si la integración no está configurada (variable
 // BC_ODATA_SERVICE_APROBACION vacía), o el estado resultante en BC.
-export async function enviarAprobacionPedidoCompraBC(documentNo: string): Promise<string | null> {
-  const servicio = process.env.BC_ODATA_SERVICE_APROBACION;
-  if (!servicio) return null;
-
+async function llamarAccionAprobacionBC(accion: string, cuerpo: Record<string, string>): Promise<string> {
+  const servicio = process.env.BC_ODATA_SERVICE_APROBACION!;
   const tenantId = process.env.BC_TENANT_ID!;
   const environment = process.env.BC_ENVIRONMENT!;
   const company = process.env.BC_COMPANY_NAME!;
   const url = `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${environment}/ODataV4/${encodeURIComponent(
     servicio
-  )}_EnviarAprobacion?company=${encodeURIComponent(company)}`;
+  )}_${accion}?company=${encodeURIComponent(company)}`;
 
   const token = await obtenerToken();
   const respuesta = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ documentNo }),
+    body: JSON.stringify(cuerpo),
     cache: 'no-store',
   });
 
@@ -444,4 +445,25 @@ export async function enviarAprobacionPedidoCompraBC(documentNo: string): Promis
   } catch {
     return 'Enviado';
   }
+}
+
+export async function enviarAprobacionPedidoCompraBC(
+  documentNo: string,
+  bcUserId?: string | null
+): Promise<{ estado: string; enNombreDe: boolean } | null> {
+  if (!process.env.BC_ODATA_SERVICE_APROBACION) return null;
+
+  if (bcUserId) {
+    try {
+      const estado = await llamarAccionAprobacionBC('EnviarAprobacionComo', { documentNo, bcUserSecurityId: bcUserId });
+      return { estado, enNombreDe: true };
+    } catch (e: any) {
+      // Extensión aún en v1.0 (no tiene EnviarAprobacionComo): se envía como el usuario de aplicación.
+      if (!/Resource not found for the segment/i.test(e.message || '')) throw e;
+      console.error('[enviarAprobacionPedidoCompraBC] EnviarAprobacionComo no existe en BC (extensión v1.0); se usa EnviarAprobacion.');
+    }
+  }
+
+  const estado = await llamarAccionAprobacionBC('EnviarAprobacion', { documentNo });
+  return { estado, enNombreDe: false };
 }

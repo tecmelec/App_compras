@@ -883,6 +883,16 @@ export async function crearPedidosCompraBC(pedidoId: string) {
   const errores: string[] = [];
   const aprobacionesEnviadas: { documentNo: string; estado: string }[] = [];
 
+  // ID de usuario de BC de quien pulsa el botón: la aprobación se envía en su nombre.
+  const {
+    data: { user: usuarioActual },
+  } = await supabase.auth.getUser();
+  let bcUserIdQuienCrea: string | null = null;
+  if (usuarioActual) {
+    const { data: perfil } = await supabase.from('profiles').select('bc_user_id').eq('id', usuarioActual.id).single();
+    bcUserIdQuienCrea = perfil?.bc_user_id || null;
+  }
+
   // La obra es la misma para todo el pedido, así que la tarea solo hace falta
   // comprobarla una vez, no por cada línea.
   let jobTaskNo: string | undefined;
@@ -1011,8 +1021,8 @@ export async function crearPedidosCompraBC(pedidoId: string) {
       // Pedido completo: se envía a aprobación automáticamente (flujo de trabajo de BC).
       // Si falla, el pedido queda creado en "Abierto" y se avisa para enviarlo a mano.
       try {
-        const estado = await enviarAprobacionPedidoCompraBC(documentNo);
-        if (estado !== null) aprobacionesEnviadas.push({ documentNo, estado });
+        const envio = await enviarAprobacionPedidoCompraBC(documentNo, bcUserIdQuienCrea);
+        if (envio !== null) aprobacionesEnviadas.push({ documentNo, estado: envio.estado });
       } catch (e: any) {
         console.error(`[crearPedidosCompraBC] No se pudo enviar ${documentNo} a aprobación:`, e.message || e);
         errores.push(

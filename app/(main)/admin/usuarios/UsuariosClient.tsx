@@ -9,6 +9,7 @@ type Usuario = {
   nombre_completo: string;
   email: string;
   telefono: string | null;
+  bc_user_id: string | null;
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   comprador_id: string | null;
   responsable_id: string | null;
@@ -158,6 +159,7 @@ function UsuarioForm({
   const [nombre, setNombre] = useState(usuario?.nombre_completo || '');
   const [email, setEmail] = useState(usuario?.email || '');
   const [telefono, setTelefono] = useState(usuario?.telefono || '');
+  const [bcUserId, setBcUserId] = useState(usuario?.bc_user_id || '');
   const [password, setPassword] = useState('');
   const [nuevaPassword, setNuevaPassword] = useState('');
   const [rol, setRol] = useState<Usuario['rol']>(usuario?.rol || 'usuario');
@@ -175,6 +177,7 @@ function UsuarioForm({
     const datosComunes = {
       nombre_completo: nombre,
       telefono,
+      bc_user_id: bcUserId,
       rol,
       comprador_id: rol === 'usuario' ? compradorId || null : null,
       responsable_id: rol === 'usuario' || rol === 'comprador' ? responsableId || null : null,
@@ -227,6 +230,19 @@ function UsuarioForm({
             onChange={(e) => setTelefono(e.target.value)}
             placeholder="+34 600111222"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-grafito mb-1">ID de usuario en BC (opcional)</label>
+          <input
+            className="input font-mono text-xs"
+            value={bcUserId}
+            onChange={(e) => setBcUserId(e.target.value)}
+            placeholder="f93e1b3c-b3cf-4579-968a-fa4cb96ba1b8"
+          />
+          <p className="text-xs text-slate mt-1">
+            Si tiene usuario en Business Central: los pedidos que cree se envían a aprobación en su nombre.
+          </p>
         </div>
 
         {!esEdicion && (
