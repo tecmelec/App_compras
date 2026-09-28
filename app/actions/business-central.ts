@@ -862,11 +862,12 @@ export async function crearPedidosCompraBC(pedidoId: string) {
   const supabase = createClient();
 
   // No confiar solo en el botón deshabilitado: se vuelve a comprobar aquí.
-  const [{ data: lineasSolicitud }, { data: estadosPedido }] = await Promise.all([
+  const [{ data: lineasSolicitud }, { data: estadosPedido }, { data: solicitud }] = await Promise.all([
     supabase.from('pedido_items').select('estado_id, numero_tecmelec').eq('pedido_id', pedidoId),
     supabase.from('estados_pedido').select('id, nombre, orden'),
+    supabase.from('pedidos').select('requiere_aprobacion, aprobado').eq('id', pedidoId).single(),
   ]);
-  if (!puedeCrearPedidoBC(lineasSolicitud || [], estadosPedido || [])) {
+  if (!puedeCrearPedidoBC(lineasSolicitud || [], estadosPedido || [], solicitud || undefined)) {
     return { error: MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO };
   }
 

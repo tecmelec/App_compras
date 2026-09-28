@@ -104,14 +104,22 @@ export async function recalcularEstadoGeneral(supabase: SupabaseClient, pedidoId
   }
 }
 
-// ¿Se puede crear ya el pedido de compra en BC? Solo cuando TODAS las líneas
-// pendientes de pedir (sin Nº pedido Tecmelec) han alcanzado, al menos, el
-// estado "Solicitud aprobada". Si todas ya tienen Nº, se miran todas.
+// ¿Se puede crear ya el pedido de compra en BC? Solo cuando la solicitud ha
+// alcanzado, al menos, "Solicitud aprobada". Misma regla que la barra de
+// estados que ve el usuario (mis-pedidos/[id]): ese paso se da por cumplido
+// si la aprobación es automática o el responsable ya aprobó, aunque el estado
+// de la línea siga en "Solicitud enviada". Si el responsable la rechazó, nunca.
+// Si no, se mira el estado de las líneas pendientes de pedir (sin Nº pedido
+// Tecmelec; si todas lo tienen, todas).
 // Si no existe un estado con ese nombre exacto, no se bloquea (fail-open).
 export function puedeCrearPedidoBC(
   items: { estado_id: number | null; numero_tecmelec: string | null }[],
-  estados: { id: number; nombre: string | null; orden: number }[]
+  estados: { id: number; nombre: string | null; orden: number }[],
+  aprobacion?: { requiere_aprobacion: boolean | null; aprobado: boolean | null }
 ): boolean {
+  if (aprobacion?.aprobado === false) return false;
+  if (aprobacion && (!aprobacion.requiere_aprobacion || aprobacion.aprobado === true)) return true;
+
   const aprobada = estados.find((e) => e.nombre?.trim().toLowerCase() === 'solicitud aprobada');
   if (!aprobada) return true;
 
