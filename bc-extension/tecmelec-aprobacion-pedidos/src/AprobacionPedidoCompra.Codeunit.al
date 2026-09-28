@@ -13,6 +13,15 @@
 /// </summary>
 codeunit 50160 "TMC Aprobacion Pedido Compra"
 {
+    // Permisos indirectos: la licencia del usuario de aplicación (S2S) no permite
+    // modificar directamente algunas tablas (p. ej. Approval Entry), pero sí a
+    // través de un objeto que declare estos permisos, como hace el código estándar.
+    Permissions =
+        tabledata "Approval Entry" = rm,
+        tabledata "User Setup" = rim,
+        tabledata "Purchase Header" = rm,
+        tabledata User = r;
+
     /// Envía a aprobación como el usuario de aplicación (sin comprador concreto).
     procedure EnviarAprobacion(documentNo: Text): Text
     var
