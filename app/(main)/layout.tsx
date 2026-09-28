@@ -37,13 +37,32 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     pendientesAprobacion = count || 0;
   }
 
+  // Solicitudes por comprar con estado "Pendiente de tramitar" (sin contar las
+  // rechazadas por el responsable, que no hay que tramitar).
+  let pendientesTramitar = 0;
+  if (profile.rol === 'comprador' || profile.rol === 'admin') {
+    const ids = await idsEfectivos(supabase, user.id);
+    const { count } = await supabase
+      .from('pedidos')
+      .select('id', { count: 'exact', head: true })
+      .in('comprador_id', ids)
+      .eq('estado_general', 'Pendiente de tramitar')
+      .or('aprobado.is.null,aprobado.eq.true');
+    pendientesTramitar = count || 0;
+  }
+
   const tieneCarrito =
     profile.rol === 'admin' || profile.rol === 'usuario' || profile.rol === 'comprador' || profile.rol === 'responsable';
 
   return (
     <CartProvider userId={user.id}>
       <div className="flex">
-        <Nav rol={profile.rol} pendientesAprobacion={pendientesAprobacion} comprador={comprador} />
+        <Nav
+          rol={profile.rol}
+          pendientesAprobacion={pendientesAprobacion}
+          pendientesTramitar={pendientesTramitar}
+          comprador={comprador}
+        />
         <main className="flex-1 min-h-screen">
           <Suspense fallback={<div className="h-[57px] border-b border-borde bg-white" />}>
             <HeaderBar

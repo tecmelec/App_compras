@@ -8,10 +8,11 @@ import clsx from 'clsx';
 type Props = {
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
   pendientesAprobacion?: number;
+  pendientesTramitar?: number;
   comprador?: { nombre_completo: string; email: string; telefono: string | null } | null;
 };
 
-export default function Nav({ rol, pendientesAprobacion = 0, comprador = null }: Props) {
+export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar = 0, comprador = null }: Props) {
   const pathname = usePathname();
   const [abierto, setAbierto] = useState(false);
   const [contactoAbierto, setContactoAbierto] = useState(false);
@@ -31,7 +32,12 @@ export default function Nav({ rol, pendientesAprobacion = 0, comprador = null }:
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
-    { href: '/comprador', label: 'Solicitudes por comprar', roles: ['admin', 'comprador'] },
+    {
+      href: '/comprador',
+      label: 'Solicitudes por comprar',
+      roles: ['admin', 'comprador'],
+      badge: pendientesTramitar,
+    },
     {
       href: '/responsable',
       label: 'Solicitudes de mi equipo',
