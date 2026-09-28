@@ -1,0 +1,16 @@
+{
+  "id": "e31029ff-fa38-4a48-8488-741f67ccf4fd",
+  "name": "Tecmelec - Aprobación pedidos compra desde App",
+  "publisher": "Tecmelec Electricidad S.L.",
+  "version": "1.0.0.0",
+  "brief": "Permite a la app Tienda Tecmelec enviar a aprobación los pedidos de compra que crea.",
+  "description": "Expone como servicio web (OData V4, acción sin enlazar) el mismo proceso que el botón 'Enviar solicitud aprobación' del pedido de compra.",
+  "platform": "1.0.0.0",
+  "application": "24.0.0.0",
+  "runtime": "13.0",
+  "idRanges": [
+    { "from": 50100, "to": 50109 }
+  ],
+  "features": ["NoImplicitWith", "TranslationFile"],
+  "target": "Cloud"
+}

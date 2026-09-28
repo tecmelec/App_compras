@@ -402,3 +402,46 @@ export async function crearLineaPlanificacionBC(datos: {
   const url = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_PLANIFICACION!);
   return crearRegistroBC(url, datos);
 }
+
+// Envía un pedido de compra a aprobación (arranca el flujo de trabajo de BC),
+// igual que el botón "Solicitar aprobación > Enviar solicitud aprobación".
+// BC no expone esa acción por API, así que se llama a un codeunit propio
+// publicado como servicio web (ver bc-extension/tecmelec-aprobacion-pedidos).
+// Devuelve null si la integración no está configurada (variable
+// BC_ODATA_SERVICE_APROBACION vacía), o el estado resultante en BC.
+export async function enviarAprobacionPedidoCompraBC(documentNo: string): Promise<string | null> {
+  const servicio = process.env.BC_ODATA_SERVICE_APROBACION;
+  if (!servicio) return null;
+
+  const tenantId = process.env.BC_TENANT_ID!;
+  const environment = process.env.BC_ENVIRONMENT!;
+  const company = process.env.BC_COMPANY_NAME!;
+  const url = `https://api.businesscentral.dynamics.com/v2.0/${tenantId}/${environment}/ODataV4/${encodeURIComponent(
+    servicio
+  )}_EnviarAprobacion?company=${encodeURIComponent(company)}`;
+
+  const token = await obtenerToken();
+  const respuesta = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ documentNo }),
+    cache: 'no-store',
+  });
+
+  const texto = await respuesta.text();
+  if (!respuesta.ok) {
+    let mensaje = texto;
+    try {
+      mensaje = JSON.parse(texto)?.error?.message || texto;
+    } catch {
+      // se deja el texto tal cual
+    }
+    throw new Error(mensaje);
+  }
+
+  try {
+    return String(JSON.parse(texto)?.value ?? 'Enviado');
+  } catch {
+    return 'Enviado';
+  }
+}

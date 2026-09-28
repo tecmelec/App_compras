@@ -35,7 +35,11 @@ export default function CrearPedidoBCBoton({
   const [cargando, setCargando] = useState(false);
   const [previa, setPrevia] = useState<Previa | null>(null);
   const [creando, setCreando] = useState(false);
-  const [resultado, setResultado] = useState<{ creados: { proveedor: string; documentNo: string }[]; errores: string[] } | null>(null);
+  const [resultado, setResultado] = useState<{
+    creados: { proveedor: string; documentNo: string }[];
+    errores: string[];
+    aprobacion: Record<string, string>;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -64,7 +68,11 @@ export default function CrearPedidoBCBoton({
       return;
     }
 
-    setResultado({ creados: r.creados || [], errores: r.errores || [] });
+    setResultado({
+      creados: r.creados || [],
+      errores: r.errores || [],
+      aprobacion: Object.fromEntries((r.aprobacionesEnviadas || []).map((a: { documentNo: string; estado: string }) => [a.documentNo, a.estado])),
+    });
     router.refresh();
   }
 
@@ -184,7 +192,12 @@ export default function CrearPedidoBCBoton({
               <div className="mt-2">
                 {resultado.creados.map((c, i) => (
                   <p key={i} className="text-sm text-verde mb-1">
-                    ✓ {c.proveedor}: pedido <span className="font-mono">{c.documentNo}</span> creado en BC.
+                    ✓ {c.proveedor}: pedido <span className="font-mono">{c.documentNo}</span> creado en BC
+                    {resultado.aprobacion[c.documentNo] &&
+                      (resultado.aprobacion[c.documentNo] === 'Released'
+                        ? ' y lanzado (aprobado directamente por el flujo).'
+                        : ' y enviado a aprobación.')}
+                    {!resultado.aprobacion[c.documentNo] && '.'}
                   </p>
                 ))}
                 {resultado.errores.map((a, i) => (

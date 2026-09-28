@@ -19,6 +19,7 @@ import {
   crearLineaPlanificacionBC,
   obtenerCompaniaEstandarBC,
   obtenerCrudoEstandarBC,
+  enviarAprobacionPedidoCompraBC,
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
@@ -880,6 +881,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
 
   const creados: { proveedor: string; documentNo: string }[] = [];
   const errores: string[] = [];
+  const aprobacionesEnviadas: { documentNo: string; estado: string }[] = [];
 
   // La obra es la misma para todo el pedido, así que la tarea solo hace falta
   // comprobarla una vez, no por cada línea.
@@ -1005,10 +1007,31 @@ export async function crearPedidosCompraBC(pedidoId: string) {
       errores.push(
         `⚠ El pedido ${documentNo} se creó en BC pero con líneas incompletas — revísalo directamente en Business Central.`
       );
+    } else {
+      // Pedido completo: se envía a aprobación automáticamente (flujo de trabajo de BC).
+      // Si falla, el pedido queda creado en "Abierto" y se avisa para enviarlo a mano.
+      try {
+        const estado = await enviarAprobacionPedidoCompraBC(documentNo);
+        if (estado !== null) aprobacionesEnviadas.push({ documentNo, estado });
+      } catch (e: any) {
+        console.error(`[crearPedidosCompraBC] No se pudo enviar ${documentNo} a aprobación:`, e.message || e);
+        errores.push(
+          `⚠ El pedido ${documentNo} se creó pero no se pudo enviar a aprobación en BC (queda "Abierto"; envíalo a mano desde BC) — ${e.message}`
+        );
+      }
+    }
+  }
+
+  // Refleja ya en la app el nuevo estado de BC de los pedidos enviados a aprobación.
+  if (aprobacionesEnviadas.length > 0) {
+    try {
+      await sincronizarPedidoConBC(pedidoId);
+    } catch (e: any) {
+      console.error('[crearPedidosCompraBC] No se pudo sincronizar tras enviar a aprobación:', e.message || e);
     }
   }
 
   revalidatePath(`/comprador/${pedidoId}`);
 
-  return { success: true, creados, errores };
+  return { success: true, creados, errores, aprobacionesEnviadas };
 }
