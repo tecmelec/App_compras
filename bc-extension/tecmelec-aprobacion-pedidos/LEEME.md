@@ -34,7 +34,7 @@ Tienda Tecmelec lo lance automáticamente justo después de crear el pedido.
    la extensión crea/actualiza su ficha con el aprobador del comprador en cada envío.
 5. Cada comprador que use el botón debe estar en *Configuración de usuarios de aprobación*
    con su aprobador, y tener su ID de usuario de BC en la ficha de usuario de la app
-   (*Administración → Usuarios → ID de usuario en BC*).
+   (*Administración → Usuarios → ID de usuario en BC* = el **Id. de seguridad de usuario** de BC, no el Id. de telemetría).
 
 ## Paso en la app (Vercel)
 Añadir la variable de entorno `BC_ODATA_SERVICE_APROBACION = TMCAprobacionPedidos`

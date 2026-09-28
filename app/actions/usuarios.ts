@@ -15,7 +15,7 @@ function normalizarBcUserId(valor?: string): string | null {
 
 function validarBcUserId(valor?: string): string | null {
   const limpio = normalizarBcUserId(valor);
-  if (limpio && !GUID.test(limpio)) return 'El ID de usuario de BC no tiene formato válido (ej. f93e1b3c-b3cf-4579-968a-fa4cb96ba1b8).';
+  if (limpio && !GUID.test(limpio)) return 'El ID de usuario de BC no tiene formato válido (ej. 7b069824-359b-4fc4-a20f-cff70ff56d15).';
   return null;
 }
 

@@ -238,10 +238,11 @@ function UsuarioForm({
             className="input font-mono text-xs"
             value={bcUserId}
             onChange={(e) => setBcUserId(e.target.value)}
-            placeholder="f93e1b3c-b3cf-4579-968a-fa4cb96ba1b8"
+            placeholder="7b069824-359b-4fc4-a20f-cff70ff56d15"
           />
           <p className="text-xs text-slate mt-1">
             Si tiene usuario en Business Central: los pedidos que cree se envían a aprobación en su nombre.
+            Es el <strong>Id. de seguridad de usuario</strong> de su ficha de usuario en BC (no el Id. de telemetría).
           </p>
         </div>
 
