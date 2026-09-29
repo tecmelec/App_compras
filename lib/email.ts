@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { aplicarDesvioEmail } from '@/lib/desvio-email';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -32,11 +33,13 @@ export async function enviarEmailSolicitud({
        </p>`
     : '';
 
+  const desvio = aplicarDesvioEmail(destinatarios);
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
-    to: destinatarios,
+    to: desvio.to,
     subject: `Nueva solicitud de materiales — ${numeroApp}`,
     html: `
+      ${desvio.avisoHtml}
       <div style="font-family: sans-serif; color:#1C2126;">
         <p><strong>${solicitante}</strong> ha solicitado los siguientes materiales.</p>
         <p>Nº de pedido APP: <strong>${numeroApp}</strong></p>
@@ -82,12 +85,14 @@ export async function enviarPedidoCompraPorEmail({
     .map((linea) => `<p style="margin:0 0 10px;">${linea}</p>`)
     .join('');
 
+  const desvio = aplicarDesvioEmail(destinatarios);
   const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || 'Tecmelec <notificaciones@tecmelec.com>',
-    to: destinatarios,
+    to: desvio.to,
     ...(replyTo ? { replyTo } : {}),
     subject: `PEDIDO DE COMPRA ${numeroTecmelec}`,
     html: `
+      ${desvio.avisoHtml}
       <div style="font-family: sans-serif; color:#1C2126;">
         ${parrafos}
         <p style="margin-top:10px;">Un saludo,<br/>Tecmelec Electricidad S.L.</p>

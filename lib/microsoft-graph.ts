@@ -1,3 +1,4 @@
+import { aplicarDesvioEmail } from '@/lib/desvio-email';
 // Envía emails a través de Microsoft Graph (Outlook / Microsoft 365).
 //
 // Usa GRAPH_TENANT_ID/GRAPH_CLIENT_ID/GRAPH_CLIENT_SECRET si están definidas
@@ -154,6 +155,12 @@ export async function enviarEmailConAdjuntoGraph({
   contenidoBase64: string;
 }): Promise<{ messageId: string; conversationId: string | null }> {
   const token = await obtenerTokenGraph();
+  const desvio = aplicarDesvioEmail(destinatarios, cc || []);
+  const contenido = desvio.avisoHtml
+    ? cuerpoEsHtml
+      ? desvio.avisoHtml + cuerpo
+      : `[ENTORNO DE PRUEBAS — destinatarios originales: ${destinatarios.join(', ')}${cc?.length ? ` · CC: ${cc.join(', ')}` : ''}]\n\n${cuerpo}`
+    : cuerpo;
 
   const urlEnviar = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/sendMail`;
   const respuestaEnviar = await fetch(urlEnviar, {
@@ -165,9 +172,9 @@ export async function enviarEmailConAdjuntoGraph({
     body: JSON.stringify({
       message: {
         subject: asunto,
-        body: { contentType: cuerpoEsHtml ? 'HTML' : 'Text', content: cuerpo },
-        toRecipients: destinatarios.map((email) => ({ emailAddress: { address: email } })),
-        ccRecipients: (cc || []).map((email) => ({ emailAddress: { address: email } })),
+        body: { contentType: cuerpoEsHtml ? 'HTML' : 'Text', content: contenido },
+        toRecipients: desvio.to.map((email) => ({ emailAddress: { address: email } })),
+        ccRecipients: desvio.cc.map((email) => ({ emailAddress: { address: email } })),
         attachments: [
           {
             '@odata.type': '#microsoft.graph.fileAttachment',
