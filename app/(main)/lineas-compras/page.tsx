@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
-import { idsEfectivos } from '@/lib/pedidos-utils';
+import { idsEfectivos, estadoLineaParaMostrar } from '@/lib/pedidos-utils';
 
 export default async function LineasCompraPage() {
   const supabase = createClient();
@@ -18,7 +18,7 @@ export default async function LineasCompraPage() {
   let query = supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, created_at, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_recepcion, productos(nombre), proveedores(bc_proveedor_no, nombre))'
+      'id, numero_app, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
     )
     .order('created_at', { ascending: false });
 
@@ -33,7 +33,11 @@ export default async function LineasCompraPage() {
   }
   // admin: sin filtro, ve todo
 
-  const { data: pedidos } = await query;
+  const [{ data: pedidos }, { data: estadoAnulado }] = await Promise.all([
+    query,
+    supabase.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle(),
+  ]);
+  const idEstadoAnulado: number | null = estadoAnulado?.id ?? null;
 
   // Según el rol, la página de detalle del pedido vive en una ruta distinta.
   const rutaDetalle: Record<string, string> = {
@@ -57,7 +61,11 @@ export default async function LineasCompraPage() {
       nombre_obra: p.proyectos?.descripcion || '',
       fecha_requerida: p.fecha_requerida,
       fecha_estimada_entrega: item.fecha_estimada_entrega,
-      estado_recepcion: item.estado_recepcion,
+      // "Anulado" si la línea la rechazó el aprobador, la anuló el comprador o se anuló/rechazó la solicitud.
+      estado_recepcion: estadoLineaParaMostrar(item, {
+        idEstadoAnulado,
+        pedidoAnulado: p.estado_general === 'Anulado' || p.aprobado === false,
+      }),
     }))
   );
 

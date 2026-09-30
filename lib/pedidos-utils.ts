@@ -142,3 +142,19 @@ export function puedeCrearPedidoBC(
 
 export const MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO =
   'La solicitud debe estar en estado "Solicitud aprobada" (o posterior) antes de poder crear el pedido de compra en Business Central.';
+
+// Estado que se muestra para una línea en listados (p. ej. Líns. compras): es el
+// estado de recepción, salvo que la línea esté anulada, en cuyo caso es "Anulado"
+// aunque la recepción siga en "Pendiente de recibir". Una línea está anulada si:
+// la rechazó el aprobador, el comprador le puso el estado "Anulado", o toda la
+// solicitud está anulada o rechazada.
+export function estadoLineaParaMostrar(
+  item: { estado_recepcion: string | null; estado_id?: number | null; rechazada_por_aprobador?: boolean | null },
+  contexto: { idEstadoAnulado: number | null; pedidoAnulado: boolean }
+): string {
+  const anulada =
+    !!item.rechazada_por_aprobador ||
+    (contexto.idEstadoAnulado != null && item.estado_id === contexto.idEstadoAnulado) ||
+    contexto.pedidoAnulado;
+  return anulada ? 'Anulado' : item.estado_recepcion || 'Pendiente de recibir';
+}
