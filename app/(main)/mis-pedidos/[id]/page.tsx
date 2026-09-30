@@ -29,7 +29,7 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, numero_app, fecha_requerida, nombre_contacto, telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -331,10 +331,14 @@ export default async function DetallePedidoPage({ params }: { params: { id: stri
                     </p>
                   </div>
                   <div className="text-sm font-mono text-grafito min-w-[4rem] text-right flex items-center justify-end gap-0.5">
-                    {!esRechazadas && item.cantidad_original != null && item.cantidad_original !== item.cantidad && (
+                    {!esRechazadas && (
                       <CantidadModificadaAviso
-                        cantidadOriginal={item.cantidad_original}
-                        cantidadAprobada={item.cantidad}
+                        historial={{
+                          cantidad: item.cantidad,
+                          cantidadOriginal: item.cantidad_original,
+                          cantidadAprobador: item.cantidad_aprobador,
+                          modificadaPorComprador: !!item.cantidad_modificada_por_comprador,
+                        }}
                         unidad={item.productos?.unidad_medida || 'ud.'}
                       />
                     )}

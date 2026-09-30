@@ -263,6 +263,74 @@ export async function actualizarPedido(
   return { success: true };
 }
 
+// El comprador puede cambiar la cantidad de una línea SOLO antes de crear el
+// pedido en BC (sin Nº pedido Tecmelec): la sincronización con BC identifica
+// cada línea por artículo + cantidad exacta, así que cambiarla después rompería
+// el cruce. Además la solicitud tiene que estar aprobada (o no requerir
+// aprobación), la línea no puede estar rechazada y se respeta el múltiplo de compra.
+// Se guarda el historial para el aviso "!": cantidad_original (lo que pidió el
+// usuario) y cantidad_modificada_por_comprador.
+async function aplicarCambiosCantidadComprador(
+  supabase: ReturnType<typeof createClient>,
+  pedidoId: string,
+  items: { id: string; cantidad?: number }[]
+): Promise<string | null> {
+  const conCantidad = items.filter((i) => i.cantidad !== undefined);
+  if (conCantidad.length === 0) return null;
+
+  const [{ data: pedido }, { data: actuales }] = await Promise.all([
+    supabase.from('pedidos').select('requiere_aprobacion, aprobado').eq('id', pedidoId).single(),
+    supabase
+      .from('pedido_items')
+      .select(
+        'id, cantidad, cantidad_original, cantidad_aprobador, numero_tecmelec, rechazada_por_aprobador, productos(nombre, multiplo_compra)'
+      )
+      .eq('pedido_id', pedidoId)
+      .in(
+        'id',
+        conCantidad.map((i) => i.id)
+      ),
+  ]);
+  const actualPorId = new Map((actuales || []).map((a: any) => [a.id, a]));
+
+  for (const item of conCantidad) {
+    const actual: any = actualPorId.get(item.id);
+    if (!actual) return 'Línea no encontrada.';
+    const nueva = Number(item.cantidad);
+    if (nueva === actual.cantidad) continue;
+
+    const nombre = actual.productos?.nombre || 'artículo';
+    if (!pedido || pedido.aprobado === false || (pedido.requiere_aprobacion && pedido.aprobado !== true)) {
+      return `No se puede cambiar la cantidad de "${nombre}": la solicitud aún no está aprobada.`;
+    }
+    if (actual.numero_tecmelec) {
+      return `No se puede cambiar la cantidad de "${nombre}": ya tiene pedido en Business Central (${actual.numero_tecmelec}).`;
+    }
+    if (actual.rechazada_por_aprobador) {
+      return `No se puede cambiar la cantidad de "${nombre}": la línea fue rechazada por el aprobador.`;
+    }
+    const multiplo = Math.max(actual.productos?.multiplo_compra || 1, 1);
+    if (!Number.isInteger(nueva) || nueva <= 0) return `Cantidad no válida para "${nombre}".`;
+    if (nueva % multiplo !== 0) return `La cantidad de "${nombre}" debe ser múltiplo de ${multiplo}.`;
+
+    const original = actual.cantidad_original ?? actual.cantidad;
+    const base = actual.cantidad_aprobador ?? original; // lo que había antes de que tocara Compras
+    const porComprador = nueva !== base;
+    const { error } = await supabase
+      .from('pedido_items')
+      .update({
+        cantidad: nueva,
+        // Si vuelve a quedar exactamente como la pidió el usuario y nadie más la cambió, no hay nada que avisar.
+        cantidad_original: !porComprador && actual.cantidad_aprobador == null ? null : original,
+        cantidad_modificada_por_comprador: porComprador,
+      })
+      .eq('id', item.id);
+    if (error) return `No se pudo guardar la cantidad de "${nombre}".`;
+  }
+
+  return null;
+}
+
 export async function actualizarLineasTecmelec(
   pedidoId: string,
   items: {
@@ -273,9 +341,14 @@ export async function actualizarLineasTecmelec(
     estado_recepcion: string;
     proveedor_id: string | null;
     precio_unitario: number;
+    cantidad?: number;
   }[]
 ) {
   const supabase = createClient();
+
+  // Cambios de cantidad hechos por el comprador (ver aplicarCambiosCantidadComprador).
+  const errorCantidades = await aplicarCambiosCantidadComprador(supabase, pedidoId, items);
+  if (errorCantidades) return { error: errorCantidades };
 
   // Para saber si la fecha de entrega cambia de verdad: si el comprador la
   // toca a mano, la confirmación que hubiera dejado el proveedor (por el

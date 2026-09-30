@@ -17,8 +17,12 @@ type ItemForm = {
   precio: number;
   cantidad: number;
   cantidadOriginal?: number | null;
+  cantidadAprobador?: number | null;
+  modificadaPorComprador?: boolean;
   rechazadaPorAprobador?: boolean;
   unidad?: string;
+  multiplo?: number;
+  cantidadEditable?: boolean;
   numeroTecmelec: string;
   fechaEstimada: string;
   fechaConfirmadaEn: string | null;
@@ -101,6 +105,9 @@ export default function FormularioComprador({
   const [preciosLinea, setPreciosLinea] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.precio.toString()]))
   );
+  const [cantidadesLinea, setCantidadesLinea] = useState<Record<string, string>>(
+    Object.fromEntries(items.map((i) => [i.id, String(i.cantidad)]))
+  );
   const [anulado, setAnulado] = useState(estadoGeneral === 'Anulado');
   const [fecha, setFecha] = useState(fechaEstimada);
   const [asignarVacios, setAsignarVacios] = useState(false);
@@ -131,12 +138,29 @@ export default function FormularioComprador({
 
   const itemsPorId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
+  const cantidadDe = (i: ItemForm) => (i.cantidadEditable ? Number(cantidadesLinea[i.id]) || 0 : i.cantidad);
+
+  function errorCantidad(i: ItemForm): string | null {
+    if (!i.cantidadEditable) return null;
+    const n = Number(cantidadesLinea[i.id]);
+    if (!cantidadesLinea[i.id] || !Number.isInteger(n) || n <= 0) return 'Cantidad no válida';
+    const m = Math.max(i.multiplo || 1, 1);
+    if (n % m !== 0) return `Debe ser múltiplo de ${m}`;
+    return null;
+  }
+  const hayErroresCantidad = items.some((i) => errorCantidad(i));
+
   const totalCalculado = useMemo(
-    () => items.reduce((suma, i) => suma + (Number(preciosLinea[i.id]) || 0) * i.cantidad, 0),
-    [items, preciosLinea]
+    () => items.reduce((suma, i) => suma + (Number(preciosLinea[i.id]) || 0) * cantidadDe(i), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, preciosLinea, cantidadesLinea]
   );
 
   async function handleGuardar() {
+    if (hayErroresCantidad) {
+      setError('Revisa las cantidades marcadas en rojo antes de guardar.');
+      return;
+    }
     setGuardando(true);
     setGuardado(false);
     setError(null);
@@ -154,6 +178,7 @@ export default function FormularioComprador({
           estado_recepcion: recepcionesLinea[i.id],
           proveedor_id: proveedoresLinea[i.id] || null,
           precio_unitario: Number(preciosLinea[i.id]) || 0,
+          ...(i.cantidadEditable ? { cantidad: Number(cantidadesLinea[i.id]) } : {}),
         };
       })
     );
@@ -231,6 +256,9 @@ export default function FormularioComprador({
                         onProveedorId={(v) => setProveedoresLinea((prev) => ({ ...prev, [id]: v }))}
                         precio={preciosLinea[id]}
                         onPrecio={(v) => setPreciosLinea((prev) => ({ ...prev, [id]: v }))}
+                        cantidad={cantidadesLinea[id]}
+                        onCantidad={(v) => setCantidadesLinea((prev) => ({ ...prev, [id]: v }))}
+                        errorCantidad={errorCantidad(itemsPorId.get(id)!)}
                         estados={estados}
                         proveedores={proveedores}
                       />
@@ -257,6 +285,9 @@ export default function FormularioComprador({
                   onProveedorId={(v) => setProveedoresLinea((prev) => ({ ...prev, [id]: v }))}
                   precio={preciosLinea[id]}
                   onPrecio={(v) => setPreciosLinea((prev) => ({ ...prev, [id]: v }))}
+                  cantidad={cantidadesLinea[id]}
+                  onCantidad={(v) => setCantidadesLinea((prev) => ({ ...prev, [id]: v }))}
+                  errorCantidad={errorCantidad(itemsPorId.get(id)!)}
                   estados={estados}
                   proveedores={proveedores}
                 />
@@ -347,6 +378,9 @@ function ItemFila({
   onProveedorId,
   precio,
   onPrecio,
+  cantidad,
+  onCantidad,
+  errorCantidad,
   estados,
   proveedores,
 }: {
@@ -364,6 +398,9 @@ function ItemFila({
   onProveedorId: (v: string) => void;
   precio: string;
   onPrecio: (v: string) => void;
+  cantidad: string;
+  onCantidad: (v: string) => void;
+  errorCantidad: string | null;
   estados: Estado[];
   proveedores: Proveedor[];
 }) {
@@ -382,18 +419,44 @@ function ItemFila({
           </div>
           <div>
             <p className="text-sm font-medium text-grafito">{item.nombre}</p>
-            <p className="font-mono text-slate text-xs mt-0.5 flex items-center gap-0.5">
-              {item.cantidadOriginal != null && item.cantidadOriginal !== item.cantidad && !item.rechazadaPorAprobador && (
+            <div className="font-mono text-slate text-xs mt-0.5 flex items-center gap-0.5">
+              {!item.rechazadaPorAprobador && (
                 <CantidadModificadaAviso
-                  cantidadOriginal={item.cantidadOriginal}
-                  cantidadAprobada={item.cantidad}
+                  historial={{
+                    cantidad: item.cantidad,
+                    cantidadOriginal: item.cantidadOriginal ?? null,
+                    cantidadAprobador: item.cantidadAprobador ?? null,
+                    modificadaPorComprador: !!item.modificadaPorComprador,
+                  }}
                   unidad={item.unidad || 'ud.'}
                   perspectiva="comprador"
                   alinear="izquierda"
                 />
               )}
-              <span className={item.rechazadaPorAprobador ? 'line-through' : ''}>x{item.cantidad}</span>
-            </p>
+              {item.cantidadEditable ? (
+                <span className="flex items-center gap-1">
+                  <span>x</span>
+                  <input
+                    type="number"
+                    min={item.multiplo || 1}
+                    step={item.multiplo || 1}
+                    value={cantidad}
+                    onChange={(e) => onCantidad(e.target.value)}
+                    title="Puedes cambiar la cantidad hasta crear el pedido en Business Central"
+                    className={`input w-20 py-0.5 px-2 text-xs font-mono ${errorCantidad ? 'border-rojo' : ''} ${
+                      Number(cantidad) !== item.cantidad ? 'bg-[#FDF2E3]' : ''
+                    }`}
+                  />
+                  <span className="font-sans">{item.unidad || 'ud.'}</span>
+                </span>
+              ) : (
+                <span className={item.rechazadaPorAprobador ? 'line-through' : ''}>x{item.cantidad}</span>
+              )}
+            </div>
+            {errorCantidad && <p className="text-[11px] text-rojo mt-0.5">{errorCantidad}</p>}
+            {item.cantidadEditable && !errorCantidad && Number(cantidad) !== item.cantidad && (
+              <p className="text-[11px] text-[#8A5A15] mt-0.5">Cantidad cambiada · se guarda al pulsar Guardar</p>
+            )}
             {item.rechazadaPorAprobador && (
               <span className="badge badge-cancelado mt-1 inline-block">Rechazada por el aprobador</span>
             )}
