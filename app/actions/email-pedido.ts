@@ -127,12 +127,30 @@ function construirCuerpoHtml(mensaje: string, enlaceFechaEntrega: string): strin
   `;
 }
 
+export type AdjuntoEmail = { nombre: string; tipo: string; base64: string };
+
+// Microsoft Graph (/sendMail) no admite emails de más de ~4 MB en total
+// (contando el PDF del pedido y la codificación base64). Para más haría falta
+// el permiso Mail.ReadWrite (subida por sesiones), que la app no tiene.
+const MAX_BASE64_EMAIL = 3_900_000;
+const MAX_ADJUNTOS = 10;
+const EXTENSIONES_BLOQUEADAS = /\.(exe|bat|cmd|com|msi|js|vbs|ps1|scr|jar|sh|dll)$/i;
+
+function bytesDesdeBase64(longitudBase64: number) {
+  return Math.floor((longitudBase64 * 3) / 4);
+}
+
+function formatoMB(bytes: number) {
+  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+}
+
 export async function enviarPedidoPorEmail(
   numeroTecmelec: string,
   conFotos: boolean,
   destinatarios: string[],
   mensaje: string,
-  cc: string[] = []
+  cc: string[] = [],
+  adjuntos: AdjuntoEmail[] = []
 ) {
   const supabase = createClient();
   const {
@@ -182,7 +200,33 @@ export async function enviarPedidoPorEmail(
       }
     }
 
+    // Adjuntos adicionales: validación (la interfaz ya limita, pero no se confía solo en ella).
+    if (adjuntos.length > MAX_ADJUNTOS) {
+      return { error: `Puedes adjuntar como máximo ${MAX_ADJUNTOS} documentos.` };
+    }
+    const adjuntosLimpios: AdjuntoEmail[] = [];
+    for (const a of adjuntos) {
+      const nombre = String(a?.nombre || '').replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 150);
+      const base64 = String(a?.base64 || '');
+      if (!nombre || !base64 || !/^[A-Za-z0-9+/=]+$/.test(base64)) {
+        return { error: `El adjunto "${nombre || 'sin nombre'}" no es válido.` };
+      }
+      if (EXTENSIONES_BLOQUEADAS.test(nombre)) {
+        return { error: `No se permiten archivos ejecutables (${nombre}).` };
+      }
+      adjuntosLimpios.push({ nombre, tipo: String(a?.tipo || 'application/octet-stream').slice(0, 100), base64 });
+    }
+
     const pdfBuffer = await pedirPdfPorHttp(numeroTecmelec, conFotos);
+    const pdfBase64 = pdfBuffer.toString('base64');
+    const totalBase64 = pdfBase64.length + adjuntosLimpios.reduce((s, a) => s + a.base64.length, 0);
+    if (totalBase64 > MAX_BASE64_EMAIL) {
+      return {
+        error: `El email ocupa demasiado: el PDF del pedido (${formatoMB(pdfBuffer.length)}) más los adjuntos (${formatoMB(
+          adjuntosLimpios.reduce((s, a) => s + bytesDesdeBase64(a.base64.length), 0)
+        )}) superan el máximo de unos ${formatoMB(bytesDesdeBase64(MAX_BASE64_EMAIL))}. Quita algún adjunto o redúcelo.`,
+      };
+    }
     const asunto = `PEDIDO DE COMPRA ${numeroTecmelec}`;
     const token = randomUUID();
     const enlaceFechaEntrega = `${construirBaseUrl()}/proveedor/pedido/${token}`;
@@ -196,7 +240,8 @@ export async function enviarPedidoPorEmail(
       cuerpo: cuerpoHtml,
       cuerpoEsHtml: true,
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
-      contenidoBase64: pdfBuffer.toString('base64'),
+      contenidoBase64: pdfBase64,
+      adjuntosExtra: adjuntosLimpios,
     });
 
     const { error: errorGuardado } = await supabase.from('pedido_emails').insert({

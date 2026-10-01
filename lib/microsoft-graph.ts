@@ -144,6 +144,7 @@ export async function enviarEmailConAdjuntoGraph({
   cuerpoEsHtml,
   nombreArchivo,
   contenidoBase64,
+  adjuntosExtra = [],
 }: {
   buzon: string; // email de la persona/buzón que envía (aparece como remitente real)
   destinatarios: string[];
@@ -153,6 +154,8 @@ export async function enviarEmailConAdjuntoGraph({
   cuerpoEsHtml?: boolean;
   nombreArchivo: string;
   contenidoBase64: string;
+  // Documentos adicionales que el comprador adjunta a mano (además del PDF del pedido).
+  adjuntosExtra?: { nombre: string; tipo: string; base64: string }[];
 }): Promise<{ messageId: string; conversationId: string | null }> {
   const token = await obtenerTokenGraph();
   const desvio = aplicarDesvioEmail(destinatarios, cc || []);
@@ -182,6 +185,12 @@ export async function enviarEmailConAdjuntoGraph({
             contentType: 'application/pdf',
             contentBytes: contenidoBase64,
           },
+          ...adjuntosExtra.map((a) => ({
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: a.nombre,
+            contentType: a.tipo || 'application/octet-stream',
+            contentBytes: a.base64,
+          })),
         ],
       },
       saveToSentItems: true,

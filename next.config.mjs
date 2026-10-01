@@ -12,6 +12,11 @@ const nextConfig = {
   // require dinámico que el rastreo automático de Vercel no detecta; sin esto
   // el bundle serverless no incluye esos archivos y el PDF falla en producción.
   experimental: {
+    // Para poder enviar documentos adjuntos en el email del pedido (hasta ~3 MB
+    // en base64 + el resto de datos). El valor por defecto de Next es 1 MB.
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
     outputFileTracingIncludes: {
       '/api/pedidos/[numeroTecmelec]/pdf': ['./node_modules/pdfkit/js/standard-fonts/**/*'],
     },
