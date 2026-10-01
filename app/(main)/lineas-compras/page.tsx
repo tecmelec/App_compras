@@ -18,7 +18,7 @@ export default async function LineasCompraPage() {
   let query = supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
+      'id, numero_app, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
     )
     .order('created_at', { ascending: false });
 
@@ -61,6 +61,7 @@ export default async function LineasCompraPage() {
       nombre_obra: p.proyectos?.descripcion || '',
       fecha_requerida: p.fecha_requerida,
       fecha_estimada_entrega: item.fecha_estimada_entrega,
+      fecha_confirmada_en: item.fecha_estimada_entrega_confirmada_en || null,
       // "Anulado" si la línea la rechazó el aprobador, la anuló el comprador o se anuló/rechazó la solicitud.
       estado_recepcion: estadoLineaParaMostrar(item, {
         idEstadoAnulado,

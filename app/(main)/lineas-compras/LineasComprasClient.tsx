@@ -6,6 +6,12 @@ import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
 import EstadoBadge from '@/components/EstadoBadge';
 import ExportarExcelBoton from '@/components/ExportarExcelBoton';
+import {
+  ConfirmacionProveedorCheck,
+  RetrasoAviso,
+  diasRetraso,
+  formatearConfirmacion,
+} from '@/components/FechaEntregaIndicadores';
 
 export type LineaFila = {
   numero_app: string;
@@ -19,6 +25,7 @@ export type LineaFila = {
   nombre_obra: string;
   fecha_requerida: string | null;
   fecha_estimada_entrega: string | null;
+  fecha_confirmada_en: string | null; // el proveedor confirmó la fecha estimada (null si no)
   estado_recepcion: string | null;
 };
 
@@ -222,6 +229,22 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             { titulo: 'Obra', valor: (f) => f.nombre_obra, ancho: 35 },
             { titulo: 'Fecha requerida', valor: (f) => f.fecha_requerida, formato: 'fecha', ancho: 15 },
             { titulo: 'Fecha estimada de entrega', valor: (f) => f.fecha_estimada_entrega, formato: 'fecha', ancho: 22 },
+            {
+              titulo: 'Fecha confirmada por el proveedor',
+              valor: (f) => (f.fecha_estimada_entrega && f.fecha_confirmada_en ? 'Sí' : 'No'),
+              ancho: 18,
+            },
+            {
+              titulo: 'Últ. actualización proveedor',
+              valor: (f) => (f.fecha_estimada_entrega && f.fecha_confirmada_en ? formatearConfirmacion(f.fecha_confirmada_en) : ''),
+              ancho: 22,
+            },
+            {
+              titulo: 'Días de retraso',
+              valor: (f) => diasRetraso(f.fecha_estimada_entrega, f.estado_recepcion),
+              formato: 'numero',
+              ancho: 14,
+            },
             { titulo: 'Estado', valor: (f) => f.estado_recepcion, ancho: 20 },
           ]}
         />
@@ -478,9 +501,15 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                       : '—'}
                   </td>
                   <td className="px-4 py-3 text-slate">
-                    {f.fecha_estimada_entrega
-                      ? new Date(f.fecha_estimada_entrega).toLocaleDateString('es-ES')
-                      : 'Por definir'}
+                    {f.fecha_estimada_entrega ? (
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                        <RetrasoAviso dias={diasRetraso(f.fecha_estimada_entrega, f.estado_recepcion)} />
+                        {new Date(f.fecha_estimada_entrega).toLocaleDateString('es-ES')}
+                        <ConfirmacionProveedorCheck confirmadaEn={f.fecha_confirmada_en} />
+                      </span>
+                    ) : (
+                      'Por definir'
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <EstadoBadge estado={f.estado_recepcion || undefined} />
