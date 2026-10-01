@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
 import ObraCelda from '@/components/ObraCelda';
 import ExportarExcelBoton, { type ColumnaExcel } from '@/components/ExportarExcelBoton';
+import FiltrosRapidosSolicitudes, { type ConfigFiltrosRapidos, type ModoRapido } from '@/components/FiltrosRapidosSolicitudes';
 
 export type PedidoFila = {
   id: string;
@@ -13,7 +14,10 @@ export type PedidoFila = {
   nro_obra?: string;
   nombre_obra?: string;
   solicitante: string;
+  solicitante_id?: string | null;
   comprador?: string | null;
+  // La solicitud está asignada a la persona conectada (o a quien sustituye).
+  asignada_a_mi?: boolean;
   total_estimado: number;
   requiere_aprobacion: boolean;
   aprobado: boolean | null;
@@ -85,13 +89,52 @@ export default function SolicitudesFiltrables({
   linkBase,
   mostrarComprador = false,
   mostrarPdfEnviado = false,
+  filtrosRapidos,
 }: {
   pedidos: PedidoFila[];
   linkBase: string;
   mostrarComprador?: boolean;
   mostrarPdfEnviado?: boolean;
+  // Si se pasa, muestra la barra Todas / Asignadas a mí / Por usuario / Por obra.
+  filtrosRapidos?: ConfigFiltrosRapidos;
 }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
+  const [modoRapido, setModoRapidoEstado] = useState<ModoRapido>('todas');
+  const [guardados, setGuardados] = useState(filtrosRapidos?.guardados ?? { solicitantes: [], obras: [] });
+
+  // Recuerda el último filtro rápido usado en este navegador.
+  useEffect(() => {
+    if (!filtrosRapidos) return;
+    try {
+      const m = localStorage.getItem('solicitudes.filtroRapido') as ModoRapido | null;
+      if (m === 'mias' || m === 'usuario' || m === 'obra') setModoRapidoEstado(m);
+    } catch {}
+  }, [filtrosRapidos]);
+
+  function setModoRapido(m: ModoRapido) {
+    setModoRapidoEstado(m);
+    try {
+      localStorage.setItem('solicitudes.filtroRapido', m);
+    } catch {}
+  }
+
+  function cumpleRapido(p: PedidoFila, modo: ModoRapido) {
+    if (modo === 'mias') return !!p.asignada_a_mi;
+    if (modo === 'usuario') return !!p.solicitante_id && guardados.solicitantes.includes(p.solicitante_id);
+    if (modo === 'obra') return !!p.nro_obra && guardados.obras.includes(p.nro_obra);
+    return true;
+  }
+
+  const conteos = useMemo(
+    () => ({
+      todas: pedidos.length,
+      mias: pedidos.filter((p) => cumpleRapido(p, 'mias')).length,
+      usuario: pedidos.filter((p) => cumpleRapido(p, 'usuario')).length,
+      obra: pedidos.filter((p) => cumpleRapido(p, 'obra')).length,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pedidos, guardados]
+  );
   const [columnaAbierta, setColumnaAbierta] = useState<string | null>(null);
 
   const solicitantesUnicos = useMemo(
@@ -107,9 +150,10 @@ export default function SolicitudesFiltrables({
     [pedidos]
   );
 
-  const hayFiltrosActivos = JSON.stringify(filtros) !== JSON.stringify(FILTROS_VACIOS);
+  const hayFiltrosActivos = JSON.stringify(filtros) !== JSON.stringify(FILTROS_VACIOS) || modoRapido !== 'todas';
 
   const filtrados = pedidos.filter((p) => {
+    if (filtrosRapidos && !cumpleRapido(p, modoRapido)) return false;
     if (filtros.busqueda) {
       const palabras = filtros.busqueda.trim().toLowerCase().split(/\s+/).filter(Boolean);
       const texto = `${p.numero_app} ${p.numero_tecmelec || ''} ${p.solicitante} ${p.comprador || ''} ${
@@ -161,6 +205,17 @@ export default function SolicitudesFiltrables({
 
   return (
     <div>
+      {filtrosRapidos && (
+        <FiltrosRapidosSolicitudes
+          modo={modoRapido}
+          onModo={setModoRapido}
+          conteos={conteos}
+          config={filtrosRapidos}
+          guardados={guardados}
+          onGuardados={setGuardados}
+        />
+      )}
+
       <div className="flex items-center gap-3 mb-4">
         <div className="relative flex-1 max-w-md">
           <svg
@@ -186,7 +241,13 @@ export default function SolicitudesFiltrables({
         </div>
 
         {hayFiltrosActivos && (
-          <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline">
+          <button
+            onClick={() => {
+              setFiltros(FILTROS_VACIOS);
+              if (filtrosRapidos) setModoRapido('todas');
+            }}
+            className="text-sm text-marca hover:underline"
+          >
             ✕ Borrar filtros
           </button>
         )}
@@ -201,6 +262,7 @@ export default function SolicitudesFiltrables({
               { titulo: 'Nº pedido APP', valor: (p) => p.numero_app, ancho: 15 },
               { titulo: 'Solicitante', valor: (p) => p.solicitante, ancho: 25 },
               ...(mostrarComprador ? [{ titulo: 'Comprador', valor: (p) => p.comprador, ancho: 25 } as ColumnaExcel<PedidoFila>] : []),
+              ...(filtrosRapidos ? [{ titulo: 'Asignada a mí', valor: (p) => !!p.asignada_a_mi, ancho: 13 } as ColumnaExcel<PedidoFila>] : []),
               { titulo: 'Nº pedido Tecmelec', valor: (p) => (p.numero_tecmelec === '—' ? '' : p.numero_tecmelec), ancho: 22 },
               { titulo: 'Nro. de obra', valor: (p) => p.nro_obra, ancho: 14 },
               { titulo: 'Obra', valor: (p) => p.nombre_obra, ancho: 35 },
@@ -417,7 +479,7 @@ export default function SolicitudesFiltrables({
           <tbody className="divide-y divide-borde">
             {filtrados.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={12} className="px-4 py-6 text-center text-slate text-sm">
                   No hay solicitudes que coincidan con los filtros.
                 </td>
               </tr>
@@ -430,7 +492,22 @@ export default function SolicitudesFiltrables({
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-grafito">{p.solicitante}</td>
-                  {mostrarComprador && <td className="px-4 py-3 text-grafito">{p.comprador || '—'}</td>}
+                  {mostrarComprador && (
+                    <td className="px-4 py-3 text-grafito">
+                      {p.asignada_a_mi ? (
+                        <span className="inline-flex items-center gap-1.5 text-marca font-medium whitespace-nowrap" title={p.comprador || undefined}>
+                          <span className="w-4 h-4 rounded-full bg-marca text-white flex items-center justify-center">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                          Asignada a mí
+                        </span>
+                      ) : (
+                        p.comprador || '—'
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3 font-mono text-grafito">{p.numero_tecmelec || '—'}</td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     <ObraCelda numero={p.nro_obra || ''} nombre={p.nombre_obra} textoVacio="Sin nombre de obra" />
