@@ -15,28 +15,34 @@ export default async function LineasCompraPage() {
     .eq('id', user?.id)
     .single();
 
-  let query = supabase
-    .from('pedidos')
-    .select(
-      'id, numero_app, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
-    )
-    .order('created_at', { ascending: false });
+  // Filtro según el rol (admin y comprador ven todo).
+  let idsResponsable: string[] = [];
+  if (perfil?.rol === 'responsable') idsResponsable = await idsEfectivos(supabase, user!.id);
 
-  if (perfil?.rol === 'usuario') {
-    query = query.eq('usuario_id', user!.id);
-  } else if (perfil?.rol === 'comprador') {
-    const ids = await idsEfectivos(supabase, user!.id);
-    query = query.in('comprador_id', ids);
-  } else if (perfil?.rol === 'responsable') {
-    const ids = await idsEfectivos(supabase, user!.id);
-    query = query.or(`responsable_id.in.(${ids.join(',')}),usuario_id.eq.${user!.id}`);
+  function consulta() {
+    let q = supabase
+      .from('pedidos')
+      .select(
+        'id, numero_app, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
+      )
+      .order('created_at', { ascending: false });
+    if (perfil?.rol === 'usuario') {
+      q = q.eq('usuario_id', user!.id);
+    } else if (perfil?.rol === 'responsable') {
+      q = q.or(`responsable_id.in.(${idsResponsable.join(',')}),usuario_id.eq.${user!.id}`);
+    }
+    return q;
   }
-  // admin: sin filtro, ve todo
 
-  const [{ data: pedidos }, { data: estadoAnulado }] = await Promise.all([
-    query,
-    supabase.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle(),
-  ]);
+  // Supabase devuelve como máximo 1.000 filas por consulta: se pide por tramos.
+  const pedidos: any[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data } = await consulta().range(desde, desde + 999);
+    pedidos.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+
+  const { data: estadoAnulado } = await supabase.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle();
   const idEstadoAnulado: number | null = estadoAnulado?.id ?? null;
 
   // Según el rol, la página de detalle del pedido vive en una ruta distinta.
