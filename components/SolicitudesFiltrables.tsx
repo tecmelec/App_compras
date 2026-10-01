@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
 import ObraCelda from '@/components/ObraCelda';
+import ExportarExcelBoton, { type ColumnaExcel } from '@/components/ExportarExcelBoton';
 
 export type PedidoFila = {
   id: string;
@@ -189,6 +190,36 @@ export default function SolicitudesFiltrables({
             ✕ Borrar filtros
           </button>
         )}
+
+        <ExportarExcelBoton
+          className="ml-auto"
+          filas={filtrados}
+          nombreArchivo="Solicitudes"
+          nombreHoja="Solicitudes"
+          columnas={
+            [
+              { titulo: 'Nº pedido APP', valor: (p) => p.numero_app, ancho: 15 },
+              { titulo: 'Solicitante', valor: (p) => p.solicitante, ancho: 25 },
+              ...(mostrarComprador ? [{ titulo: 'Comprador', valor: (p) => p.comprador, ancho: 25 } as ColumnaExcel<PedidoFila>] : []),
+              { titulo: 'Nº pedido Tecmelec', valor: (p) => (p.numero_tecmelec === '—' ? '' : p.numero_tecmelec), ancho: 22 },
+              { titulo: 'Nro. de obra', valor: (p) => p.nro_obra, ancho: 14 },
+              { titulo: 'Obra', valor: (p) => p.nombre_obra, ancho: 35 },
+              { titulo: 'Precio', valor: (p) => p.total_estimado, formato: 'moneda', ancho: 12 },
+              { titulo: 'Aprobación', valor: (p) => ({ automatica: 'Automática', pendiente: 'Pendiente', aprobada: 'Aprobada', rechazada: 'Rechazada' } as const)[aprobacionDe(p)], ancho: 13 },
+              { titulo: 'Estado', valor: (p) => p.estado, ancho: 20 },
+              ...(mostrarPdfEnviado
+                ? [
+                    {
+                      titulo: 'PDF enviado',
+                      valor: (p) => ({ si: 'Sí', no: 'No', sin: '' } as const)[pdfEnviadoDe(p)],
+                      ancho: 12,
+                    } as ColumnaExcel<PedidoFila>,
+                  ]
+                : []),
+              { titulo: 'Fecha', valor: (p) => p.created_at, formato: 'fecha', ancho: 12 },
+            ] as ColumnaExcel<PedidoFila>[]
+          }
+        />
       </div>
 
       {columnaAbierta && (

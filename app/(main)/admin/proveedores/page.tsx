@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import SincronizarProveedoresBoton from './SincronizarProveedoresBoton';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import ExportarExcelSimple from '@/components/ExportarExcelSimple';
 
 export default async function ProveedoresAdminPage() {
   const supabase = createClient();
@@ -19,6 +20,15 @@ export default async function ProveedoresAdminPage() {
       {!proveedores || proveedores.length === 0 ? (
         <p className="text-slate text-sm">Todavía no hay proveedores sincronizados.</p>
       ) : (
+        <>
+        <div className="flex justify-end mb-3">
+          <ExportarExcelSimple
+            nombreArchivo="Proveedores"
+            nombreHoja="Proveedores"
+            cabeceras={[{ titulo: 'Nº', ancho: 12 }, { titulo: 'Nombre', ancho: 50 }]}
+            filas={proveedores.map((p: any) => [p.bc_proveedor_no, p.nombre])}
+          />
+        </div>
         <div className="bg-white border border-borde rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-fondo text-slate text-left">
@@ -37,6 +47,7 @@ export default async function ProveedoresAdminPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

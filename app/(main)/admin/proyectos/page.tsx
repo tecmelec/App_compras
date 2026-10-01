@@ -1,13 +1,21 @@
 import { createClient } from '@/lib/supabase/server';
 import SincronizarProyectosBoton from './SincronizarProyectosBoton';
+import ExportarExcelSimple from '@/components/ExportarExcelSimple';
 
 export default async function ProyectosAdminPage() {
   const supabase = createClient();
 
-  const { data: proyectos } = await supabase
-    .from('proyectos')
-    .select('id, bc_job_no, descripcion, estado')
-    .order('bc_job_no');
+  // Supabase devuelve como máximo 1.000 filas por consulta: se piden por tandas.
+  const proyectos: { id: string; bc_job_no: string; descripcion: string | null; estado: string | null }[] = [];
+  for (let desde = 0; ; desde += 1000) {
+    const { data } = await supabase
+      .from('proyectos')
+      .select('id, bc_job_no, descripcion, estado')
+      .order('bc_job_no')
+      .range(desde, desde + 999);
+    proyectos.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
 
   return (
     <div className="p-8">
@@ -25,6 +33,15 @@ export default async function ProyectosAdminPage() {
       {!proyectos || proyectos.length === 0 ? (
         <p className="text-slate text-sm">Todavía no hay proyectos sincronizados.</p>
       ) : (
+        <>
+        <div className="flex justify-end mb-3">
+          <ExportarExcelSimple
+            nombreArchivo="Proyectos"
+            nombreHoja="Proyectos"
+            cabeceras={[{ titulo: 'Nº', ancho: 14 }, { titulo: 'Descripción', ancho: 50 }, { titulo: 'Estado', ancho: 12 }]}
+            filas={proyectos.map((p) => [p.bc_job_no, p.descripcion, p.estado])}
+          />
+        </div>
         <div className="bg-white border border-borde rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-fondo text-slate text-left">
@@ -49,6 +66,7 @@ export default async function ProyectosAdminPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

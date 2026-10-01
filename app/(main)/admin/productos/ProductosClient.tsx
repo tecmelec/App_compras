@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { crearProducto, actualizarProducto, eliminarProducto } from '@/app/actions/catalogo';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
+import ExportarExcelBoton from '@/components/ExportarExcelBoton';
 
 type Producto = {
   id: string;
@@ -142,6 +143,30 @@ export default function ProductosClient({
             ✕ Borrar filtros
           </button>
         )}
+        <ExportarExcelBoton
+          className="ml-auto"
+          filas={ordenados}
+          nombreArchivo="Productos"
+          nombreHoja="Productos"
+          columnas={[
+            { titulo: 'Nombre', valor: (p) => p.nombre, ancho: 40 },
+            { titulo: 'Nº BC', valor: (p) => p.bc_item_no, ancho: 14 },
+            { titulo: 'Unidad', valor: (p) => p.unidad_medida, ancho: 9 },
+            { titulo: 'Categoría', valor: (p) => p.categoria, ancho: 12 },
+            { titulo: 'Precio', valor: (p) => p.precio, formato: 'moneda', ancho: 12 },
+            { titulo: 'Múltiplo', valor: (p) => p.multiplo_compra, formato: 'numero', ancho: 10 },
+            {
+              titulo: 'Proveedor predeterminado',
+              valor: (p) => {
+                const pr = proveedores.find((x) => x.id === p.proveedor_predeterminado_id);
+                return pr ? `${pr.bc_proveedor_no} — ${pr.nombre || ''}` : '';
+              },
+              ancho: 40,
+            },
+            { titulo: 'Visible', valor: (p) => p.visible, ancho: 9 },
+            { titulo: 'Descripción', valor: (p) => p.descripcion, ancho: 40 },
+          ]}
+        />
       </div>
 
       {creando && (

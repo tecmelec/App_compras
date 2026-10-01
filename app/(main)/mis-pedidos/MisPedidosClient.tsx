@@ -5,6 +5,7 @@ import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
+import ExportarExcelBoton from '@/components/ExportarExcelBoton';
 
 export type MiPedidoFila = {
   id: string;
@@ -131,11 +132,29 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
 
   return (
     <div>
-      {hayFiltrosActivos && (
-        <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline mb-3">
-          ✕ Borrar filtros
-        </button>
-      )}
+      <div className="flex items-center gap-3 mb-3 flex-wrap">
+        {hayFiltrosActivos && (
+          <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline">
+            ✕ Borrar filtros
+          </button>
+        )}
+        <ExportarExcelBoton
+          className="ml-auto"
+          filas={ordenados}
+          nombreArchivo="Mis_pedidos"
+          nombreHoja="Mis pedidos"
+          columnas={[
+            { titulo: 'Nº pedido APP', valor: (p) => p.numero_app, ancho: 15 },
+            { titulo: 'Nº pedido Tecmelec', valor: (p) => p.numero_tecmelec, ancho: 22 },
+            { titulo: 'Nro. de obra', valor: (p) => p.nro_obra, ancho: 14 },
+            { titulo: 'Obra', valor: (p) => p.nombre_obra, ancho: 35 },
+            { titulo: 'Aprobación', valor: (p) => ({ automatica: 'Automática', pendiente: 'Pendiente', aprobada: 'Aprobada', rechazada: 'Rechazada' } as const)[aprobacionDe(p)], ancho: 13 },
+            { titulo: 'Estado', valor: (p) => p.estado, ancho: 20 },
+            { titulo: 'Fecha de solicitud', valor: (p) => p.fecha_solicitud, formato: 'fecha', ancho: 17 },
+            { titulo: 'Fecha requerida', valor: (p) => p.fecha_requerida, formato: 'fecha', ancho: 15 },
+          ]}
+        />
+      </div>
 
       {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
 

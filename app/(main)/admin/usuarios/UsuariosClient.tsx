@@ -3,6 +3,7 @@
 import { Fragment, useState } from 'react';
 import { crearUsuario, actualizarUsuario, resetearPassword } from '@/app/actions/usuarios';
 import { useRouter } from 'next/navigation';
+import ExportarExcelBoton from '@/components/ExportarExcelBoton';
 
 type Usuario = {
   id: string;
@@ -45,9 +46,28 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
 
   return (
     <div>
-      <button onClick={() => setCreando(true)} className="btn-primary mb-4">
-        + Nuevo usuario
-      </button>
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <button onClick={() => setCreando(true)} className="btn-primary">
+          + Nuevo usuario
+        </button>
+        <ExportarExcelBoton
+          className="ml-auto"
+          filas={usuarios}
+          nombreArchivo="Usuarios"
+          nombreHoja="Usuarios"
+          columnas={[
+            { titulo: 'Nombre', valor: (u) => u.nombre_completo, ancho: 28 },
+            { titulo: 'Email', valor: (u) => u.email, ancho: 32 },
+            { titulo: 'Teléfono', valor: (u) => u.telefono, ancho: 14 },
+            { titulo: 'Rol', valor: (u) => ROLES.find((r) => r.value === u.rol)?.label || u.rol, ancho: 14 },
+            { titulo: 'Comprador', valor: (u) => (u.comprador_id ? nombrePorId(u.comprador_id) : ''), ancho: 25 },
+            { titulo: 'Responsable', valor: (u) => (u.responsable_id ? nombrePorId(u.responsable_id) : ''), ancho: 25 },
+            { titulo: 'Sustituto', valor: (u) => (u.sustituto_id ? nombrePorId(u.sustituto_id) : ''), ancho: 25 },
+            { titulo: 'Sustituto activo', valor: (u) => (u.sustituto_id ? u.sustituto_activo : ''), ancho: 15 },
+            { titulo: 'ID de usuario en BC', valor: (u) => u.bc_user_id, ancho: 38 },
+          ]}
+        />
+      </div>
 
       {creando && (
         <UsuarioForm

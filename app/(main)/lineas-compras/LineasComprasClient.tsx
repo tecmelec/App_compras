@@ -5,6 +5,7 @@ import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
 import EstadoBadge from '@/components/EstadoBadge';
+import ExportarExcelBoton from '@/components/ExportarExcelBoton';
 
 export type LineaFila = {
   numero_app: string;
@@ -204,6 +205,26 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             ✕ Borrar filtros
           </button>
         )}
+
+        <ExportarExcelBoton
+          className="ml-auto"
+          filas={ordenadas}
+          nombreArchivo="Lineas_compras"
+          nombreHoja="Líns. compras"
+          columnas={[
+            { titulo: 'Nº pedido APP', valor: (f) => f.numero_app, ancho: 15 },
+            { titulo: 'Nº pedido Tecmelec', valor: (f) => f.numero_tecmelec, ancho: 18 },
+            { titulo: 'Nro. Proveedor', valor: (f) => f.nro_proveedor, ancho: 14 },
+            { titulo: 'Proveedor', valor: (f) => f.nombre_proveedor, ancho: 35 },
+            { titulo: 'Artículo solicitado', valor: (f) => f.articulo, ancho: 40 },
+            { titulo: 'Cantidad', valor: (f) => f.cantidad, formato: 'numero', ancho: 10 },
+            { titulo: 'Nro. de obra', valor: (f) => f.nro_obra, ancho: 14 },
+            { titulo: 'Obra', valor: (f) => f.nombre_obra, ancho: 35 },
+            { titulo: 'Fecha requerida', valor: (f) => f.fecha_requerida, formato: 'fecha', ancho: 15 },
+            { titulo: 'Fecha estimada de entrega', valor: (f) => f.fecha_estimada_entrega, formato: 'fecha', ancho: 22 },
+            { titulo: 'Estado', valor: (f) => f.estado_recepcion, ancho: 20 },
+          ]}
+        />
       </div>
 
       {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
