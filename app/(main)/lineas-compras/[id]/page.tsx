@@ -10,7 +10,14 @@ export default async function DetalleSolicitudLineasPage({ params }: { params: {
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user?.id).single();
 
   const enlaceGestion =
-    perfil?.rol === 'comprador' ? `/comprador/${params.id}` : perfil?.rol === 'admin' ? `/admin/pedidos/${params.id}` : undefined;
+    perfil?.rol === 'comprador'
+      ? `/comprador/${params.id}`
+      : perfil?.rol === 'admin'
+        ? `/admin/pedidos/${params.id}`
+        : perfil?.rol === 'responsable'
+          ? `/responsable/${params.id}`
+          : undefined;
+  const textoGestion = perfil?.rol === 'responsable' ? 'Ver aprobación' : 'Gestionar solicitud';
 
   return (
     <DetalleSolicitud
@@ -18,6 +25,7 @@ export default async function DetalleSolicitudLineasPage({ params }: { params: {
       modo="consulta"
       volver={{ href: '/lineas-compras', texto: 'Volver a Líns. compras' }}
       enlaceGestion={enlaceGestion}
+      textoGestion={textoGestion}
     />
   );
 }

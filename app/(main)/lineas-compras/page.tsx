@@ -23,7 +23,7 @@ export default async function LineasCompraPage() {
     let q = supabase
       .from('pedidos')
       .select(
-        'id, numero_app, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
+        'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
       )
       .order('created_at', { ascending: false });
     if (perfil?.rol === 'usuario') {
@@ -49,7 +49,7 @@ export default async function LineasCompraPage() {
   const rutaDetalle: Record<string, string> = {
     usuario: '/mis-pedidos',
     comprador: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
-    responsable: '/responsable',
+    responsable: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     admin: '/admin/pedidos',
   };
   const base = rutaDetalle[perfil?.rol || 'usuario'] || '/mis-pedidos';
@@ -57,7 +57,8 @@ export default async function LineasCompraPage() {
   const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
-      pedido_href: `${base}/${p.id}`,
+      // Las solicitudes propias se abren en "Mis solicitudes" (vista completa del solicitante).
+      pedido_href: p.usuario_id === user!.id && perfil?.rol !== 'admin' ? `/mis-pedidos/${p.id}` : `${base}/${p.id}`,
       numero_tecmelec: item.numero_tecmelec,
       nro_proveedor: item.proveedores?.bc_proveedor_no || '',
       nombre_proveedor: item.proveedores?.nombre || '',
