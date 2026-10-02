@@ -50,7 +50,7 @@ export default async function LineasCompraPage() {
     usuario: '/mis-pedidos',
     comprador: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     responsable: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
-    admin: '/admin/pedidos',
+    admin: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
   };
   const base = rutaDetalle[perfil?.rol || 'usuario'] || '/mis-pedidos';
 
@@ -58,7 +58,7 @@ export default async function LineasCompraPage() {
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
       // Las solicitudes propias se abren en "Mis solicitudes" (vista completa del solicitante).
-      pedido_href: p.usuario_id === user!.id && perfil?.rol !== 'admin' ? `/mis-pedidos/${p.id}` : `${base}/${p.id}`,
+      pedido_href: p.usuario_id === user!.id ? `/mis-pedidos/${p.id}` : `${base}/${p.id}`,
       numero_tecmelec: item.numero_tecmelec,
       nro_proveedor: item.proveedores?.bc_proveedor_no || '',
       nombre_proveedor: item.proveedores?.nombre || '',
