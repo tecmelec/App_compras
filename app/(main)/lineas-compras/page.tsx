@@ -48,7 +48,7 @@ export default async function LineasCompraPage() {
   // Según el rol, la página de detalle del pedido vive en una ruta distinta.
   const rutaDetalle: Record<string, string> = {
     usuario: '/mis-pedidos',
-    comprador: '/comprador',
+    comprador: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     responsable: '/responsable',
     admin: '/admin/pedidos',
   };
