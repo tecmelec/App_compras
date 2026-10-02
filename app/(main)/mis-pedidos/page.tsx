@@ -36,7 +36,7 @@ export default async function MisPedidosPage({
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-semibold text-grafito mb-1">Mis pedidos</h1>
+      <h1 className="text-2xl font-semibold text-grafito mb-1">Mis solicitudes</h1>
       <p className="text-slate text-sm mb-6">Historial de tus solicitudes de materiales.</p>
 
       {searchParams.creado && (

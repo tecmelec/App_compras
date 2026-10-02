@@ -141,8 +141,8 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
         <ExportarExcelBoton
           className="ml-auto"
           filas={ordenados}
-          nombreArchivo="Mis_pedidos"
-          nombreHoja="Mis pedidos"
+          nombreArchivo="Mis_solicitudes"
+          nombreHoja="Mis solicitudes"
           columnas={[
             { titulo: 'Nº pedido APP', valor: (p) => p.numero_app, ancho: 15 },
             { titulo: 'Nº pedido Tecmelec', valor: (p) => p.numero_tecmelec, ancho: 22 },

@@ -30,7 +30,7 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
 
   const links = [
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
-    { href: '/mis-pedidos', label: 'Mis pedidos', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
+    { href: '/mis-pedidos', label: 'Mis solicitudes', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     {
       href: '/comprador',
