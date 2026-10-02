@@ -201,7 +201,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
           </svg>
           <input
             className="input input-icon-left w-full"
-            placeholder="Buscar por Nº pedido APP, Nº pedido Tecmelec o artículo..."
+            placeholder="Buscar por Nº solicitud, Nº pedido Tecmelec o artículo..."
             value={filtros.busqueda}
             onChange={(e) => actualizar('busqueda', e.target.value)}
           />
@@ -219,7 +219,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
           nombreArchivo="Lineas_compras"
           nombreHoja="Líns. compras"
           columnas={[
-            { titulo: 'Nº pedido APP', valor: (f) => f.numero_app, ancho: 15 },
+            { titulo: 'Nº solicitud', valor: (f) => f.numero_app, ancho: 15 },
             { titulo: 'Nº pedido Tecmelec', valor: (f) => f.numero_tecmelec, ancho: 18 },
             { titulo: 'Nro. Proveedor', valor: (f) => f.nro_proveedor, ancho: 14 },
             { titulo: 'Proveedor', valor: (f) => f.nombre_proveedor, ancho: 35 },
@@ -258,7 +258,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
           <thead className="bg-fondo text-slate text-left">
             <tr>
               <ColumnaFiltroOrden
-                titulo="Nº pedido APP"
+                titulo="Nº solicitud"
                 campoOrden="numero_app"
                 ordenActual={orden}
                 onOrdenar={ordenarPor}

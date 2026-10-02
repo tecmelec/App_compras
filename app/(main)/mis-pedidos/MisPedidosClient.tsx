@@ -144,7 +144,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
           nombreArchivo="Mis_solicitudes"
           nombreHoja="Mis solicitudes"
           columnas={[
-            { titulo: 'Nº pedido APP', valor: (p) => p.numero_app, ancho: 15 },
+            { titulo: 'Nº solicitud', valor: (p) => p.numero_app, ancho: 15 },
             { titulo: 'Nº pedido Tecmelec', valor: (p) => p.numero_tecmelec, ancho: 22 },
             { titulo: 'Nro. de obra', valor: (p) => p.nro_obra, ancho: 14 },
             { titulo: 'Obra', valor: (p) => p.nombre_obra, ancho: 35 },
@@ -164,7 +164,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
             <thead className="bg-fondo text-slate text-left">
               <tr>
                 <ColumnaFiltroOrden
-                  titulo="Nº pedido APP"
+                  titulo="Nº solicitud"
                   campoOrden="numero_app"
                   ordenActual={orden}
                   onOrdenar={ordenarPor}

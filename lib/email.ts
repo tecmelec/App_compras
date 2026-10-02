@@ -42,7 +42,7 @@ export async function enviarEmailSolicitud({
       ${desvio.avisoHtml}
       <div style="font-family: sans-serif; color:#1C2126;">
         <p><strong>${solicitante}</strong> ha solicitado los siguientes materiales.</p>
-        <p>Nº de pedido APP: <strong>${numeroApp}</strong></p>
+        <p>Nº de solicitud: <strong>${numeroApp}</strong></p>
         <table style="border-collapse:collapse;width:100%;max-width:480px;">
           <thead>
             <tr>

@@ -234,7 +234,7 @@ export default function SolicitudesFiltrables({
           </svg>
           <input
             className="input input-icon-left w-full"
-            placeholder="Buscar por Nº pedido APP, Nº pedido Tecmelec, solicitante u obra..."
+            placeholder="Buscar por Nº solicitud, Nº pedido Tecmelec, solicitante u obra..."
             value={filtros.busqueda}
             onChange={(e) => actualizar('busqueda', e.target.value)}
           />
@@ -259,7 +259,7 @@ export default function SolicitudesFiltrables({
           nombreHoja="Solicitudes"
           columnas={
             [
-              { titulo: 'Nº pedido APP', valor: (p) => p.numero_app, ancho: 15 },
+              { titulo: 'Nº solicitud', valor: (p) => p.numero_app, ancho: 15 },
               { titulo: 'Solicitante', valor: (p) => p.solicitante, ancho: 25 },
               ...(mostrarComprador ? [{ titulo: 'Comprador', valor: (p) => p.comprador, ancho: 25 } as ColumnaExcel<PedidoFila>] : []),
               ...(filtrosRapidos ? [{ titulo: 'Asignada a mí', valor: (p) => !!p.asignada_a_mi, ancho: 13 } as ColumnaExcel<PedidoFila>] : []),
@@ -294,7 +294,7 @@ export default function SolicitudesFiltrables({
           <thead className="bg-fondo text-slate text-left">
             <tr>
               <ColumnaFiltro
-                titulo="Nº pedido APP"
+                titulo="Nº solicitud"
                 columnaId="numeroApp"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
