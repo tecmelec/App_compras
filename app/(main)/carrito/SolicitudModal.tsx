@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { crearDireccion, actualizarDireccion, eliminarDireccion } from '@/app/actions/direcciones';
+import { crearContactoEntrega, eliminarContactoEntrega } from '@/app/actions/contactos';
+
+type ContactoEntrega = { id: string; nombre: string; telefono: string };
+
+// "+34 600111222" -> { codigo: '+34', numero: '600111222' }
+function separarTelefono(valor: string | null | undefined): { codigo: string; numero: string } {
+  const t = (valor || '').trim();
+  const partes = t.split(' ');
+  if (partes.length > 1 && partes[0].startsWith('+')) return { codigo: partes[0], numero: partes.slice(1).join('').replace(/\D/g, '') };
+  return { codigo: '+34', numero: t.replace(/\D/g, '') };
+}
 
 type Direccion = {
   id: string;
@@ -97,6 +108,11 @@ export default function SolicitudModal({
   const [codigoPais, setCodigoPais] = useState('+34');
   const [telefono, setTelefono] = useState('');
   const [direcciones, setDirecciones] = useState<Direccion[]>([]);
+  // Contactos: "__yo__" = los datos del propio usuario (editables); si no, un contacto guardado.
+  const [contactos, setContactos] = useState<ContactoEntrega[]>([]);
+  const [contactoId, setContactoId] = useState<string>('__yo__');
+  const [misDatos, setMisDatos] = useState({ nombre: '', codigo: '+34', numero: '' });
+  const [creandoContacto, setCreandoContacto] = useState(false);
   const [direccionId, setDireccionId] = useState('');
   const [fecha, setFecha] = useState(proximaFechaHabilValida());
   const [seguirPedido, setSeguirPedido] = useState(false);
@@ -137,15 +153,12 @@ export default function SolicitudModal({
       if (perfil) {
         setNombre(perfil.nombre_completo || '');
         setRol(perfil.rol);
+        const tel = separarTelefono(perfil.telefono);
         if (perfil.telefono) {
-          const partes = perfil.telefono.split(' ');
-          if (partes.length > 1 && partes[0].startsWith('+')) {
-            setCodigoPais(partes[0]);
-            setTelefono(partes.slice(1).join(''));
-          } else {
-            setTelefono(perfil.telefono.replace(/\D/g, ''));
-          }
+          setCodigoPais(tel.codigo);
+          setTelefono(tel.numero);
         }
+        setMisDatos({ nombre: perfil.nombre_completo || '', codigo: tel.codigo, numero: tel.numero });
 
         if (perfil.rol === 'usuario') {
           setCompradorAsignadoId(perfil.comprador_id || null);
@@ -170,6 +183,13 @@ export default function SolicitudModal({
         .order('created_at', { ascending: false });
 
       setDirecciones(dirs || []);
+
+      const { data: contactosGuardados } = await supabase
+        .from('contactos_entrega')
+        .select('id, nombre, telefono')
+        .eq('usuario_id', user.id)
+        .order('nombre');
+      setContactos(contactosGuardados || []);
 
       if (perfil?.rol === 'usuario') {
         const { data: asignados } = await supabase
@@ -499,32 +519,134 @@ export default function SolicitudModal({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm text-slate mb-1">Nombre</label>
-                    <input className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate mb-1">Teléfono</label>
-                    <div className="flex gap-2">
-                      <select
-                        className="input w-28"
-                        value={codigoPais}
-                        onChange={(e) => setCodigoPais(e.target.value)}
+                <div>
+                  <label className="block text-sm text-slate mb-2">Contacto para la entrega</label>
+                  <div className="space-y-2">
+                    <label
+                      className={`block border rounded-lg p-3 cursor-pointer ${
+                        contactoId === '__yo__' ? 'border-marca bg-marcaClaro' : 'border-borde'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="radio"
+                          name="contacto"
+                          className="mt-1"
+                          checked={contactoId === '__yo__'}
+                          onChange={() => {
+                            setContactoId('__yo__');
+                            setNombre(misDatos.nombre);
+                            setCodigoPais(misDatos.codigo);
+                            setTelefono(misDatos.numero);
+                          }}
+                        />
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium text-grafito">Mis datos</p>
+                          {contactoId !== '__yo__' && (
+                            <p className="text-slate">
+                              {misDatos.nombre || '—'}
+                              {misDatos.numero ? ` — ${misDatos.codigo} ${misDatos.numero}` : ''}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {contactoId === '__yo__' && (
+                        <div className="grid grid-cols-2 gap-3 mt-3">
+                          <div>
+                            <span className="block text-xs text-slate mb-1">Nombre</span>
+                            <input className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+                          </div>
+                          <div>
+                            <span className="block text-xs text-slate mb-1">Teléfono</span>
+                            <div className="flex gap-2">
+                              <select className="input w-24" value={codigoPais} onChange={(e) => setCodigoPais(e.target.value)}>
+                                {CODIGOS_PAIS.map((c) => (
+                                  <option key={c.value} value={c.value}>
+                                    {c.value}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                className="input"
+                                value={telefono}
+                                onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
+                                placeholder="600111222"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </label>
+
+                    {contactos.map((c) => (
+                      <label
+                        key={c.id}
+                        className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer ${
+                          contactoId === c.id ? 'border-marca bg-marcaClaro' : 'border-borde'
+                        }`}
                       >
-                        {CODIGOS_PAIS.map((c) => (
-                          <option key={c.value} value={c.value}>
-                            {c.value}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        className="input"
-                        value={telefono}
-                        onChange={(e) => setTelefono(e.target.value.replace(/\D/g, ''))}
-                        placeholder="600111222"
+                        <input
+                          type="radio"
+                          name="contacto"
+                          className="mt-1"
+                          checked={contactoId === c.id}
+                          onChange={() => {
+                            const tel = separarTelefono(c.telefono);
+                            setContactoId(c.id);
+                            setNombre(c.nombre);
+                            setCodigoPais(tel.codigo);
+                            setTelefono(tel.numero);
+                          }}
+                        />
+                        <div className="flex-1 text-sm">
+                          <p className="font-medium text-grafito">{c.nombre}</p>
+                          <p className="text-slate">{c.telefono}</p>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              if (!confirm(`¿Eliminar el contacto "${c.nombre}"?`)) return;
+                              const r = await eliminarContactoEntrega(c.id);
+                              if (r.error) {
+                                setError(r.error);
+                                return;
+                              }
+                              setContactos((prev) => prev.filter((x) => x.id !== c.id));
+                              if (contactoId === c.id) {
+                                setContactoId('__yo__');
+                                setNombre(misDatos.nombre);
+                                setCodigoPais(misDatos.codigo);
+                                setTelefono(misDatos.numero);
+                              }
+                            }}
+                            className="text-xs text-rojo hover:underline mt-1"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="mt-2">
+                    {!creandoContacto ? (
+                      <button type="button" onClick={() => setCreandoContacto(true)} className="text-sm text-marca hover:underline">
+                        + Nuevo contacto
+                      </button>
+                    ) : (
+                      <NuevoContactoForm
+                        onCancel={() => setCreandoContacto(false)}
+                        onCreado={(c) => {
+                          const tel = separarTelefono(c.telefono);
+                          setContactos((prev) => [...prev, c].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')));
+                          setContactoId(c.id);
+                          setNombre(c.nombre);
+                          setCodigoPais(tel.codigo);
+                          setTelefono(tel.numero);
+                          setCreandoContacto(false);
+                        }}
                       />
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -586,6 +708,64 @@ export default function SolicitudModal({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function NuevoContactoForm({
+  onCancel,
+  onCreado,
+}: {
+  onCancel: () => void;
+  onCreado: (c: ContactoEntrega) => void;
+}) {
+  const [nombre, setNombre] = useState('');
+  const [codigo, setCodigo] = useState('+34');
+  const [numero, setNumero] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function guardar() {
+    if (!nombre.trim()) return setError('Falta el nombre.');
+    if (!/^\d{6,12}$/.test(numero)) return setError('El teléfono debe tener entre 6 y 12 dígitos.');
+    setGuardando(true);
+    setError(null);
+    const r = await crearContactoEntrega({ nombre: nombre.trim(), telefono: `${codigo} ${numero}` });
+    setGuardando(false);
+    if (r.error || !r.contacto) return setError(r.error || 'No se pudo guardar el contacto.');
+    onCreado(r.contacto);
+  }
+
+  return (
+    <div className="border border-borde rounded-lg p-3 space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-slate mb-1">Nombre</label>
+          <input className="input" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellidos" autoFocus />
+        </div>
+        <div>
+          <label className="block text-xs text-slate mb-1">Teléfono</label>
+          <div className="flex gap-2">
+            <select className="input w-24" value={codigo} onChange={(e) => setCodigo(e.target.value)}>
+              {CODIGOS_PAIS.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.value}
+                </option>
+              ))}
+            </select>
+            <input className="input" value={numero} onChange={(e) => setNumero(e.target.value.replace(/\D/g, ''))} placeholder="600111222" />
+          </div>
+        </div>
+      </div>
+      {error && <p className="text-xs text-rojo">{error}</p>}
+      <div className="flex gap-2 justify-end">
+        <button type="button" onClick={onCancel} className="text-sm text-slate hover:text-grafito px-3 py-1.5">
+          Cancelar
+        </button>
+        <button type="button" onClick={guardar} disabled={guardando} className="text-sm bg-marca text-white rounded-md px-3 py-1.5 disabled:opacity-60">
+          {guardando ? 'Guardando…' : 'Guardar contacto'}
+        </button>
       </div>
     </div>
   );
