@@ -45,6 +45,7 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
       badge: pendientesAprobacion,
     },
     { href: '/proyectos-equipo', label: 'Proyectos de equipo', roles: ['admin', 'responsable'] },
+    { href: '/alta-articulos', label: 'Solicitar alta de artículos', roles: ['admin', 'comprador', 'responsable'] },
     { href: '/admin/pedidos', label: 'Todas las solicitudes', roles: ['admin'] },
     { href: '/admin', label: 'Administración', roles: ['admin'] },
   ].filter((l) => l.roles.includes(rol));

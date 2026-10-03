@@ -250,6 +250,26 @@ export async function obtenerItemsComunesBC(): Promise<ItemBC[]> {
   return consultarBC(url);
 }
 
+// Búsqueda de artículos en la ficha de productos de BC (mismo servicio OData
+// que el catálogo, sin filtrar por artículo común), por código o por
+// descripción. Los filtros "contains" de BC distinguen mayúsculas, así que se
+// prueba el texto tal cual, en mayúsculas y con la primera letra en mayúscula.
+export async function buscarArticulosBC(
+  texto: string,
+  campo: 'codigo' | 'descripcion',
+  limite = 20
+): Promise<{ No: string; Description: string }[]> {
+  const t = texto.trim().replace(/'/g, "''");
+  if (!t) return [];
+  const variantes = Array.from(new Set([t, t.toUpperCase(), t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()]));
+  const campoBC = campo === 'codigo' ? 'No' : 'Description';
+  const filtro = variantes.map((v) => `contains(${campoBC},'${v}')`).join(' or ');
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE!);
+  const url = `${base}?$filter=${encodeURIComponent(filtro)}&$select=No,Description&$top=${limite}`;
+  const items: { No: string; Description: string }[] = await consultarBC(url);
+  return (items || []).map((i) => ({ No: i.No, Description: i.Description }));
+}
+
 export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROYECTOS!);
   return consultarBC(base);
