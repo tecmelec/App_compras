@@ -23,7 +23,7 @@ export default async function LineasCompraPage() {
     let q = supabase
       .from('pedidos')
       .select(
-        'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre), proveedores(bc_proveedor_no, nombre))'
+        'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre, precio), proveedores(bc_proveedor_no, nombre))'
       )
       .order('created_at', { ascending: false });
     if (perfil?.rol === 'usuario') {
@@ -64,6 +64,13 @@ export default async function LineasCompraPage() {
       nombre_proveedor: item.proveedores?.nombre || '',
       articulo: item.productos?.nombre || '—',
       cantidad: item.cantidad,
+      ...(() => {
+        const precio = item.precio_unitario ?? item.productos?.precio ?? null;
+        return {
+          precio_unitario: precio != null ? Number(precio) : null,
+          importe: precio != null ? Math.round(Number(precio) * item.cantidad * 100) / 100 : null,
+        };
+      })(),
       nro_obra: p.proyectos?.bc_job_no || '',
       nombre_obra: p.proyectos?.descripcion || '',
       fecha_requerida: p.fecha_requerida,
@@ -85,7 +92,10 @@ export default async function LineasCompraPage() {
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No hay líneas de compra para mostrar.</p>
       ) : (
-        <LineasComprasClient filas={filas} />
+        <LineasComprasClient
+          filas={filas}
+          mostrarPrecios={['comprador', 'responsable', 'admin'].includes(perfil?.rol || '')}
+        />
       )}
     </div>
   );

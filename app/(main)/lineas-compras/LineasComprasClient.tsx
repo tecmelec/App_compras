@@ -5,7 +5,8 @@ import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
 import EstadoBadge from '@/components/EstadoBadge';
-import ExportarExcelBoton from '@/components/ExportarExcelBoton';
+import ExportarExcelBoton, { type ColumnaExcel } from '@/components/ExportarExcelBoton';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 import {
   ConfirmacionProveedorCheck,
   RetrasoAviso,
@@ -21,6 +22,8 @@ export type LineaFila = {
   nombre_proveedor: string;
   articulo: string;
   cantidad: number;
+  precio_unitario: number | null; // precio de la línea (BC) o, si aún no tiene, el del catálogo
+  importe: number | null; // cantidad × precio unitario
   nro_obra: string;
   nombre_obra: string;
   fecha_requerida: string | null;
@@ -37,6 +40,10 @@ type Filtros = {
   articulos: string[];
   cantidadMin: string;
   cantidadMax: string;
+  precioMin: string;
+  precioMax: string;
+  importeMin: string;
+  importeMax: string;
   nroObra: string;
   requeridaDesde: string;
   requeridaHasta: string;
@@ -53,6 +60,10 @@ const FILTROS_VACIOS: Filtros = {
   articulos: [],
   cantidadMin: '',
   cantidadMax: '',
+  precioMin: '',
+  precioMax: '',
+  importeMin: '',
+  importeMax: '',
   nroObra: '',
   requeridaDesde: '',
   requeridaHasta: '',
@@ -67,12 +78,21 @@ type CampoOrden =
   | 'nro_proveedor'
   | 'articulo'
   | 'cantidad'
+  | 'precio_unitario'
+  | 'importe'
   | 'nro_obra'
   | 'fecha_requerida'
   | 'fecha_estimada_entrega'
   | 'estado_recepcion';
 
-export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
+export default function LineasComprasClient({
+  filas,
+  mostrarPrecios = false,
+}: {
+  filas: LineaFila[];
+  // Precio unitario e importe: solo para comprador, responsable y admin.
+  mostrarPrecios?: boolean;
+}) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [columnaAbierta, setColumnaAbierta] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ campo: CampoOrden; asc: boolean } | null>(null);
@@ -137,6 +157,12 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
     if (filtros.articulos.length > 0 && !filtros.articulos.includes(f.articulo)) return false;
     if (filtros.cantidadMin && f.cantidad < Number(filtros.cantidadMin)) return false;
     if (filtros.cantidadMax && f.cantidad > Number(filtros.cantidadMax)) return false;
+    if (mostrarPrecios) {
+      if (filtros.precioMin && (f.precio_unitario ?? 0) < Number(filtros.precioMin)) return false;
+      if (filtros.precioMax && (f.precio_unitario ?? 0) > Number(filtros.precioMax)) return false;
+      if (filtros.importeMin && (f.importe ?? 0) < Number(filtros.importeMin)) return false;
+      if (filtros.importeMax && (f.importe ?? 0) > Number(filtros.importeMax)) return false;
+    }
     if (filtros.nroObra) {
       const texto = filtros.nroObra.toLowerCase();
       const coincide = f.nro_obra.toLowerCase().includes(texto) || f.nombre_obra.toLowerCase().includes(texto);
@@ -166,7 +192,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
     copia.sort((a, b) => {
       let va: any = a[orden.campo];
       let vb: any = b[orden.campo];
-      if (orden.campo === 'cantidad') {
+      if (orden.campo === 'cantidad' || orden.campo === 'precio_unitario' || orden.campo === 'importe') {
         va = va ?? 0;
         vb = vb ?? 0;
       } else {
@@ -225,6 +251,12 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
             { titulo: 'Proveedor', valor: (f) => f.nombre_proveedor, ancho: 35 },
             { titulo: 'Artículo solicitado', valor: (f) => f.articulo, ancho: 40 },
             { titulo: 'Cantidad', valor: (f) => f.cantidad, formato: 'numero', ancho: 10 },
+            ...(mostrarPrecios
+              ? ([
+                  { titulo: 'Precio unitario', valor: (f) => f.precio_unitario, formato: 'precio', ancho: 14 },
+                  { titulo: 'Importe', valor: (f) => f.importe, formato: 'moneda', ancho: 14 },
+                ] as ColumnaExcel<LineaFila>[])
+              : []),
             { titulo: 'Nro. de obra', valor: (f) => f.nro_obra, ancho: 14 },
             { titulo: 'Obra', valor: (f) => f.nombre_obra, ancho: 35 },
             { titulo: 'Fecha requerida', valor: (f) => f.fecha_requerida, formato: 'fecha', ancho: 15 },
@@ -371,6 +403,44 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                 </div>
               </ColumnaFiltroOrden>
 
+              {mostrarPrecios && (
+                <ColumnaFiltroOrden
+                  titulo="Precio unitario"
+                  campoOrden="precio_unitario"
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
+                  columnaId="precio"
+                  columnaAbierta={columnaAbierta}
+                  setColumnaAbierta={setColumnaAbierta}
+                  activoFiltro={!!filtros.precioMin || !!filtros.precioMax}
+                  onLimpiarFiltro={() => { actualizar('precioMin', ''); actualizar('precioMax', ''); }}
+                >
+                  <div className="flex flex-col gap-2">
+                    <input className="input" type="number" step="any" placeholder="Mínimo" value={filtros.precioMin} onChange={(e) => actualizar('precioMin', e.target.value)} />
+                    <input className="input" type="number" step="any" placeholder="Máximo" value={filtros.precioMax} onChange={(e) => actualizar('precioMax', e.target.value)} />
+                  </div>
+                </ColumnaFiltroOrden>
+              )}
+
+              {mostrarPrecios && (
+                <ColumnaFiltroOrden
+                  titulo="Importe"
+                  campoOrden="importe"
+                  ordenActual={orden}
+                  onOrdenar={ordenarPor}
+                  columnaId="importe"
+                  columnaAbierta={columnaAbierta}
+                  setColumnaAbierta={setColumnaAbierta}
+                  activoFiltro={!!filtros.importeMin || !!filtros.importeMax}
+                  onLimpiarFiltro={() => { actualizar('importeMin', ''); actualizar('importeMax', ''); }}
+                >
+                  <div className="flex flex-col gap-2">
+                    <input className="input" type="number" step="any" placeholder="Mínimo" value={filtros.importeMin} onChange={(e) => actualizar('importeMin', e.target.value)} />
+                    <input className="input" type="number" step="any" placeholder="Máximo" value={filtros.importeMax} onChange={(e) => actualizar('importeMax', e.target.value)} />
+                  </div>
+                </ColumnaFiltroOrden>
+              )}
+
               <ColumnaFiltroOrden
                 titulo="Nro. de obra"
                 campoOrden="nro_obra"
@@ -474,7 +544,7 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
           <tbody className="divide-y divide-borde">
             {ordenadas.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={mostrarPrecios ? 11 : 9} className="px-4 py-6 text-center text-slate text-sm">
                   No hay líneas que coincidan con los filtros.
                 </td>
               </tr>
@@ -492,6 +562,21 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
                   </td>
                   <td className="px-4 py-3 text-grafito">{f.articulo}</td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.cantidad}</td>
+                  {mostrarPrecios && (
+                    <td className="px-4 py-3 font-mono text-grafito text-right whitespace-nowrap">
+                      {f.precio_unitario != null ? `${formatoPrecioUnitario(f.precio_unitario)} €` : '—'}
+                    </td>
+                  )}
+                  {mostrarPrecios && (
+                    <td
+                      className={`px-4 py-3 font-mono text-right whitespace-nowrap ${
+                        f.estado_recepcion === 'Anulado' ? 'text-slate line-through' : 'text-grafito'
+                      }`}
+                      title={f.estado_recepcion === 'Anulado' ? 'Línea anulada: no cuenta en el total' : undefined}
+                    >
+                      {f.importe != null ? `${formatoImporte(f.importe)} €` : '—'}
+                    </td>
+                  )}
                   <td className="px-4 py-3 font-mono text-grafito">
                     <ObraCelda numero={f.nro_obra} nombre={f.nombre_obra} textoVacio="Sin nombre de obra" />
                   </td>
@@ -518,6 +603,22 @@ export default function LineasComprasClient({ filas }: { filas: LineaFila[] }) {
               ))
             )}
           </tbody>
+          {mostrarPrecios && ordenadas.length > 0 && (
+            <tfoot className="bg-marcaClaro border-t border-borde">
+              <tr>
+                <td colSpan={6} className="px-4 py-3 text-sm text-grafito text-right">
+                  Importe total ({ordenadas.length} línea{ordenadas.length === 1 ? '' : 's'}, sin contar las anuladas)
+                </td>
+                <td className="px-4 py-3 font-mono font-semibold text-marca text-right whitespace-nowrap">
+                  {formatoImporte(
+                    ordenadas.reduce((s, f) => s + (f.estado_recepcion === 'Anulado' ? 0 : f.importe ?? 0), 0)
+                  )}{' '}
+                  €
+                </td>
+                <td colSpan={4} />
+              </tr>
+            </tfoot>
+          )}
         </table>
         </div>
       </div>
