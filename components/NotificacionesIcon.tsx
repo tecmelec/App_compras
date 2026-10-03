@@ -7,7 +7,8 @@ import { marcarNotificacionLeida, marcarTodasNotificacionesLeidas } from '@/app/
 
 type Notificacion = {
   id: string;
-  pedido_id: string;
+  pedido_id: string | null;
+  enlace?: string | null; // a dónde lleva (si no es una solicitud de material)
   numero_app: string | null;
   mensaje: string;
   leido: boolean;
@@ -73,7 +74,7 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
   async function cargarLista() {
     const { data } = await supabase
       .from('notificaciones')
-      .select('id, pedido_id, numero_app, mensaje, leido, created_at')
+      .select('id, pedido_id, enlace, numero_app, mensaje, leido, created_at')
       .eq('usuario_id', userId)
       .order('created_at', { ascending: false })
       .limit(20);
@@ -94,7 +95,8 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
       setNotificaciones((prev) => prev.map((x) => (x.id === n.id ? { ...x, leido: true } : x)));
       marcarNotificacionLeida(n.id);
     }
-    router.push(`/mis-pedidos/${n.pedido_id}`);
+    if (n.enlace) router.push(n.enlace);
+    else if (n.pedido_id) router.push(`/mis-pedidos/${n.pedido_id}`);
   }
 
   async function marcarTodas() {

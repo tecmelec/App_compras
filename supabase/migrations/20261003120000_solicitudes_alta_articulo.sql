@@ -36,3 +36,39 @@ create policy "ver solicitudes de alta" on public.solicitudes_alta_articulo
 drop policy if exists "admin gestiona solicitudes de alta" on public.solicitudes_alta_articulo;
 create policy "admin gestiona solicitudes de alta" on public.solicitudes_alta_articulo
   for update using (coalesce(public.get_my_role(), '') = 'admin');
+
+-- Notificación (campana) al solicitante cuando el admin pasa la solicitud a
+-- "Disponible en tienda" o "Rechazada".
+-- Las notificaciones dejan de estar ligadas siempre a una solicitud de
+-- material: pedido_id pasa a ser opcional y "enlace" indica a dónde llevan.
+alter table public.notificaciones alter column pedido_id drop not null;
+alter table public.notificaciones add column if not exists enlace text;
+
+create or replace function public.notificar_cambio_solicitud_alta()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to 'public'
+as $function$
+begin
+  if new.estado is distinct from old.estado and new.estado in ('Disponible en tienda', 'Rechazada') then
+    insert into public.notificaciones (usuario_id, pedido_id, numero_app, mensaje, enlace)
+    values (
+      new.solicitado_por,
+      null,
+      null,
+      case new.estado
+        when 'Disponible en tienda' then 'El artículo ' || new.bc_item_no || ' — ' || new.descripcion || ' ya está disponible en la tienda.'
+        else 'Tu solicitud de alta del artículo ' || new.bc_item_no || ' — ' || new.descripcion || ' ha sido rechazada.'
+      end,
+      '/alta-articulos'
+    );
+  end if;
+  return new;
+end;
+$function$;
+
+drop trigger if exists solicitudes_alta_articulo_notificar on public.solicitudes_alta_articulo;
+create trigger solicitudes_alta_articulo_notificar
+  after update of estado on public.solicitudes_alta_articulo
+  for each row execute function public.notificar_cambio_solicitud_alta();
