@@ -8,6 +8,7 @@ import { crearProducto, actualizarProducto, eliminarProducto } from '@/app/actio
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import ExportarExcelBoton from '@/components/ExportarExcelBoton';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 type Producto = {
   id: string;
@@ -153,7 +154,7 @@ export default function ProductosClient({
             { titulo: 'Nº BC', valor: (p) => p.bc_item_no, ancho: 14 },
             { titulo: 'Unidad', valor: (p) => p.unidad_medida, ancho: 9 },
             { titulo: 'Categoría', valor: (p) => p.categoria, ancho: 12 },
-            { titulo: 'Precio', valor: (p) => p.precio, formato: 'moneda', ancho: 12 },
+            { titulo: 'Precio', valor: (p) => p.precio, formato: 'precio', ancho: 12 },
             { titulo: 'Múltiplo', valor: (p) => p.multiplo_compra, formato: 'numero', ancho: 10 },
             {
               titulo: 'Proveedor predeterminado',
@@ -364,7 +365,7 @@ export default function ProductosClient({
                     <td className="px-4 py-3 font-mono text-slate">{p.bc_item_no || '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.unidad_medida || '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
-                    <td className="px-4 py-3 font-mono text-grafito">{p.precio?.toFixed(2)} €</td>
+                    <td className="px-4 py-3 font-mono text-grafito">{formatoPrecioUnitario(p.precio)} €</td>
                     <td className="px-4 py-3 text-slate">{p.multiplo_compra > 1 ? p.multiplo_compra : '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.visible ? 'Sí' : 'No'}</td>
                     <td className="px-4 py-3 text-right">
@@ -507,7 +508,7 @@ function ProductoForm({
           <input
             className="input font-mono"
             type="number"
-            step="0.01"
+            step="0.00001"
             min="0"
             value={precio}
             onChange={(e) => setPrecio(e.target.value)}

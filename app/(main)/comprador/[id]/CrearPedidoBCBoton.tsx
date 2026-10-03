@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { previsualizarPedidoCompraBC, crearPedidosCompraBC } from '@/app/actions/business-central';
 import { MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO } from '@/lib/pedidos-utils';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 type Grupo = {
   proveedorId: string;
@@ -138,14 +139,14 @@ export default function CrearPedidoBCBoton({
                                   <td className="px-4 py-2 text-grafito">{it.nombre}</td>
                                   <td className="px-4 py-2 font-mono text-slate text-right">x{it.cantidad}</td>
                                   <td className="px-4 py-2 font-mono text-slate text-right">
-                                    {it.precio.toFixed(2)} €
+                                    {formatoPrecioUnitario(it.precio)} €
                                   </td>
                                 </tr>
                               ))}
                             </tbody>
                           </table>
                           <div className="px-4 py-2 text-right text-sm font-mono text-grafito border-t border-borde">
-                            Subtotal: {g.subtotal.toFixed(2)} €
+                            Subtotal: {formatoImporte(g.subtotal)} €
                           </div>
                         </div>
                       ))}

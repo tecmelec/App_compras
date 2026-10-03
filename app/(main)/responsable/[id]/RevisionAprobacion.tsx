@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { aprobarSolicitudConCambios, responderAprobacion } from '@/app/actions/pedidos';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 export type LineaRevision = {
   id: string;
@@ -118,7 +119,7 @@ export default function RevisionAprobacion({ pedidoId, lineas }: { pedidoId: str
                 <div className="flex-1 min-w-[12rem]">
                   <p className={`text-grafito ${c.rechazada ? 'line-through text-slate' : ''}`}>{l.nombre}</p>
                   <p className="text-xs text-slate font-mono">
-                    {l.precio.toFixed(2)} € c/u
+                    {formatoPrecioUnitario(l.precio)} € c/u
                     {l.multiplo > 1 && <span className="font-sans"> · múltiplo de {l.multiplo}</span>}
                   </p>
                 </div>
@@ -194,7 +195,7 @@ export default function RevisionAprobacion({ pedidoId, lineas }: { pedidoId: str
 
       <div className="flex justify-end text-sm mb-6">
         <span className="text-slate mr-2">Total {hayCambios ? 'tras tus cambios' : 'estimado'}:</span>
-        <span className="font-mono text-grafito">{total.toFixed(2)} €</span>
+        <span className="font-mono text-grafito">{formatoImporte(total)} €</span>
       </div>
 
       <div className="bg-white border border-borde rounded-lg p-5">

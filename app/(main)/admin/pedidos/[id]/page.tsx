@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import EstadoBadge from '@/components/EstadoBadge';
 import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 export default async function DetalleAdminPedidoPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -98,13 +99,13 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
                 ? new Date(item.fecha_estimada_entrega + 'T00:00:00').toLocaleDateString('es-ES')
                 : 'Por definir'}
             </p>
-            <p className="font-mono text-slate">{item.productos?.precio?.toFixed(2) || '0.00'} € c/u</p>
+            <p className="font-mono text-slate">{formatoPrecioUnitario(item.productos?.precio)} € c/u</p>
             <p className="font-mono text-grafito">x{item.cantidad}</p>
           </div>
         ))}
       </div>
       <p className="text-right font-mono text-grafito">
-        Total: <strong>{p.total_estimado?.toFixed(2)} €</strong>
+        Total: <strong>{formatoImporte(p.total_estimado)} €</strong>
       </p>
     </div>
   );

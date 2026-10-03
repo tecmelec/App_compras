@@ -11,7 +11,7 @@ export type ColumnaExcel<T> = {
   titulo: string;
   valor: (fila: T) => string | number | boolean | Date | null | undefined;
   ancho?: number; // en caracteres aprox.
-  formato?: 'texto' | 'numero' | 'moneda' | 'fecha';
+  formato?: 'texto' | 'numero' | 'moneda' | 'precio' | 'fecha';
 };
 
 function aFecha(v: unknown): Date | null {
@@ -55,6 +55,8 @@ export default function ExportarExcelBoton<T>({
         style:
           c.formato === 'moneda'
             ? { numFmt: '#,##0.00 "€"' }
+            : c.formato === 'precio'
+              ? { numFmt: '#,##0.00### "€"' }
             : c.formato === 'fecha'
               ? { numFmt: 'dd/mm/yyyy' }
               : c.formato === 'numero'
@@ -68,7 +70,7 @@ export default function ExportarExcelBoton<T>({
             const v = c.valor(fila);
             if (v === null || v === undefined || v === '') return null;
             if (c.formato === 'fecha') return aFecha(v) ?? String(v);
-            if (c.formato === 'numero' || c.formato === 'moneda') {
+            if (c.formato === 'numero' || c.formato === 'moneda' || c.formato === 'precio') {
               const n = typeof v === 'number' ? v : Number(v);
               return Number.isFinite(n) ? n : String(v);
             }

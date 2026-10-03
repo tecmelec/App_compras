@@ -2,6 +2,10 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 import { EMPRESA } from './empresa';
 import { LOGO_TECMELEC_BASE64 } from './logo';
 
+function precioUnitario(n: number): string {
+  return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 5 });
+}
+
 function euros(n: number): string {
   return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -169,7 +173,7 @@ export default function PedidoCompraDocument({
               <Text style={colDescEstilo}>{l.nombre}</Text>
               <Text style={styles.colCant}>{euros(l.cantidad)}</Text>
               <Text style={styles.colUd}>{l.unidadMedida}</Text>
-              <Text style={styles.colPrecio}>{euros(l.precio)}</Text>
+              <Text style={styles.colPrecio}>{precioUnitario(l.precio)}</Text>
               <Text style={styles.colDto}></Text>
               <Text style={styles.colImporte}>{euros(l.cantidad * l.precio)}</Text>
             </View>

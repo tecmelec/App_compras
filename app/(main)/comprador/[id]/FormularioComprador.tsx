@@ -7,6 +7,7 @@ import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedido
 import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 type Estado = { id: number; nombre: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -298,7 +299,7 @@ export default function FormularioComprador({
 
         <div className="mt-3 bg-marcaClaro border border-[#C4DECD] rounded-lg px-5 py-3 flex items-center justify-between">
           <span className="text-sm text-grafito">Total solicitado</span>
-          <span className="font-mono text-lg font-semibold text-marca">{totalCalculado.toFixed(2)} €</span>
+          <span className="font-mono text-lg font-semibold text-marca">{formatoImporte(totalCalculado)} €</span>
         </div>
       </div>
 

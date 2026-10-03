@@ -4,6 +4,7 @@ import EstadoBadge from '@/components/EstadoBadge';
 import AprobacionBotones from './AprobacionBotones';
 import RevisionAprobacion from './RevisionAprobacion';
 import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
+import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 export default async function DetalleResponsablePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -66,7 +67,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
         </div>
         <div className="col-span-2">
           <p className="text-slate mb-0.5">Total estimado</p>
-          <p className="text-grafito font-mono text-base">{p.total_estimado?.toFixed(2)} €</p>
+          <p className="text-grafito font-mono text-base">{formatoImporte(p.total_estimado)} €</p>
         </div>
       </div>
 
@@ -107,7 +108,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
                       ? new Date(item.fecha_estimada_entrega + 'T00:00:00').toLocaleDateString('es-ES')
                       : 'Por definir'}
                   </p>
-                  <p className="font-mono text-slate">{precio.toFixed(2)} € c/u</p>
+                  <p className="font-mono text-slate">{formatoPrecioUnitario(precio)} € c/u</p>
                   {item.rechazada_por_aprobador ? (
                     <span className="badge badge-cancelado">Rechazada</span>
                   ) : (
