@@ -22,6 +22,7 @@ export default async function TiendaPage() {
     .from('productos')
     .select('id, nombre, descripcion, imagen_url, categoria, precio, bc_item_no, unidad_medida, multiplo_compra')
     .eq('visible', true)
+    .order('categoria')
     .order('nombre');
 
   const { data: favoritos } = await supabase

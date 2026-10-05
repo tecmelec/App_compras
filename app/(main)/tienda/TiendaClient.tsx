@@ -59,14 +59,21 @@ export default function TiendaClient({
     });
   }, [productos, busqueda]);
 
-  // Los favoritos van siempre primero; dentro de cada grupo, orden alfabético
-  // ascendente por el nombre (descripción) del artículo.
+  // Los favoritos van siempre primero; dentro de cada grupo, por categoría y,
+  // dentro de cada categoría, orden alfabético ascendente por el nombre
+  // (descripción) del artículo. Los artículos sin categoría van al final.
   const ordenados = useMemo(() => {
+    const comparar = (x: string, y: string) => x.localeCompare(y, 'es', { sensitivity: 'base', numeric: true });
     return [...filtrados].sort((a, b) => {
       const favA = favoritos.has(a.id) ? 0 : 1;
       const favB = favoritos.has(b.id) ? 0 : 1;
       if (favA !== favB) return favA - favB;
-      return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base', numeric: true });
+      const catA = (a.categoria || '').trim();
+      const catB = (b.categoria || '').trim();
+      if (!catA !== !catB) return catA ? -1 : 1;
+      const porCategoria = comparar(catA, catB);
+      if (porCategoria !== 0) return porCategoria;
+      return comparar(a.nombre || '', b.nombre || '');
     });
   }, [filtrados, favoritos]);
 
