@@ -59,12 +59,14 @@ export default function TiendaClient({
     });
   }, [productos, busqueda]);
 
-  // Los favoritos van siempre primero, conservando el resto del orden
+  // Los favoritos van siempre primero; dentro de cada grupo, orden alfabético
+  // ascendente por el nombre (descripción) del artículo.
   const ordenados = useMemo(() => {
     return [...filtrados].sort((a, b) => {
       const favA = favoritos.has(a.id) ? 0 : 1;
       const favB = favoritos.has(b.id) ? 0 : 1;
-      return favA - favB;
+      if (favA !== favB) return favA - favB;
+      return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base', numeric: true });
     });
   }, [filtrados, favoritos]);
 
