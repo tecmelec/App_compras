@@ -25,8 +25,16 @@ export type PedidoFila = {
   // true = todos sus Pedidos Tecmelec con "PDF enviado"; false = falta alguno;
   // null = la solicitud aún no tiene Nº de pedido Tecmelec.
   pdf_enviado?: boolean | null;
+  // Detalle por Pedido Tecmelec (solo en "Solicitudes por comprar"):
+  // habilitado = ya se puede enviar por email al proveedor ("Pedido lanzado" o posterior).
+  pedidos_tecmelec?: { numero: string; habilitado: boolean; pdfEnviado: boolean }[];
   created_at: string;
 };
+
+// Hay algún Pedido Tecmelec listo para enviar por email y sin el check "PDF enviado".
+function pendienteDeEnviar(p: PedidoFila): boolean {
+  return (p.pedidos_tecmelec || []).some((t) => t.habilitado && !t.pdfEnviado);
+}
 
 type Filtros = {
   busqueda: string;
@@ -508,7 +516,27 @@ export default function SolicitudesFiltrables({
                       )}
                     </td>
                   )}
-                  <td className="px-4 py-3 font-mono text-grafito">{p.numero_tecmelec || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-grafito">
+                    {p.pedidos_tecmelec && p.pedidos_tecmelec.length > 0
+                      ? p.pedidos_tecmelec.map((t, i) => (
+                          <span key={t.numero}>
+                            {i > 0 && ', '}
+                            <span
+                              className={t.habilitado ? '' : 'text-[#D92D20]'}
+                              title={
+                                t.habilitado
+                                  ? t.pdfEnviado
+                                    ? 'PDF enviado al proveedor'
+                                    : 'Listo para enviar por email al proveedor'
+                                  : 'Aún no habilitado para enviar por email (debe estar en "Pedido lanzado")'
+                              }
+                            >
+                              {t.numero}
+                            </span>
+                          </span>
+                        ))
+                      : p.numero_tecmelec || '—'}
+                  </td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     <ObraCelda numero={p.nro_obra || ''} nombre={p.nombre_obra} textoVacio="Sin nombre de obra" />
                   </td>
@@ -525,7 +553,18 @@ export default function SolicitudesFiltrables({
                   {mostrarPdfEnviado && (
                     <td className="px-4 py-3">
                       {pdfEnviadoDe(p) === 'si' && <span className="badge badge-entregado">Sí</span>}
-                      {pdfEnviadoDe(p) === 'no' && <span className="badge badge-cancelado">No</span>}
+                      {pdfEnviadoDe(p) === 'no' && (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="badge badge-cancelado">No</span>
+                          {pendienteDeEnviar(p) && (
+                            <span
+                              className="w-2.5 h-2.5 rounded-full bg-[#22C55E] shrink-0"
+                              title="Hay pedidos listos para enviar por email al proveedor"
+                              aria-label="Hay pedidos listos para enviar por email"
+                            />
+                          )}
+                        </span>
+                      )}
                       {pdfEnviadoDe(p) === 'sin' && <span className="text-slate">—</span>}
                     </td>
                   )}

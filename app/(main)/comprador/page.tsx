@@ -20,7 +20,7 @@ export default async function CompradorPage() {
     const { data } = await supabase
       .from('pedidos')
       .select(
-        'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, usuario_id, comprador_id, proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), comprador:profiles!pedidos_comprador_id_fkey(nombre_completo), pedido_items(numero_tecmelec)'
+        'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, usuario_id, comprador_id, proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), comprador:profiles!pedidos_comprador_id_fkey(nombre_completo), pedido_items(numero_tecmelec, estado_id)'
       )
       .order('created_at', { ascending: false })
       .range(desde, desde + 999);
@@ -28,14 +28,37 @@ export default async function CompradorPage() {
     if (!data || data.length < 1000) break;
   }
 
-  const [{ data: guardado }, { data: perfiles }] = await Promise.all([
+  const [{ data: guardado }, { data: perfiles }, { data: estadosPedido }] = await Promise.all([
     supabase.from('filtros_rapidos_solicitudes').select('solicitantes, obras').eq('usuario_id', user!.id).maybeSingle(),
     supabase
       .from('profiles')
       .select('id, nombre_completo')
       .in('rol', ['usuario', 'comprador', 'responsable', 'admin'])
       .order('nombre_completo'),
+    supabase.from('estados_pedido').select('id, nombre, orden'),
   ]);
+
+  // Un Pedido Tecmelec se puede enviar por email al proveedor cuando todas sus
+  // líneas están en "Pedido lanzado" o posterior (misma regla que en la gestión
+  // de la solicitud). Si no hay estado "Pedido lanzado" configurado, no se bloquea.
+  const ordenPorEstado = new Map((estadosPedido || []).map((e: any) => [e.id, e.orden as number]));
+  const ordenLanzado =
+    (estadosPedido || []).find((e: any) => e.nombre?.trim().toLowerCase() === 'pedido lanzado')?.orden ?? null;
+  function pedidosTecmelecDe(p: any) {
+    const porNumero = new Map<string, number>();
+    for (const it of p.pedido_items || []) {
+      if (!it.numero_tecmelec) continue;
+      const orden = ordenPorEstado.get(it.estado_id) ?? -Infinity;
+      porNumero.set(it.numero_tecmelec, Math.min(porNumero.get(it.numero_tecmelec) ?? Infinity, orden));
+    }
+    return Array.from(porNumero.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([numero, ordenMinimo]) => ({
+        numero,
+        habilitado: ordenLanzado === null || ordenMinimo >= ordenLanzado,
+        pdfEnviado: numerosConPdfEnviado.has(numero),
+      }));
+  }
 
   // "PDF enviado" por solicitud: Sí solo si TODOS sus Pedidos Tecmelec tienen
   // el check marcado en "Gestión de pedidos"; null si aún no tiene ninguno.
@@ -62,6 +85,7 @@ export default async function CompradorPage() {
     id: p.id,
     numero_app: p.numero_app,
     numero_tecmelec: numerosTecmelecTexto(p.pedido_items),
+    pedidos_tecmelec: pedidosTecmelecDe(p),
     nro_obra: p.proyectos?.bc_job_no || '',
     nombre_obra: p.proyectos?.descripcion || '',
     solicitante: p.profiles?.nombre_completo || '—',
