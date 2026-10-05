@@ -60,5 +60,5 @@ export const config = {
   // fecha de entrega; se identifica por el token de la URL, no por sesión.
   // Las imágenes de /public (logo, fondos) quedan fuera: son públicas y las
   // necesitan también páginas sin sesión (login, página del proveedor).
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron|proveedor|.*\\.(?:png|jpg|jpeg|svg|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|api/cron|proveedor|.*\\.(?:png|jpg|jpeg|svg|webp)$).*)'],
 };

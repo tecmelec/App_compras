@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { buscarArticulosBC } from '@/lib/business-central';
+import { despacharPushPendientes } from '@/lib/push';
 
 const ROLES_PERMITIDOS = ['comprador', 'responsable', 'admin'];
 export type EstadoAlta = 'Solicitud enviada' | 'Rechazada' | 'Disponible en tienda';
@@ -88,6 +89,7 @@ export async function cambiarEstadoSolicitudAlta(id: string, estado: EstadoAlta)
     .eq('id', id);
   if (error) return { error: 'No se pudo cambiar el estado: ' + error.message };
 
+  await despacharPushPendientes();
   revalidatePath('/alta-articulos');
   return { success: true };
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { enviarEmailSolicitud } from '@/lib/email';
 import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { sincronizarFechasConBC } from '@/app/actions/proveedor-fecha-entrega';
+import { despacharPushPendientes } from '@/lib/push';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -238,6 +239,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     console.error('Error enviando email de solicitud:', e);
   }
 
+  await despacharPushPendientes();
   return { success: true, numeroApp: pedido.numero_app };
 }
 
@@ -260,6 +262,7 @@ export async function actualizarPedido(
     return { error: 'No se pudo actualizar el pedido.' };
   }
 
+  await despacharPushPendientes();
   return { success: true };
 }
 
@@ -411,6 +414,7 @@ export async function actualizarLineasTecmelec(
     }
   }
 
+  await despacharPushPendientes();
   return { success: true };
 }
 
@@ -441,6 +445,7 @@ export async function aprobarSolicitudConCambios(
   revalidatePath(`/mis-pedidos/${pedidoId}`);
   revalidatePath(`/comprador/${pedidoId}`);
 
+  await despacharPushPendientes();
   return { success: true, resultado: data as 'aprobada' | 'rechazada' };
 }
 
@@ -465,5 +470,6 @@ export async function responderAprobacion(pedidoId: string, aprobado: boolean) {
 
   if (error) return { error: 'No se pudo registrar la decisión.' };
 
+  await despacharPushPendientes();
   return { success: true };
 }

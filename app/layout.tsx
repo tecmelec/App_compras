@@ -17,11 +17,14 @@ const plexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: 'Tienda Tecmelec',
   description: 'Plataforma interna de solicitud de materiales',
+  // iPhone: al añadirla a la pantalla de inicio se abre como app (necesario para los avisos push).
+  appleWebApp: { capable: true, title: 'Tecmelec', statusBarStyle: 'default' },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: '#0B3B26',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

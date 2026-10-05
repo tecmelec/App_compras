@@ -24,6 +24,7 @@ import {
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import { despacharPushPendientes } from '@/lib/push';
 
 export async function sincronizarProductosBC() {
   await requireAdmin();
@@ -432,6 +433,7 @@ export async function sincronizarPedidoConBC(pedidoId: string) {
   revalidatePath(`/comprador/${pedidoId}`);
   revalidatePath(`/admin/pedidos/${pedidoId}`);
 
+  await despacharPushPendientes();
   return resultado;
 }
 
@@ -485,6 +487,7 @@ export async function sincronizarPedidosAbiertosConBC() {
   revalidatePath('/admin/pedidos');
   revalidatePath('/responsable');
 
+  await despacharPushPendientes();
   return { revisados: pedidos?.length || 0, resumen };
 }
 
@@ -522,6 +525,7 @@ export async function sincronizarMisSolicitudesConBC() {
 
   revalidatePath('/comprador');
 
+  await despacharPushPendientes();
   return { revisados: pedidos?.length || 0, actualizados, conError };
 }
 
@@ -1043,5 +1047,6 @@ export async function crearPedidosCompraBC(pedidoId: string) {
 
   revalidatePath(`/comprador/${pedidoId}`);
 
+  await despacharPushPendientes();
   return { success: true, creados, errores, aprobacionesEnviadas };
 }

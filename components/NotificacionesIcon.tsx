@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { marcarNotificacionLeida, marcarTodasNotificacionesLeidas } from '@/app/actions/notificaciones';
+import AvisosPushDispositivo from '@/components/AvisosPushDispositivo';
 
 type Notificacion = {
   id: string;
@@ -149,8 +150,8 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
             <div className="max-h-96 overflow-y-auto">
               {notificaciones.length === 0 ? (
                 <p className="text-sm text-slate text-center py-8 px-4">
-                  Todavía no tienes notificaciones. Activa &quot;Seguir pedido&quot; en una solicitud para
-                  recibir avisos cuando cambie de estado.
+                  Todavía no tienes notificaciones. Aquí verás las solicitudes pendientes de aprobar o de
+                  tramitar, y los cambios de las solicitudes que sigues.
                 </p>
               ) : (
                 notificaciones.map((n) => (
@@ -170,6 +171,7 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
                 ))
               )}
             </div>
+            <AvisosPushDispositivo />
           </div>
         </>
       )}
