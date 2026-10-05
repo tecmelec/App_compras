@@ -2,6 +2,7 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 import { obtenerPedidoPorToken } from '@/app/actions/proveedor-fecha-entrega';
 import FechaEntregaForm from './FechaEntregaForm';
+import Image from 'next/image';
 
 // cache() evita repetir la consulta a Supabase: generateMetadata y el propio
 // componente de página se ejecutan por separado, pero ambos piden el mismo
@@ -66,7 +67,7 @@ export default async function PaginaFechaEntrega({ params }: { params: { token: 
             <IconoCamion />
           </div>
 
-          <p className="font-mono font-bold tracking-widest text-marcaOscuro text-sm mb-3">TECMELEC</p>
+          <Image src="/logo-tecmelec.png" alt="TECMELEC" width={344} height={44} className="h-5 w-auto mb-3" />
 
           <div className="flex items-center gap-3 pr-16">
             <span className="w-9 h-9 rounded-full bg-marcaClaro text-marca flex items-center justify-center shrink-0">

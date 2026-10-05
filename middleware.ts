@@ -58,5 +58,7 @@ export const config = {
   // proveedor/* queda fuera: es la página pública (sin login) que abre el
   // proveedor desde el enlace del email o el enlace copiado, para indicar la
   // fecha de entrega; se identifica por el token de la URL, no por sesión.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron|proveedor).*)'],
+  // Las imágenes de /public (logo, fondos) quedan fuera: son públicas y las
+  // necesitan también páginas sin sesión (login, página del proveedor).
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron|proveedor|.*\\.(?:png|jpg|jpeg|svg|webp)$).*)'],
 };

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
+import Image from 'next/image';
 
 type Props = {
   rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
@@ -77,7 +78,8 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
         )}
       >
         <div className="px-5 py-6 border-b border-white/10 flex items-center justify-between">
-          <p className="logo-tecmelec text-xl">TECMELEC</p>
+          {/* Logo corporativo (versión en blanco para el fondo verde oscuro) */}
+          <Image src="/logo-tecmelec-blanco.png" alt="TECMELEC" width={344} height={44} priority className="h-[22px] w-auto" />
           <button onClick={() => setAbierto(false)} className="md:hidden text-white/60 hover:text-white text-xl">
             ✕
           </button>
