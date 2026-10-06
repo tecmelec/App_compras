@@ -21,7 +21,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     .eq('id', user.id)
     .single();
 
-  if (!profile) redirect('/login');
+  // Cuenta sin perfil en la Tienda (p. ej. solo usuario del CRM): no tiene acceso.
+  if (!profile) redirect('/sin-acceso');
 
   const comprador = profile.rol === 'usuario' ? await obtenerContactoComprador(supabase, user.id) : null;
 

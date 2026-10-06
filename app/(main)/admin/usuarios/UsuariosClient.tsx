@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { crearUsuario, actualizarUsuario, resetearPassword } from '@/app/actions/usuarios';
+import { crearUsuario, actualizarUsuario, resetearPassword, eliminarUsuario } from '@/app/actions/usuarios';
 import { useRouter } from 'next/navigation';
 import ExportarExcelBoton from '@/components/ExportarExcelBoton';
 
@@ -188,7 +188,28 @@ function UsuarioForm({
   const [sustitutoId, setSustitutoId] = useState(usuario?.sustituto_id || '');
   const [sustitutoActivo, setSustitutoActivo] = useState(usuario?.sustituto_activo || false);
   const [guardando, setGuardando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleEliminar() {
+    if (!usuario) return;
+    if (
+      !confirm(
+        `¿Eliminar a ${usuario.nombre_completo} (${usuario.email})?\n\nPerderá el acceso a la Tienda y se borrarán sus direcciones, contactos, favoritos y proyectos asignados. Esta acción no se puede deshacer.`
+      )
+    )
+      return;
+    setEliminando(true);
+    setError(null);
+    const r = await eliminarUsuario(usuario.id);
+    setEliminando(false);
+    if (r.error) {
+      setError(r.error);
+      return;
+    }
+    if (r.soloTienda) alert(`${usuario.nombre_completo} ya no tiene acceso a la Tienda. Conserva su acceso al CRM.`);
+    onSuccess();
+  }
 
   async function handleGuardar() {
     setGuardando(true);
@@ -375,6 +396,19 @@ function UsuarioForm({
         <button onClick={onCancel} className="btn-secondary">
           Cancelar
         </button>
+        {esEdicion && (
+          <button
+            type="button"
+            onClick={handleEliminar}
+            disabled={eliminando || guardando}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#E7C7C7] bg-white px-4 py-2 text-sm font-medium text-rojo hover:bg-[#F6E9E9] disabled:opacity-50"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            </svg>
+            {eliminando ? 'Eliminando…' : 'Eliminar usuario'}
+          </button>
+        )}
       </div>
     </div>
   );
