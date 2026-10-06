@@ -170,6 +170,7 @@ export default function SolicitudModal({
             .from('profiles')
             .select('id, nombre_completo, rol')
             .in('rol', ['comprador', 'admin'])
+            .eq('activo', true)
             .order('nombre_completo');
           setCompradoresDisponibles(compradores || []);
         }

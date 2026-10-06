@@ -8,7 +8,7 @@ export default function SinAccesoPage() {
       <div className="max-w-md w-full bg-white border border-borde rounded-2xl p-8 text-center shadow-sm">
         <h1 className="text-xl font-semibold text-grafito mb-2">Sin acceso a la Tienda Tecmelec</h1>
         <p className="text-sm text-slate mb-6">
-          Tu usuario no tiene acceso a la Tienda. Si crees que es un error, contacta con el administrador.
+          Tu usuario no tiene acceso a la Tienda o ha sido desactivado. Si crees que es un error, contacta con el administrador.
         </p>
         <CerrarSesionBoton />
       </div>

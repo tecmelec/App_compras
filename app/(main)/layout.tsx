@@ -17,12 +17,12 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nombre_completo, rol')
+    .select('nombre_completo, rol, activo')
     .eq('id', user.id)
     .single();
 
-  // Cuenta sin perfil en la Tienda (p. ej. solo usuario del CRM): no tiene acceso.
-  if (!profile) redirect('/sin-acceso');
+  // Cuenta sin perfil en la Tienda (p. ej. solo usuario del CRM) o desactivada: no tiene acceso.
+  if (!profile || profile.activo === false) redirect('/sin-acceso');
 
   const comprador = profile.rol === 'usuario' ? await obtenerContactoComprador(supabase, user.id) : null;
 

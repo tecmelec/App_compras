@@ -6,14 +6,14 @@ export default async function UsuariosPage() {
 
   const { data: usuarios } = await supabase
     .from('profiles')
-    .select('id, nombre_completo, email, telefono, bc_user_id, rol, comprador_id, responsable_id, sustituto_id, sustituto_activo')
+    .select('id, nombre_completo, email, telefono, bc_user_id, rol, comprador_id, responsable_id, sustituto_id, sustituto_activo, activo')
     .order('nombre_completo');
 
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Usuarios</h1>
       <p className="text-slate text-sm mb-6">
-        Crea las cuentas de acceso y define el rol, comprador y responsable de cada persona.
+        Crea las cuentas de acceso y define el rol, comprador y responsable de cada persona. Los usuarios desactivados conservan su historial pero no pueden entrar en la Tienda.
       </p>
 
       <UsuariosClient usuarios={usuarios || []} />

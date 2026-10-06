@@ -203,3 +203,70 @@ export async function eliminarUsuario(id: string) {
   revalidatePath('/admin/usuarios');
   return { success: true, soloTienda: usaCrm };
 }
+
+// Desactiva un usuario: conserva todo su historial pero pierde el acceso a la
+// Tienda (y los permisos de su rol). No afecta al CRM ni al almacén.
+// No se permite si otros usuarios lo tienen asignado como comprador,
+// responsable o sustituto, ni si tiene solicitudes pendientes de su aprobación.
+export async function desactivarUsuario(id: string) {
+  const yo = await requireAdmin();
+  if (id === yo.id) return { error: 'No puedes desactivar tu propio usuario.' };
+
+  const admin = createAdminClient();
+  const { data: perfil } = await admin.from('profiles').select('id, nombre_completo').eq('id', id).maybeSingle();
+  if (!perfil) return { error: 'Usuario no encontrado.' };
+
+  const { data: dependientes } = await admin
+    .from('profiles')
+    .select('nombre_completo, comprador_id, responsable_id, sustituto_id')
+    .eq('activo', true)
+    .or(`comprador_id.eq.${id},responsable_id.eq.${id},sustituto_id.eq.${id}`);
+  if (dependientes && dependientes.length) {
+    const nombres = dependientes.map((d) => {
+      const como = [
+        d.comprador_id === id ? 'comprador' : null,
+        d.responsable_id === id ? 'responsable' : null,
+        d.sustituto_id === id ? 'sustituto' : null,
+      ]
+        .filter(Boolean)
+        .join('/');
+      return `${d.nombre_completo} (${como})`;
+    });
+    return {
+      error: `No se puede desactivar a ${perfil.nombre_completo}: está asignado a otros usuarios. Primero cambia su asignación en: ${nombres.join(', ')}.`,
+    };
+  }
+
+  const { count: pendientes } = await admin
+    .from('pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('responsable_id', id)
+    .eq('requiere_aprobacion', true)
+    .is('aprobado', null);
+  if (pendientes) {
+    return {
+      error: `No se puede desactivar a ${perfil.nombre_completo}: tiene ${pendientes} solicitud(es) pendiente(s) de su aprobación. Apruébalas o recházalas antes.`,
+    };
+  }
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ activo: false, sustituto_activo: false })
+    .eq('id', id);
+  if (error) return { error: 'No se pudo desactivar el usuario: ' + error.message };
+
+  // Deja de recibir avisos en el móvil.
+  await admin.from('push_suscripciones').delete().eq('usuario_id', id);
+
+  revalidatePath('/admin/usuarios');
+  return { success: true };
+}
+
+export async function reactivarUsuario(id: string) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin.from('profiles').update({ activo: true }).eq('id', id);
+  if (error) return { error: 'No se pudo reactivar el usuario: ' + error.message };
+  revalidatePath('/admin/usuarios');
+  return { success: true };
+}

@@ -1,7 +1,14 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { crearUsuario, actualizarUsuario, resetearPassword, eliminarUsuario } from '@/app/actions/usuarios';
+import {
+  crearUsuario,
+  actualizarUsuario,
+  resetearPassword,
+  eliminarUsuario,
+  desactivarUsuario,
+  reactivarUsuario,
+} from '@/app/actions/usuarios';
 import { useRouter } from 'next/navigation';
 import ExportarExcelBoton from '@/components/ExportarExcelBoton';
 
@@ -16,6 +23,7 @@ type Usuario = {
   responsable_id: string | null;
   sustituto_id: string | null;
   sustituto_activo: boolean;
+  activo: boolean;
 };
 
 const ROLES = [
@@ -30,14 +38,16 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const router = useRouter();
 
-  const compradores = usuarios.filter((u) => u.rol === 'comprador');
-  const responsables = usuarios.filter((u) => u.rol === 'responsable');
+  // En los desplegables de asignación solo se ofrecen usuarios activos.
+  const activos = usuarios.filter((u) => u.activo !== false);
+  const compradores = activos.filter((u) => u.rol === 'comprador');
+  const responsables = activos.filter((u) => u.rol === 'responsable');
   // Un admin también puede actuar como responsable asignado de un usuario/comprador.
-  const responsablesDisponibles = usuarios.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
+  const responsablesDisponibles = activos.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
   // Y también como sustituto de un comprador o responsable (p.ej. para poder
   // gestionar sus compras/aprobaciones sin tener que cambiarle el rol).
-  const compradoresSustitutosDisponibles = usuarios.filter((u) => u.rol === 'comprador' || u.rol === 'admin');
-  const responsablesSustitutosDisponibles = usuarios.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
+  const compradoresSustitutosDisponibles = activos.filter((u) => u.rol === 'comprador' || u.rol === 'admin');
+  const responsablesSustitutosDisponibles = activos.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
 
   function nombrePorId(id: string | null) {
     if (!id) return '—';
@@ -65,6 +75,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
             { titulo: 'Sustituto', valor: (u) => (u.sustituto_id ? nombrePorId(u.sustituto_id) : ''), ancho: 25 },
             { titulo: 'Sustituto activo', valor: (u) => (u.sustituto_id ? u.sustituto_activo : ''), ancho: 15 },
             { titulo: 'ID de usuario en BC', valor: (u) => u.bc_user_id, ancho: 38 },
+            { titulo: 'Estado', valor: (u) => (u.activo === false ? 'Desactivado' : 'Activo'), ancho: 13 },
           ]}
         />
       </div>
@@ -100,8 +111,11 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
           <tbody className="divide-y divide-borde">
             {usuarios.map((u) => (
               <Fragment key={u.id}>
-                <tr className="hover:bg-fondo">
-                  <td className="px-4 py-3 text-grafito">{u.nombre_completo}</td>
+                <tr className={`hover:bg-fondo ${u.activo === false ? 'opacity-60' : ''}`}>
+                  <td className="px-4 py-3 text-grafito">
+                    {u.nombre_completo}
+                    {u.activo === false && <span className="badge badge-cancelado ml-2">Desactivado</span>}
+                  </td>
                   <td className="px-4 py-3 text-slate">{u.email}</td>
                   <td className="px-4 py-3 text-grafito capitalize">{u.rol}</td>
                   <td className="px-4 py-3 text-slate">{nombrePorId(u.comprador_id)}</td>
@@ -190,6 +204,32 @@ function UsuarioForm({
   const [guardando, setGuardando] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleDesactivar() {
+    if (!usuario) return;
+    if (
+      !confirm(
+        `¿Desactivar a ${usuario.nombre_completo}?\n\nNo podrá entrar en la Tienda ni recibirá avisos, pero se conserva todo su historial. Podrás reactivarlo cuando quieras.`
+      )
+    )
+      return;
+    setEliminando(true);
+    setError(null);
+    const r = await desactivarUsuario(usuario.id);
+    setEliminando(false);
+    if (r.error) return setError(r.error);
+    onSuccess();
+  }
+
+  async function handleReactivar() {
+    if (!usuario) return;
+    setEliminando(true);
+    setError(null);
+    const r = await reactivarUsuario(usuario.id);
+    setEliminando(false);
+    if (r.error) return setError(r.error);
+    onSuccess();
+  }
 
   async function handleEliminar() {
     if (!usuario) return;
@@ -396,12 +436,36 @@ function UsuarioForm({
         <button onClick={onCancel} className="btn-secondary">
           Cancelar
         </button>
+        {esEdicion && usuario?.activo === false && (
+          <button
+            type="button"
+            onClick={handleReactivar}
+            disabled={eliminando || guardando}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-marca bg-white px-4 py-2 text-sm font-medium text-marca hover:bg-marcaClaro disabled:opacity-50"
+          >
+            Reactivar usuario
+          </button>
+        )}
+        {esEdicion && usuario?.activo !== false && (
+          <button
+            type="button"
+            onClick={handleDesactivar}
+            disabled={eliminando || guardando}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#F2D9AE] bg-white px-4 py-2 text-sm font-medium text-[#8A5A15] hover:bg-[#FDF2E3] disabled:opacity-50"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="m4.9 4.9 14.2 14.2" />
+            </svg>
+            Desactivar usuario
+          </button>
+        )}
         {esEdicion && (
           <button
             type="button"
             onClick={handleEliminar}
             disabled={eliminando || guardando}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[#E7C7C7] bg-white px-4 py-2 text-sm font-medium text-rojo hover:bg-[#F6E9E9] disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E7C7C7] bg-white px-4 py-2 text-sm font-medium text-rojo hover:bg-[#F6E9E9] disabled:opacity-50"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
