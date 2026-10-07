@@ -29,7 +29,15 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
     return () => document.removeEventListener('mousedown', onClickFuera);
   }, []);
 
-  const links = [
+  type NavLink = {
+    href: string;
+    label: string;
+    roles: string[];
+    badge?: number;
+    externo?: boolean;
+  };
+
+  const links: NavLink[] = [
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/mis-pedidos', label: 'Mis solicitudes', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
     { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
@@ -49,6 +57,12 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
     { href: '/alta-articulos', label: 'Solicitar alta de artículos', roles: ['admin', 'comprador', 'responsable'] },
     { href: '/admin/pedidos', label: 'Todas las solicitudes', roles: ['admin'] },
     { href: '/admin', label: 'Administración', roles: ['admin'] },
+    {
+      href: 'https://tecmelec.github.io/Fotos-albaranes/',
+      label: 'Subir foto albarán',
+      roles: ['admin', 'usuario', 'comprador', 'responsable'],
+      externo: true,
+    },
   ].filter((l) => l.roles.includes(rol));
 
   return (
@@ -86,7 +100,24 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
         </div>
 
         <div className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {links.map((l) => (
+          {links.map((l) =>
+            l.externo ? (
+              <a
+                key={l.href}
+                href={l.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setAbierto(false)}
+                className="flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium text-white/80 hover:bg-white/10"
+              >
+                <span>{l.label}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            ) : (
             <Link
               key={l.href}
               href={l.href}
@@ -103,7 +134,8 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
                 </span>
               )}
             </Link>
-          ))}
+            )
+          )}
         </div>
 
         <div className="p-4">
