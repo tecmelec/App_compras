@@ -4,6 +4,8 @@ import EnviarEmailPedidoBoton from './EnviarEmailPedidoBoton';
 import VerConversacionBoton from './VerConversacionBoton';
 import CopiarEnlaceProveedorBoton from './CopiarEnlaceProveedorBoton';
 import PdfEnviadoCheck from './PdfEnviadoCheck';
+import VerAlbaranBoton from '@/components/VerAlbaranBoton';
+import type { FotoAlbaran } from '@/lib/fotos-albaranes';
 
 type Fila = {
   numeroTecmelec: string;
@@ -14,6 +16,7 @@ type Fila = {
   enviadoConFotos: boolean;
   puedeEnviarEmail: boolean;
   pdfEnviado: boolean;
+  fotosAlbaran: FotoAlbaran[];
 };
 
 export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
@@ -31,6 +34,11 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 {p.proveedorNombre || 'Proveedor sin asignar'} · {p.lineas} {p.lineas === 1 ? 'línea' : 'líneas'} ·{' '}
                 {p.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </p>
+              {p.fotosAlbaran.length > 0 && (
+                <div className="mt-1.5">
+                  <VerAlbaranBoton numeroTecmelec={p.numeroTecmelec} fotos={p.fotosAlbaran} />
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <PdfEnviadoCheck numeroTecmelec={p.numeroTecmelec} pdfEnviado={p.pdfEnviado} />

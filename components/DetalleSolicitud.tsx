@@ -7,6 +7,8 @@ import EstadoBadge from '@/components/EstadoBadge';
 import ContactarComprasBoton from '@/components/ContactarComprasBoton';
 import SeguirPedidoToggle from '@/components/SeguirPedidoToggle';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
+import VerAlbaranBoton from '@/components/VerAlbaranBoton';
+import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
@@ -122,6 +124,11 @@ export default async function DetalleSolicitud({
   const pesoGrupo = (clave: string) => (clave === '__rechazadas__' ? 2 : clave === '__sin_asignar__' ? 1 : 0);
   const gruposOrdenados = Array.from(grupos.entries()).sort(
     ([a], [b]) => pesoGrupo(a) - pesoGrupo(b) || a.localeCompare(b)
+  );
+
+  // Fotos de albaranes (Alb. Tecmelec) de cada Pedido Tecmelec de la solicitud.
+  const fotosPorPedido = await obtenerFotosAlbaranes(
+    Array.from(grupos.keys()).filter((k) => !k.startsWith('__'))
   );
 
   return (
@@ -311,7 +318,13 @@ export default async function DetalleSolicitud({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                {!numeroTecmelec.startsWith('__') && (
+                  <VerAlbaranBoton
+                    numeroTecmelec={numeroTecmelec}
+                    fotos={fotosPorPedido[numeroTecmelec.trim().toUpperCase()] || []}
+                  />
+                )}
                 {!esRechazadas && esSolicitante && (
                 <SeguirPedidoToggle
                   pedidoId={p.id}

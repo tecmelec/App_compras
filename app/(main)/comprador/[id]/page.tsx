@@ -4,6 +4,7 @@ import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import GestionPedidosBC from './GestionPedidosBC';
+import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 import { rangoFechasEstimadas, puedeCrearPedidoBC } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
@@ -89,8 +90,12 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     (marcasPdfEnviado || []).filter((m: any) => m.pdf_enviado).map((m: any) => m.numero_tecmelec as string)
   );
 
+  // Fotos de albaranes (Alb. Tecmelec) de cada Pedido Tecmelec.
+  const fotosPorPedido = await obtenerFotosAlbaranes(numerosTecmelecLista);
+
   const pedidosBC = Array.from(gruposPorTecmelec.entries()).map(([numeroTecmelec, g]) => ({
     numeroTecmelec,
+    fotosAlbaran: fotosPorPedido[numeroTecmelec.trim().toUpperCase()] || [],
     proveedorNombre: proveedoresPorId.get(g.proveedorId) || '',
     total: g.total,
     lineas: g.lineas,
