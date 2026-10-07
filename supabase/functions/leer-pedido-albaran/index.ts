@@ -32,7 +32,8 @@ const EXTENSIONES_IMAGEN = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
 const PROMPT = `Esta imagen es un albarán de entrega (o un documento de compra) de un proveedor a la empresa Tecmelec.
 Transcribe TODO el texto que puedas leer, tal cual aparece, línea por línea.
 Presta especial atención a números de pedido y referencias del cliente (por ejemplo "Su pedido", "Pedido cliente", "Nº pedido", "Referencia", "Ref. cliente", "S/Ref."), copiando los dígitos con exactitud.
-No interpretes, no resumas y no añadas comentarios: devuelve solo la transcripción.`;
+No interpretes, no resumas y no añadas comentarios: devuelve solo la transcripción.
+Si la imagen no contiene ningún documento ni texto legible, responde únicamente: SIN TEXTO`;
 
 // --- Reglas de extracción del Nº de pedido -------------------------------------
 
@@ -168,11 +169,12 @@ Deno.serve(async (req) => {
         resultados.push({ file_name: nombre, error: 'Imagen no disponible todavía' });
         continue;
       }
-      const texto = (await transcribir(apiKey, imagen)).trim().slice(0, 20000);
+      let texto = (await transcribir(apiKey, imagen)).trim().slice(0, 20000);
+      if (/^SIN TEXTO\.?$/i.test(texto)) texto = '';
       const pedido = extraerPedido(texto);
 
       // El texto leído por Claude sustituye al OCR del móvil (mucho peor en fotos de cámara).
-      if (texto) {
+      {
         const { error: errTxt } = await supabase.from('photo_ocr').update({ extracted_text: texto }).eq('file_name', nombre);
         if (errTxt) throw new Error(errTxt.message);
       }
