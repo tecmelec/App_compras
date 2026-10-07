@@ -275,6 +275,33 @@ export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {
   return consultarBC(base);
 }
 
+// Jefe de obra de un proyecto (campo "Project Manager" de la ficha del proyecto,
+// que guarda el Nombre de usuario de BC, p. ej. RGONZALEZ) resuelto a su
+// Id. de seguridad de usuario, que es lo que guardamos en profiles.bc_user_id.
+// Necesita la página "Usuarios" (9800) publicada como servicio web en BC y su
+// nombre en BC_ODATA_SERVICE_USUARIOS. Lanza error si BC no responde.
+export async function obtenerJefeObraProyectoBC(
+  jobNo: string
+): Promise<{ userName: string | null; userSecurityId: string | null }> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROYECTOS!);
+  const filtro = `No eq '${jobNo.replace(/'/g, "''")}'`;
+  const proyectos: { Project_Manager?: string }[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
+  const userName = (proyectos?.[0]?.Project_Manager || '').trim() || null;
+  if (!userName) return { userName: null, userSecurityId: null };
+
+  const servicioUsuarios = process.env.BC_ODATA_SERVICE_USUARIOS;
+  if (!servicioUsuarios) {
+    throw new Error('Falta la variable de entorno BC_ODATA_SERVICE_USUARIOS (página Usuarios 9800 publicada en BC).');
+  }
+  const baseUsuarios = urlServicioBC(servicioUsuarios);
+  const filtroUsuario = `User_Name eq '${userName.replace(/'/g, "''")}'`;
+  const usuarios: { User_Security_ID?: string }[] = await consultarBC(
+    `${baseUsuarios}?$filter=${encodeURIComponent(filtroUsuario)}&$select=User_Security_ID,User_Name`
+  );
+  const userSecurityId = (usuarios?.[0]?.User_Security_ID || '').replace(/^\{|\}$/g, '').toLowerCase() || null;
+  return { userName, userSecurityId };
+}
+
 export async function obtenerProveedoresBC(): Promise<ProveedorBC[]> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROVEEDORES!);
   return consultarBC(base);

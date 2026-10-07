@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import SincronizarProyectosBoton from './SincronizarProyectosBoton';
+import DiagnosticoJefeObra from './DiagnosticoJefeObra';
 import ExportarExcelSimple from '@/components/ExportarExcelSimple';
 
 export default async function ProyectosAdminPage() {
@@ -29,6 +30,7 @@ export default async function ProyectosAdminPage() {
       </p>
 
       <SincronizarProyectosBoton />
+      <DiagnosticoJefeObra />
 
       {!proyectos || proyectos.length === 0 ? (
         <p className="text-slate text-sm">Todavía no hay proyectos sincronizados.</p>

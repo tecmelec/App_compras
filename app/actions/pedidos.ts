@@ -6,6 +6,8 @@ import { enviarEmailSolicitud } from '@/lib/email';
 import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { sincronizarFechasConBC } from '@/app/actions/proveedor-fecha-entrega';
 import { despacharPushPendientes } from '@/lib/push';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { obtenerJefeObraProyectoBC } from '@/lib/business-central';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -137,7 +139,36 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   }
 
   const compradorEfectivo = await resolverSustituto(compradorFinal);
-  const responsableEfectivo = await resolverSustituto(perfil.responsable_id);
+
+  // Aprobador de la solicitud: el jefe de obra (Project Manager) del proyecto en BC,
+  // identificado por su Id. de seguridad de usuario (= profiles.bc_user_id), siempre que
+  // esté dado de alta en la app, activo y con rol responsable o admin (los únicos que
+  // tienen la bandeja "Solicitudes de mi equipo"). Si no, se usa el responsable asignado
+  // al solicitante, como hasta ahora. Si BC no responde, no se bloquea la solicitud:
+  // se registra el error y se usa también el responsable asignado.
+  let jefeObraId: string | null = null;
+  try {
+    const { data: proyectoSolicitud } = await supabase
+      .from('proyectos')
+      .select('bc_job_no')
+      .eq('id', datos.proyecto_id)
+      .single();
+    if (proyectoSolicitud?.bc_job_no) {
+      const jefe = await obtenerJefeObraProyectoBC(proyectoSolicitud.bc_job_no);
+      if (jefe.userSecurityId) {
+        const { data: perfilesJefe } = await createAdminClient()
+          .from('profiles')
+          .select('id')
+          .eq('bc_user_id', jefe.userSecurityId)
+          .eq('activo', true)
+          .in('rol', ['responsable', 'admin'])
+          .limit(1);
+        jefeObraId = perfilesJefe?.[0]?.id || null;
+      }
+    }
+  } catch (e) {
+    console.error('[crearPedido] No se pudo obtener el jefe de obra del proyecto en BC; se usa el responsable asignado.', e);
+  }
 
   // 1. Calcular el total real a partir de los precios guardados en la base (nunca confiar en el precio del cliente)
   const idsProductos = items.map((i) => i.producto_id);
@@ -174,8 +205,26 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     .single();
 
   const limite = config?.limite_aprobacion ?? 200;
-  // Admin y responsable no necesitan aprobación de nadie, sin importar el monto.
-  const requiereAprobacion = puedeElegirComprador ? false : totalEstimado > limite;
+
+  // - El solicitante es el propio jefe de obra: no necesita aprobación.
+  // - Hay jefe de obra en la app: lo aprueba él (o su sustituto) si se supera el límite,
+  //   sea cual sea el perfil del solicitante (también admin y responsable).
+  // - No hay jefe de obra en la app: como antes, el responsable asignado al solicitante;
+  //   admin y responsable no tienen responsable asignado y no necesitan aprobación.
+  let responsableBase: string | null;
+  let requiereAprobacion: boolean;
+  if (jefeObraId && jefeObraId === user.id) {
+    responsableBase = user.id;
+    requiereAprobacion = false;
+  } else if (jefeObraId) {
+    responsableBase = jefeObraId;
+    requiereAprobacion = totalEstimado > limite;
+  } else {
+    responsableBase = perfil.responsable_id;
+    requiereAprobacion = puedeElegirComprador ? false : totalEstimado > limite;
+  }
+  const responsableEfectivo =
+    responsableBase === user.id ? user.id : await resolverSustituto(responsableBase);
 
   // 3. Crear el pedido
   const { data: pedido, error: errorPedido } = await supabase

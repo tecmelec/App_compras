@@ -7,6 +7,7 @@ import { requireAdmin } from '@/lib/auth-guard';
 import {
   obtenerItemsComunesBC,
   obtenerProyectosBC,
+  obtenerJefeObraProyectoBC,
   obtenerProveedoresBC,
   obtenerPedidosCompraBC,
   obtenerLineasPedidoCompraBC,
@@ -1049,4 +1050,26 @@ export async function crearPedidosCompraBC(pedidoId: string) {
 
   await despacharPushPendientes();
   return { success: true, creados, errores, aprobacionesEnviadas };
+}
+
+// Diagnóstico: quién aprobaría una solicitud de este proyecto según el jefe de obra de BC.
+export async function diagnosticoJefeObraProyecto(jobNo: string) {
+  await requireAdmin();
+  const codigo = (jobNo || '').trim().toUpperCase();
+  if (!codigo) return { error: 'Escribe un Nº de proyecto.' };
+  try {
+    const jefe = await obtenerJefeObraProyectoBC(codigo);
+    let perfil: { nombre_completo: string; rol: string; activo: boolean } | null = null;
+    if (jefe.userSecurityId) {
+      const { data } = await createAdminClient()
+        .from('profiles')
+        .select('nombre_completo, rol, activo')
+        .eq('bc_user_id', jefe.userSecurityId)
+        .limit(1);
+      perfil = data?.[0] || null;
+    }
+    return { success: true, ...jefe, perfil };
+  } catch (e: any) {
+    return { error: e.message || 'No se pudo consultar Business Central.' };
+  }
 }
