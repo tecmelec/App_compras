@@ -82,7 +82,8 @@ export function CartProvider({ userId, children }: { userId: string; children: R
     setItems([]);
   }
 
-  const totalItems = items.reduce((sum, i) => sum + i.cantidad, 0);
+  // Nº de artículos distintos en el carrito (no la suma de unidades)
+  const totalItems = items.length;
 
   return (
     <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems }}>
