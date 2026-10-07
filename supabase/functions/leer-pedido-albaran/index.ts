@@ -13,6 +13,10 @@
 // Llamadas:
 //   POST { "file_name": "..." }  -> procesa solo esa foto (lo usa el trigger)
 //   POST {}                      -> procesa las pendientes (barrido / cron)
+//   POST { "rehacer_texto": [..] } -> relee esas fotos solo para mejorar el texto
+//
+// Además del pedido, guarda en extracted_text la transcripción completa hecha por
+// Claude, que sustituye al OCR del móvil.
 //
 // Secretos necesarios (Supabase → Edge Functions → Secrets): ANTHROPIC_API_KEY.
 // SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY los pone Supabase automáticamente.
@@ -90,7 +94,7 @@ async function transcribir(apiKey: string, imagen: { data: string; mediaType: st
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
     body: JSON.stringify({
       model: MODELO,
-      max_tokens: 2000,
+      max_tokens: 4000,
       messages: [
         {
           role: 'user',
@@ -116,24 +120,32 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Falta el secreto ANTHROPIC_API_KEY en Supabase.' }, 500);
 
   let fileName: string | null = null;
+  let rehacer: string[] = [];
   try {
     const cuerpo = await req.json();
     fileName = typeof cuerpo?.file_name === 'string' ? cuerpo.file_name : null;
+    // { "rehacer_texto": ["foto1.jpeg", ...] } -> vuelve a leer esas fotos aunque ya
+    // tengan pedido, solo para mejorar extracted_text (el pedido no se toca si ya lo tiene).
+    if (Array.isArray(cuerpo?.rehacer_texto)) {
+      rehacer = cuerpo.rehacer_texto.filter((x: unknown) => typeof x === 'string').slice(0, MAX_POR_LLAMADA);
+    }
   } catch (_) {
     // sin cuerpo: barrido de pendientes
   }
 
-  // Solo se procesan registros pendientes (Sin asignar / vacío), así que llamar
-  // de más no repite trabajo ni coste.
-  let consulta = supabase
-    .from('photo_ocr')
-    .select('file_name, pedido_compra')
-    .or('pedido_compra.is.null,pedido_compra.eq."Sin asignar"');
-  if (fileName) {
-    consulta = consulta.eq('file_name', fileName);
+  // Normalmente solo se procesan registros pendientes (Sin asignar / vacío), así
+  // que llamar de más no repite trabajo ni coste.
+  let consulta = supabase.from('photo_ocr').select('file_name, pedido_compra');
+  if (rehacer.length) {
+    consulta = consulta.in('file_name', rehacer);
   } else {
-    const haceUnaSemana = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-    consulta = consulta.gte('created_at', haceUnaSemana).order('created_at').limit(MAX_POR_LLAMADA);
+    consulta = consulta.or('pedido_compra.is.null,pedido_compra.eq."Sin asignar"');
+    if (fileName) {
+      consulta = consulta.eq('file_name', fileName);
+    } else {
+      const haceUnaSemana = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      consulta = consulta.gte('created_at', haceUnaSemana).order('created_at').limit(MAX_POR_LLAMADA);
+    }
   }
   const { data: pendientes, error } = await consulta;
   if (error) return json({ error: error.message }, 500);
@@ -143,9 +155,10 @@ Deno.serve(async (req) => {
   for (const fila of pendientes || []) {
     const nombre = fila.file_name as string;
     try {
+      const pendiente = fila.pedido_compra == null || fila.pedido_compra === 'Sin asignar';
       if (!EXTENSIONES_IMAGEN.test(nombre)) {
         // No es una foto (p. ej. .emptyFolderPlaceholder): se deja en blanco.
-        await supabase.from('photo_ocr').update({ pedido_compra: '' }).eq('file_name', nombre);
+        if (pendiente) await supabase.from('photo_ocr').update({ pedido_compra: '' }).eq('file_name', nombre);
         resultados.push({ file_name: nombre, pedido_compra: '' });
         continue;
       }
@@ -155,16 +168,25 @@ Deno.serve(async (req) => {
         resultados.push({ file_name: nombre, error: 'Imagen no disponible todavía' });
         continue;
       }
-      const texto = await transcribir(apiKey, imagen);
+      const texto = (await transcribir(apiKey, imagen)).trim().slice(0, 20000);
       const pedido = extraerPedido(texto);
-      const { error: errUpd } = await supabase
-        .from('photo_ocr')
-        .update({ pedido_compra: pedido })
-        .eq('file_name', nombre)
-        .or('pedido_compra.is.null,pedido_compra.eq."Sin asignar"');
-      if (errUpd) throw new Error(errUpd.message);
-      console.log(`${nombre} -> ${pedido || '(en blanco)'}`);
-      resultados.push({ file_name: nombre, pedido_compra: pedido });
+
+      // El texto leído por Claude sustituye al OCR del móvil (mucho peor en fotos de cámara).
+      if (texto) {
+        const { error: errTxt } = await supabase.from('photo_ocr').update({ extracted_text: texto }).eq('file_name', nombre);
+        if (errTxt) throw new Error(errTxt.message);
+      }
+      // El pedido solo se graba si seguía pendiente (no se pisa lo que ya tenga).
+      if (pendiente) {
+        const { error: errUpd } = await supabase
+          .from('photo_ocr')
+          .update({ pedido_compra: pedido })
+          .eq('file_name', nombre)
+          .or('pedido_compra.is.null,pedido_compra.eq."Sin asignar"');
+        if (errUpd) throw new Error(errUpd.message);
+      }
+      console.log(`${nombre} -> ${pendiente ? pedido || '(en blanco)' : '(solo texto)'}`);
+      resultados.push({ file_name: nombre, pedido_compra: pendiente ? pedido : fila.pedido_compra });
     } catch (e) {
       console.error(`${nombre}:`, e);
       resultados.push({ file_name: nombre, error: String((e as Error)?.message || e) });
