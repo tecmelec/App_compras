@@ -37,14 +37,19 @@ export async function obtenerFotosAlbaranes(numerosTecmelec: string[]): Promise<
     const base = process.env.ALBARANES_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const clave = process.env.ALBARANES_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
     const cliente = createSupabaseClient(base, clave, { auth: { autoRefreshToken: false, persistSession: false } });
-    const { data, error } = await cliente
-      .from('photo_ocr')
-      .select('file_name, created_at, pedido_compra')
-      .in('pedido_compra', numeros)
-      .order('created_at');
-    if (error || !data) return resultado;
+    // En bloques, para no hacer URLs demasiado largas con muchos pedidos.
+    const data: { file_name: string; created_at: string; pedido_compra: string }[] = [];
+    for (let i = 0; i < numeros.length; i += 100) {
+      const { data: bloque, error } = await cliente
+        .from('photo_ocr')
+        .select('file_name, created_at, pedido_compra')
+        .in('pedido_compra', numeros.slice(i, i + 100))
+        .order('created_at');
+      if (error) return resultado;
+      data.push(...((bloque || []) as typeof data));
+    }
 
-    for (const f of data as { file_name: string; created_at: string; pedido_compra: string }[]) {
+    for (const f of data) {
       if (!/\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.file_name)) continue;
       const clave = (f.pedido_compra || '').trim().toUpperCase();
       (resultado[clave] ||= []).push({

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
 import { idsEfectivos, estadoLineaParaMostrar } from '@/lib/pedidos-utils';
+import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 
 export default async function LineasCompraPage() {
   const supabase = createClient();
@@ -84,6 +85,9 @@ export default async function LineasCompraPage() {
     }))
   );
 
+  // Fotos de albaranes (Alb. Tecmelec) de los Pedidos Tecmelec que aparecen en la tabla.
+  const fotosPorPedido = await obtenerFotosAlbaranes(filas.map((f) => f.numero_tecmelec || ''));
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Líns. compras</h1>
@@ -94,6 +98,7 @@ export default async function LineasCompraPage() {
       ) : (
         <LineasComprasClient
           filas={filas}
+          fotosPorPedido={fotosPorPedido}
           mostrarPrecios={['comprador', 'responsable', 'admin'].includes(perfil?.rol || '')}
         />
       )}

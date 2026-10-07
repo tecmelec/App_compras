@@ -5,6 +5,8 @@ import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
 import EstadoBadge from '@/components/EstadoBadge';
+import VerAlbaranBoton from '@/components/VerAlbaranBoton';
+import type { FotoAlbaran } from '@/lib/fotos-albaranes';
 import ExportarExcelBoton, { type ColumnaExcel } from '@/components/ExportarExcelBoton';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 import {
@@ -88,11 +90,15 @@ type CampoOrden =
 export default function LineasComprasClient({
   filas,
   mostrarPrecios = false,
+  fotosPorPedido = {},
 }: {
   filas: LineaFila[];
+  // Fotos de albaranes por Nº Pedido Tecmelec (en mayúsculas).
+  fotosPorPedido?: Record<string, FotoAlbaran[]>;
   // Precio unitario e importe: solo para comprador, responsable y admin.
   mostrarPrecios?: boolean;
 }) {
+  const fotosDe = (numero: string | null | undefined) => fotosPorPedido[(numero || '').trim().toUpperCase()] || [];
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [columnaAbierta, setColumnaAbierta] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ campo: CampoOrden; asc: boolean } | null>(null);
@@ -278,6 +284,12 @@ export default function LineasComprasClient({
               ancho: 14,
             },
             { titulo: 'Estado', valor: (f) => f.estado_recepcion, ancho: 20 },
+            {
+              titulo: 'Fotos albarán',
+              valor: (f) => fotosDe(f.numero_tecmelec).length || null,
+              formato: 'numero',
+              ancho: 14,
+            },
           ]}
         />
       </div>
@@ -539,12 +551,14 @@ export default function LineasComprasClient({
                   ))}
                 </div>
               </ColumnaFiltroOrden>
+
+              <th className="px-4 py-3 font-medium whitespace-nowrap">Fotos Albaranes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-borde">
             {ordenadas.length === 0 ? (
               <tr>
-                <td colSpan={mostrarPrecios ? 11 : 9} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={mostrarPrecios ? 12 : 10} className="px-4 py-6 text-center text-slate text-sm">
                   No hay líneas que coincidan con los filtros.
                 </td>
               </tr>
@@ -599,6 +613,13 @@ export default function LineasComprasClient({
                   <td className="px-4 py-3">
                     <EstadoBadge estado={f.estado_recepcion || undefined} />
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {f.numero_tecmelec && fotosDe(f.numero_tecmelec).length > 0 ? (
+                      <VerAlbaranBoton numeroTecmelec={f.numero_tecmelec} fotos={fotosDe(f.numero_tecmelec)} />
+                    ) : (
+                      <span className="text-slate">—</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
@@ -615,7 +636,7 @@ export default function LineasComprasClient({
                   )}{' '}
                   €
                 </td>
-                <td colSpan={4} />
+                <td colSpan={5} />
               </tr>
             </tfoot>
           )}
