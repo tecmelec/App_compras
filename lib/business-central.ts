@@ -295,9 +295,16 @@ export async function obtenerJefeObraProyectoBC(
   }
   const baseUsuarios = urlServicioBC(servicioUsuarios);
   const filtroUsuario = `User_Name eq '${userName.replace(/'/g, "''")}'`;
-  const usuarios: { User_Security_ID?: string }[] = await consultarBC(
-    `${baseUsuarios}?$filter=${encodeURIComponent(filtroUsuario)}&$select=User_Security_ID,User_Name`
-  );
+  let usuarios: { User_Security_ID?: string }[];
+  try {
+    usuarios = await consultarBC(
+      `${baseUsuarios}?$filter=${encodeURIComponent(filtroUsuario)}&$select=User_Security_ID,User_Name`
+    );
+  } catch (e: any) {
+    throw new Error(
+      `${e.message} — servicio web '${servicioUsuarios}' en el entorno de BC '${process.env.BC_ENVIRONMENT}', empresa '${process.env.BC_COMPANY_NAME}' (jefe de obra leído: ${userName}).`
+    );
+  }
   const userSecurityId = (usuarios?.[0]?.User_Security_ID || '').replace(/^\{|\}$/g, '').toLowerCase() || null;
   return { userName, userSecurityId };
 }
