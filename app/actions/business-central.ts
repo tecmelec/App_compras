@@ -11,6 +11,7 @@ import {
   obtenerProveedoresBC,
   obtenerPedidosCompraBC,
   obtenerLineasPedidoCompraBC,
+  obtenerItemBC,
   obtenerCrudoBC,
   obtenerCrudoBCFiltrado,
   crearPedidoCompraBC,
@@ -226,6 +227,61 @@ function calcularEstadoRecepcion(cantidadPedida: number, cantidadRecibida: numbe
   return 'Recibido';
 }
 
+// Incorpora a la solicitud una línea que se añadió directamente en el pedido de
+// compra de BC (no se pidió desde la app). Si el artículo no existe en la app se crea
+// oculto (visible = false), como al asignar artículos de una lista de materiales.
+async function incorporarLineaAnadidaEnBC(
+  pedidoId: string,
+  documentNo: string,
+  linea: { No: string; Quantity: number; Quantity_Received: number; Expected_Receipt_Date: string | null; Line_Amount: number },
+  opciones: { proveedorId: string | null; estadoId: number | null }
+): Promise<{ error?: string }> {
+  if (!Number.isInteger(linea.Quantity)) {
+    return { error: `La línea "${linea.No}" de ${documentNo} tiene cantidad con decimales (${linea.Quantity}): no se ha incorporado a la solicitud.` };
+  }
+  const admin = createAdminClient();
+  let { data: producto } = await admin.from('productos').select('id').eq('bc_item_no', linea.No).maybeSingle();
+  if (!producto) {
+    let item;
+    try {
+      item = await obtenerItemBC(linea.No);
+    } catch (e: any) {
+      return { error: `No se pudo leer el artículo "${linea.No}" en BC: ${e.message || ''}` };
+    }
+    const categoria = (item?.Item_Category_Code || '').trim();
+    const { data: nuevo, error } = await admin
+      .from('productos')
+      .insert({
+        bc_item_no: linea.No,
+        nombre: item?.Description || linea.No,
+        unidad_medida: item?.Base_Unit_of_Measure || null,
+        precio: item?.Unit_Price || 0,
+        multiplo_compra: item?.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1,
+        visible: false,
+        ...(categoria ? { categoria } : {}),
+      })
+      .select('id')
+      .single();
+    if (error || !nuevo) return { error: `No se pudo dar de alta el artículo "${linea.No}" en la app: ${error?.message || ''}` };
+    producto = nuevo;
+  }
+
+  const { error } = await admin.from('pedido_items').insert({
+    pedido_id: pedidoId,
+    producto_id: producto.id,
+    cantidad: linea.Quantity,
+    numero_tecmelec: documentNo,
+    proveedor_id: opciones.proveedorId,
+    precio_unitario: linea.Quantity > 0 ? Number((linea.Line_Amount / linea.Quantity).toFixed(5)) : null,
+    fecha_estimada_entrega: linea.Expected_Receipt_Date ? linea.Expected_Receipt_Date.slice(0, 10) : null,
+    estado_recepcion: calcularEstadoRecepcion(linea.Quantity, linea.Quantity_Received),
+    ...(opciones.estadoId ? { estado_id: opciones.estadoId } : {}),
+    anadida_en_bc: true,
+  });
+  if (error) return { error: `No se pudo incorporar la línea "${linea.No}" de ${documentNo}: ${error.message}` };
+  return {};
+}
+
 // Núcleo de la sincronización de un pedido, independiente de quién lo invoque
 // (botón manual con el cliente de sesión del comprador, o el cron con el
 // cliente admin). No hace comprobaciones de autenticación: eso lo decide
@@ -268,7 +324,7 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
 
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('id, numero_tecmelec, estado_id, estado_recepcion, cantidad, productos(bc_item_no)')
+    .select('id, numero_tecmelec, estado_id, estado_recepcion, cantidad, cantidad_original, cantidad_antes_bc, productos(bc_item_no)')
     .eq('pedido_id', pedidoId);
 
   let actualizados = 0;
@@ -310,6 +366,37 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     // actualiza únicamente lo suyo.
     const itemsDeEstePedido = (items || []).filter((item: any) => item.numero_tecmelec === pedidoBC.No);
 
+    // --- Emparejar líneas de la app con líneas de BC ----------------------------------
+    // 1º por artículo + cantidad exacta. 2º, para las que no casan, por artículo si en
+    // este pedido hay UNA sola línea libre de BC y UNA sola línea de la app con ese
+    // código: es la misma línea con la cantidad cambiada en BC. Si hay varias del
+    // mismo artículo no se adivina (aviso). Las líneas anuladas en la app también se
+    // emparejan, para no tomarlas por líneas nuevas, pero no se actualizan.
+    const lineasArticuloBC = lineasBC
+      .map((l, idx) => ({ l, idx }))
+      .filter(({ l }) => l.No && l.Quantity > 0 && (!(l as any).Type || (l as any).Type === 'Item'));
+    const usadas = new Set<number>();
+    const pareja = new Map<string, (typeof lineasBC)[number]>();
+    for (const item of itemsDeEstePedido) {
+      const bcItemNo = item.productos?.bc_item_no;
+      const c = lineasArticuloBC.find(({ l, idx }) => !usadas.has(idx) && l.No === bcItemNo && l.Quantity === item.cantidad);
+      if (c) {
+        usadas.add(c.idx);
+        pareja.set(item.id, c.l);
+      }
+    }
+    for (const item of itemsDeEstePedido) {
+      if (pareja.has(item.id)) continue;
+      const bcItemNo = item.productos?.bc_item_no;
+      if (!bcItemNo) continue;
+      const libresBC = lineasArticuloBC.filter(({ l, idx }) => !usadas.has(idx) && l.No === bcItemNo);
+      const sinParejaApp = itemsDeEstePedido.filter((i: any) => !pareja.has(i.id) && i.productos?.bc_item_no === bcItemNo);
+      if (libresBC.length === 1 && sinParejaApp.length === 1) {
+        usadas.add(libresBC[0].idx);
+        pareja.set(item.id, libresBC[0].l);
+      }
+    }
+
     for (const item of itemsDeEstePedido) {
       const cambios: Record<string, any> = {};
       if (proveedorId) cambios.proveedor_id = proveedorId;
@@ -322,15 +409,26 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
         }
       }
 
-      // Estado de recepción: se cruza por artículo BC (bc_item_no) + cantidad exacta,
-      // ya que Document_No por sí solo no identifica una línea concreta.
       if (item.estado_recepcion !== 'Anulado') {
         const bcItemNo = item.productos?.bc_item_no;
-        const lineaBC = bcItemNo
-          ? lineasBC.find((l) => l.No === bcItemNo && l.Quantity === item.cantidad)
-          : undefined;
+        const lineaBC = pareja.get(item.id);
 
         if (lineaBC) {
+          // Cantidad: una vez vinculada, BC manda. Se guarda la que había en la app
+          // antes del primer cambio hecho en BC, para mostrar el historial.
+          if (lineaBC.Quantity !== item.cantidad) {
+            if (Number.isInteger(lineaBC.Quantity)) {
+              cambios.cantidad = lineaBC.Quantity;
+              if (item.cantidad_antes_bc == null) cambios.cantidad_antes_bc = item.cantidad;
+              if (item.cantidad_original == null) cambios.cantidad_original = item.cantidad;
+            } else {
+              avisar(
+                avisos,
+                `La cantidad de "${bcItemNo}" en ${pedidoBC.No} es ${lineaBC.Quantity} (con decimales): la app solo admite cantidades enteras y no se ha cambiado.`
+              );
+            }
+          }
+
           const recepcionNueva = calcularEstadoRecepcion(lineaBC.Quantity, lineaBC.Quantity_Received);
           const ordenActual = ORDEN_RECEPCION[item.estado_recepcion || ''] ?? -1;
           const ordenNuevo = ORDEN_RECEPCION[recepcionNueva];
@@ -367,6 +465,36 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
           console.log(
             `[sincronizarPedidoConBC ${numeroApp}] Línea ${item.id} de ${pedidoBC.No} actualizada: ${JSON.stringify(cambios)}`
           );
+        }
+      }
+    }
+
+    // --- Líneas añadidas directamente en BC ------------------------------------------
+    // Las líneas de artículo de este pedido de compra que no corresponden a ninguna
+    // línea de la app se incorporan a la solicitud, marcadas como añadidas en BC.
+    // Si la solicitud tiene una línea del mismo artículo aún sin vincular a ningún
+    // pedido de compra, no se crea (podría ser la misma, vinculada a mano): se avisa.
+    if (!errorLineas) {
+      for (const { l, idx } of lineasArticuloBC) {
+        if (usadas.has(idx)) continue;
+        const posibleMisma = (items || []).some(
+          (i: any) => !i.numero_tecmelec && i.productos?.bc_item_no === l.No && i.estado_recepcion !== 'Anulado'
+        );
+        if (posibleMisma) {
+          avisar(
+            avisos,
+            `La línea "${l.No}" x${l.Quantity} de ${pedidoBC.No} no está en la app vinculada a ese pedido, pero la solicitud tiene una línea de ese artículo sin Nº de pedido: revísala (no se ha añadido para no duplicarla).`
+          );
+          continue;
+        }
+        const resultado = await incorporarLineaAnadidaEnBC(pedidoId, pedidoBC.No, l, {
+          proveedorId,
+          estadoId: estadoNuevo?.id ?? null,
+        });
+        if (resultado.error) avisar(avisos, resultado.error);
+        else {
+          actualizados++;
+          avisar(avisos, `Línea "${l.No}" x${l.Quantity} añadida directamente en BC (${pedidoBC.No}): incorporada a la solicitud.`);
         }
       }
     }

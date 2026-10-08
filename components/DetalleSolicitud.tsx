@@ -8,6 +8,7 @@ import EstadoBadge from '@/components/EstadoBadge';
 import ContactarComprasBoton from '@/components/ContactarComprasBoton';
 import SeguirPedidoToggle from '@/components/SeguirPedidoToggle';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
+import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import VerAlbaranBoton from '@/components/VerAlbaranBoton';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
@@ -50,7 +51,7 @@ export default async function DetalleSolicitud({
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -375,6 +376,7 @@ export default async function DetalleSolicitud({
                     {item.productos?.descripcion && (
                       <p className="text-xs text-slate mt-0.5">{item.productos.descripcion}</p>
                     )}
+                    {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-1" />}
                   </div>
                   <div className="text-xs text-slate w-36">
                     <p className="text-slate/70 mb-0.5">Fecha estimada de entrega</p>
@@ -392,6 +394,7 @@ export default async function DetalleSolicitud({
                           cantidadOriginal: item.cantidad_original,
                           cantidadAprobador: item.cantidad_aprobador,
                           modificadaPorComprador: !!item.cantidad_modificada_por_comprador,
+                          cantidadAntesBC: item.cantidad_antes_bc ?? null,
                         }}
                         unidad={item.productos?.unidad_medida || 'ud.'}
                         perspectiva={esSolicitante ? 'solicitante' : 'comprador'}

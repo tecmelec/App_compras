@@ -7,6 +7,7 @@ import { actualizarPedido, actualizarLineasTecmelec } from '@/app/actions/pedido
 import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
+import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 type Estado = { id: number; nombre: string };
@@ -20,6 +21,8 @@ type ItemForm = {
   cantidadOriginal?: number | null;
   cantidadAprobador?: number | null;
   modificadaPorComprador?: boolean;
+  cantidadAntesBC?: number | null;
+  anadidaEnBC?: boolean;
   rechazadaPorAprobador?: boolean;
   unidad?: string;
   multiplo?: number;
@@ -420,6 +423,7 @@ function ItemFila({
           </div>
           <div>
             <p className="text-sm font-medium text-grafito">{item.nombre}</p>
+            {item.anadidaEnBC && <AnadidaEnBCBadge className="mt-0.5" />}
             <div className="font-mono text-slate text-xs mt-0.5 flex items-center gap-0.5">
               {!item.rechazadaPorAprobador && (
                 <CantidadModificadaAviso
@@ -428,6 +432,7 @@ function ItemFila({
                     cantidadOriginal: item.cantidadOriginal ?? null,
                     cantidadAprobador: item.cantidadAprobador ?? null,
                     modificadaPorComprador: !!item.modificadaPorComprador,
+                    cantidadAntesBC: item.cantidadAntesBC ?? null,
                   }}
                   unidad={item.unidad || 'ud.'}
                   perspectiva="comprador"

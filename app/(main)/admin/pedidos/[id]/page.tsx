@@ -1,3 +1,4 @@
+import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
@@ -19,7 +20,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
        solicitante:profiles!pedidos_usuario_id_fkey(nombre_completo, email),
        comprador:profiles!pedidos_comprador_id_fkey(nombre_completo, email),
        responsable:profiles!pedidos_responsable_id_fkey(nombre_completo, email),
-       pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, productos(nombre, precio))`
+       pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, anadida_en_bc, productos(nombre, precio))`
     )
     .eq('id', params.id)
     .single();
@@ -93,7 +94,10 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
       <div className="bg-white border border-borde rounded-lg divide-y divide-borde mb-2">
         {p.pedido_items.map((item: any, idx: number) => (
           <div key={idx} className="flex items-center justify-between p-4 text-sm">
-            <p className="text-grafito">{item.productos?.nombre || 'Producto no disponible'}</p>
+            <div>
+              <p className="text-grafito">{item.productos?.nombre || 'Producto no disponible'}</p>
+              {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-0.5" />}
+            </div>
             <p className="font-mono text-slate">{item.numero_tecmelec || '—'}</p>
             <p className="text-xs text-slate">
               {item.fecha_estimada_entrega

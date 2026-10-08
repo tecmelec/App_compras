@@ -1,3 +1,4 @@
+import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
@@ -14,7 +15,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, precio_unitario, productos(nombre, precio, unidad_medida, multiplo_compra))'
+      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, anadida_en_bc, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, precio_unitario, productos(nombre, precio, unidad_medida, multiplo_compra))'
     )
     .eq('id', params.id)
     .single();
@@ -105,9 +106,12 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
                     item.rechazada_por_aprobador ? 'bg-[#FBF3F3]' : ''
                   }`}
                 >
-                  <p className={item.rechazada_por_aprobador ? 'text-slate line-through' : 'text-grafito'}>
-                    {item.productos?.nombre || 'Producto no disponible'}
-                  </p>
+                  <div>
+                    <p className={item.rechazada_por_aprobador ? 'text-slate line-through' : 'text-grafito'}>
+                      {item.productos?.nombre || 'Producto no disponible'}
+                    </p>
+                    {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-0.5" />}
+                  </div>
                   <p className="font-mono text-slate">{item.numero_tecmelec || '—'}</p>
                   <p className="text-xs text-slate">
                     {item.fecha_estimada_entrega

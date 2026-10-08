@@ -46,13 +46,14 @@ export default async function ListaFotoInforme({
 
   const { data: items } = await admin
     .from('pedido_items')
-    .select('producto_id, cantidad, rechazada_por_aprobador, numero_tecmelec, productos(nombre, unidad_medida, multiplo_compra)')
+    .select('producto_id, cantidad, rechazada_por_aprobador, numero_tecmelec, anadida_en_bc, productos(nombre, unidad_medida, multiplo_compra)')
     .eq('pedido_id', pedidoId);
 
   // Cantidad actual por producto (sin líneas rechazadas) y productos rechazados.
   const cantidadPorProducto = new Map<string, number>();
   const rechazados = new Set<string>();
   const enPedidoCompra = new Set<string>();
+  const anadidosEnBC = new Set<string>();
   const infoProducto = new Map<string, { nombre: string; unidad: string; multiplo: number }>();
   for (const it of (items || []) as any[]) {
     infoProducto.set(it.producto_id, {
@@ -61,6 +62,7 @@ export default async function ListaFotoInforme({
       multiplo: it.productos?.multiplo_compra || 1,
     });
     if (it.numero_tecmelec) enPedidoCompra.add(it.producto_id);
+    if (it.anadida_en_bc) anadidosEnBC.add(it.producto_id);
     if (it.rechazada_por_aprobador) {
       rechazados.add(it.producto_id);
     } else {
@@ -276,6 +278,7 @@ export default async function ListaFotoInforme({
                 <span className="text-xs text-slate font-mono">
                   x{fmt(cantidad)} {infoProducto.get(id)?.unidad}
                 </span>
+                {anadidosEnBC.has(id) && <span className="text-xs text-[#2F6690] ml-1.5">· añadida en BC</span>}
               </li>
             ))}
           </ul>
