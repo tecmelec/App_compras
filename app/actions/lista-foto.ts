@@ -183,7 +183,7 @@ export async function asignarArticuloLineaListaFoto(datos: {
   if (cantidad % multiplo !== 0) return { error: `La cantidad debe ser múltiplo de ${multiplo}.` };
 
   const precio = esCompras && datos.precio != null && Number.isFinite(Number(datos.precio)) ? Number(datos.precio) : null;
-  if (precio != null && precio < 0) return { error: 'El precio no puede ser negativo.' };
+  if (esCompras && !(precio != null && precio > 0)) return { error: 'Indica un precio mayor que 0.' };
 
   const { error: errorItem } = await admin.from('pedido_items').insert({
     pedido_id: pedido.id,

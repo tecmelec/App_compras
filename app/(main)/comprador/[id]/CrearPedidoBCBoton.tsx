@@ -22,6 +22,7 @@ type Previa = {
   grupos: Grupo[];
   sinProveedor: string[];
   sinCodigoBC: string[];
+  sinPrecio: string[];
   yaVinculadas: string[];
 };
 
@@ -162,6 +163,12 @@ export default function CrearPedidoBCBoton({
                 {previa.sinCodigoBC.length > 0 && (
                   <p className="text-xs text-slate bg-fondo border border-borde rounded-md px-3 py-2 mb-2">
                     ⚠ Sin código de artículo BC, no se incluyen: {previa.sinCodigoBC.join(', ')}
+                  </p>
+                )}
+                {previa.sinPrecio.length > 0 && (
+                  <p className="text-xs text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2 mb-2">
+                    ⚠ Sin precio (0 €), no se incluyen: {previa.sinPrecio.join(', ')}. Indica el precio en la línea y guarda
+                    antes de crear su pedido.
                   </p>
                 )}
                 {previa.yaVinculadas.length > 0 && (

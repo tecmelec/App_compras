@@ -148,7 +148,7 @@ function Modal({
       : cantidadNum % multiplo !== 0
         ? `Debe ser múltiplo de ${multiplo}.`
         : null;
-  const errorPrecio = conPrecio && datos && (precio.trim() === '' || !(Number(precio.replace(',', '.')) >= 0)) ? 'Indica un precio válido.' : null;
+  const errorPrecio = conPrecio && datos && !(Number(precio.replace(',', '.')) > 0) ? 'Indica un precio mayor que 0.' : null;
 
   async function guardar() {
     if (!datos || errorCantidad || errorPrecio) return;

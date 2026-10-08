@@ -643,6 +643,7 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
 
   const sinProveedor: any[] = [];
   const sinCodigoBC: any[] = [];
+  const sinPrecio: any[] = [];
   const yaVinculadas: any[] = [];
   const grupos = new Map<string, any[]>();
 
@@ -657,6 +658,12 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
     }
     if (!item.productos?.bc_item_no) {
       sinCodigoBC.push(item);
+      continue;
+    }
+    // Una línea con coste 0 no se carga a un pedido de compra: el comprador
+    // tiene que indicar antes su precio.
+    if (!(Number(item.precio_unitario ?? item.productos?.precio ?? 0) > 0)) {
+      sinPrecio.push(item);
       continue;
     }
     if (!grupos.has(item.proveedor_id)) grupos.set(item.proveedor_id, []);
@@ -709,6 +716,7 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
     grupos: gruposFinal,
     sinProveedor: sinProveedor.map((i) => i.productos?.nombre),
     sinCodigoBC: sinCodigoBC.map((i) => i.productos?.nombre),
+    sinPrecio: sinPrecio.map((i) => i.productos?.nombre),
     yaVinculadas: yaVinculadas.map((i) => i.productos?.nombre),
   };
 }
@@ -881,7 +889,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
   const previa = await agruparPorProveedorParaBC(supabase, pedidoId);
 
   if (previa.grupos.length === 0) {
-    return { error: 'No hay artículos listos para crear un pedido de compra (revisa proveedor y código BC).' };
+    return { error: 'No hay artículos listos para crear un pedido de compra (revisa proveedor, código BC y precio).' };
   }
 
   const creados: { proveedor: string; documentNo: string }[] = [];
