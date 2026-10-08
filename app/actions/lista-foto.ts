@@ -250,3 +250,74 @@ export async function asignarArticuloLineaListaFoto(datos: {
   }
   return { success: true };
 }
+
+// Rechazar una línea de la lista en foto: si está pendiente (sin artículo), queda
+// marcada como rechazada; si ya tiene artículo en la solicitud, su línea se rechaza
+// (rechazada_por_aprobador, no se pedirá) siempre que no esté en un pedido de compra.
+export async function rechazarLineaListaFoto(listaId: string, n: number) {
+  const { supabase, user, perfil } = await perfilActual();
+  if (!user || !perfil?.activo || !ROLES_ASIGNAR.includes(perfil.rol)) return { error: 'No autorizado.' };
+
+  const admin = createAdminClient();
+  const { data: lista } = await admin.from('listas_foto').select('id, pedido_id, lineas').eq('id', listaId).single();
+  if (!lista?.pedido_id) return { error: 'La lista no está vinculada a ninguna solicitud.' };
+
+  const { data: pedido } = await supabase
+    .from('pedidos')
+    .select('id, estado_general, aprobado')
+    .eq('id', lista.pedido_id)
+    .single();
+  if (!pedido) return { error: 'No tienes acceso a esta solicitud.' };
+  if (pedido.estado_general === 'Anulado' || pedido.aprobado === false) {
+    return { error: 'La solicitud está anulada o rechazada.' };
+  }
+
+  const lineas = (lista.lineas || []) as any[];
+  const linea = lineas.find((l) => l.n === n);
+  if (!linea) return { error: 'No se encontró la línea de la lista.' };
+  if (linea.rechazada) return { error: 'La línea ya está rechazada.' };
+
+  if (linea.producto_id) {
+    const { data: items } = await admin
+      .from('pedido_items')
+      .select('id, numero_tecmelec, rechazada_por_aprobador')
+      .eq('pedido_id', pedido.id)
+      .eq('producto_id', linea.producto_id);
+    const activas = (items || []).filter((it) => !it.rechazada_por_aprobador);
+    if (activas.some((it) => it.numero_tecmelec)) {
+      return { error: 'Este artículo ya está en un pedido de compra: no se puede rechazar.' };
+    }
+    if (activas.length > 0) {
+      const { error } = await admin
+        .from('pedido_items')
+        .update({ rechazada_por_aprobador: true })
+        .in(
+          'id',
+          activas.map((it) => it.id)
+        );
+      if (error) return { error: 'No se pudo rechazar la línea de la solicitud.' };
+    }
+  }
+
+  const nuevasLineas = lineas.map((l) =>
+    l.n === n
+      ? { ...l, rechazada: { por_id: user.id, por_nombre: perfil.nombre_completo, rol: perfil.rol, en: new Date().toISOString() } }
+      : l
+  );
+  await admin.from('listas_foto').update({ lineas: nuevasLineas }).eq('id', lista.id);
+
+  const { data: itemsFinal } = await admin
+    .from('pedido_items')
+    .select('cantidad, precio_unitario, rechazada_por_aprobador, productos(precio)')
+    .eq('pedido_id', pedido.id);
+  const total = (itemsFinal || [])
+    .filter((it: any) => !it.rechazada_por_aprobador)
+    .reduce((s: number, it: any) => s + (it.precio_unitario ?? it.productos?.precio ?? 0) * it.cantidad, 0);
+  await admin.from('pedidos').update({ total_estimado: Number(total.toFixed(2)) }).eq('id', pedido.id);
+  await recalcularEstadoGeneral(admin, pedido.id);
+
+  for (const ruta of ['/comprador', '/responsable', '/admin/pedidos', '/mis-pedidos', '/lineas-compras']) {
+    revalidatePath(`${ruta}/${pedido.id}`);
+  }
+  return { success: true };
+}

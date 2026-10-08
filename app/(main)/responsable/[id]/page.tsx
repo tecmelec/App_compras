@@ -1,3 +1,4 @@
+import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
@@ -22,6 +23,8 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
 
   const p = pedido as any;
   const pendiente = p.requiere_aprobacion && p.aprobado === null;
+  // Lista en foto: no se puede aprobar mientras queden líneas sin artículo ni rechazar.
+  const sinResolver = pendiente ? await lineasListaFotoSinResolver(p.id) : [];
 
   return (
     <div className="p-8 max-w-2xl">
@@ -76,6 +79,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
         <RevisionAprobacion
           key={(p.pedido_items as any[]).map((i) => i.id).join(',')}
           pedidoId={p.id}
+          lineasListaSinResolver={sinResolver.length}
           lineas={p.pedido_items.map((item: any) => ({
             id: item.id,
             nombre: item.productos?.nombre || 'Producto no disponible',

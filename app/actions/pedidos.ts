@@ -8,6 +8,7 @@ import { sincronizarFechasConBC } from '@/app/actions/proveedor-fecha-entrega';
 import { despacharPushPendientes } from '@/lib/push';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerJefeObraProyectoBC } from '@/lib/business-central';
+import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -224,6 +225,12 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     responsableBase = perfil.responsable_id;
     requiereAprobacion = puedeElegirComprador ? false : totalEstimado > limite;
   }
+  // Solicitud creada desde una lista en foto: siempre la aprueba el responsable,
+  // sea cual sea el importe (también el propio jefe de obra si la pide él), porque
+  // antes hay que asignar o rechazar las líneas que no estaban en la tienda.
+  // Solo si no hay nadie que pueda aprobarla (admin/responsable sin jefe de obra en la app) no se exige.
+  const desdeFoto = (datos.lista_foto_ids || []).length > 0;
+  if (desdeFoto && responsableBase) requiereAprobacion = true;
   const responsableEfectivo =
     responsableBase === user.id ? user.id : await resolverSustituto(responsableBase);
 
@@ -494,6 +501,18 @@ export async function aprobarSolicitudConCambios(
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Debes iniciar sesión.' };
 
+  // Lista en foto: no se puede aprobar con líneas sin artículo ni rechazar (sí se puede
+  // rechazar la solicitud entera).
+  const rechazaTodo = lineas.length > 0 && lineas.every((l) => l.rechazada);
+  if (!rechazaTodo) {
+    const sinResolver = await lineasListaFotoSinResolver(pedidoId);
+    if (sinResolver.length > 0) {
+      return {
+        error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista en foto: ${sinResolver.join(', ')}.`,
+      };
+    }
+  }
+
   const { data, error } = await supabase.rpc('aprobar_solicitud_con_cambios', {
     p_pedido_id: pedidoId,
     p_lineas: lineas,
@@ -518,6 +537,15 @@ export async function responderAprobacion(pedidoId: string, aprobado: boolean) {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Debes iniciar sesión.' };
+
+  if (aprobado) {
+    const sinResolver = await lineasListaFotoSinResolver(pedidoId);
+    if (sinResolver.length > 0) {
+      return {
+        error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista en foto: ${sinResolver.join(', ')}.`,
+      };
+    }
+  }
 
   const { error } = await supabase
     .from('pedidos')

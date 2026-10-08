@@ -20,7 +20,16 @@ type Cambio = { cantidad: string; rechazada: boolean };
 
 // Revisión del responsable: puede aprobar la solicitud tal cual, cambiar
 // cantidades o rechazar líneas sueltas antes de aprobar, o rechazarla entera.
-export default function RevisionAprobacion({ pedidoId, lineas }: { pedidoId: string; lineas: LineaRevision[] }) {
+export default function RevisionAprobacion({
+  pedidoId,
+  lineas,
+  lineasListaSinResolver = 0,
+}: {
+  pedidoId: string;
+  lineas: LineaRevision[];
+  // Lista en foto: líneas sin artículo ni rechazar (bloquean la aprobación, no el rechazo)
+  lineasListaSinResolver?: number;
+}) {
   const router = useRouter();
   const [cambios, setCambios] = useState<Record<string, Cambio>>(() =>
     Object.fromEntries(lineas.map((l) => [l.id, { cantidad: String(l.cantidad), rechazada: false }]))
@@ -238,7 +247,18 @@ export default function RevisionAprobacion({ pedidoId, lineas }: { pedidoId: str
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap">
-            <button onClick={aprobar} disabled={enviando || hayErrores} className="btn-aprobar">
+            {lineasListaSinResolver > 0 && !todasRechazadas && (
+              <p className="w-full text-sm text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2">
+                Esta solicitud viene de una lista en foto y tiene {lineasListaSinResolver}{' '}
+                {lineasListaSinResolver === 1 ? 'línea pendiente' : 'líneas pendientes'}. Asígnales un artículo o recházalas
+                en la sección &quot;Lista en foto&quot; (más abajo) para poder aprobarla.
+              </p>
+            )}
+            <button
+              onClick={aprobar}
+              disabled={enviando || hayErrores || (lineasListaSinResolver > 0 && !todasRechazadas)}
+              className="btn-aprobar"
+            >
               {enviando
                 ? 'Guardando…'
                 : todasRechazadas

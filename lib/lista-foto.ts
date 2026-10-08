@@ -233,3 +233,22 @@ Responde SOLO con JSON:
     };
   });
 }
+
+// Líneas de las listas en foto de una solicitud que siguen sin resolver: sin artículo
+// en la solicitud y sin rechazar. Mientras haya alguna, la solicitud no se puede aprobar.
+export async function lineasListaFotoSinResolver(pedidoId: string): Promise<string[]> {
+  const admin = createAdminClient();
+  const { data: listas } = await admin.from('listas_foto').select('lineas').eq('pedido_id', pedidoId);
+  if (!listas || listas.length === 0) return [];
+  const { data: items } = await admin.from('pedido_items').select('producto_id').eq('pedido_id', pedidoId);
+  const productos = new Set((items || []).map((i) => i.producto_id));
+  const pendientes: string[] = [];
+  for (const lista of listas) {
+    for (const l of (lista.lineas || []) as LineaLista[]) {
+      if (l.rechazada) continue;
+      if (l.producto_id && productos.has(l.producto_id)) continue;
+      pendientes.push(l.texto);
+    }
+  }
+  return pendientes;
+}

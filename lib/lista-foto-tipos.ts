@@ -34,6 +34,8 @@ export type LineaLista = {
     bc_item_no: string;
     nombre: string;
   } | null;
+  // Línea rechazada por el responsable o por Compras desde el detalle de la solicitud
+  rechazada?: { por_id: string; por_nombre: string; rol: string; en: string } | null;
 };
 
 // --- Redondeo al múltiplo -----------------------------------------------------------

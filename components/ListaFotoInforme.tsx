@@ -3,6 +3,7 @@ import { BUCKET_LISTAS_FOTO } from '@/lib/lista-foto';
 import type { LineaLista } from '@/lib/lista-foto-tipos';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 import AsignarArticuloLista from '@/components/AsignarArticuloLista';
+import RechazarLineaLista from '@/components/RechazarLineaLista';
 
 // Foto de la lista de materiales y el informe de lo escrito frente a lo que lleva la
 // solicitud AHORA (enviado tal cual, modificado o pendiente). Se calcula con las líneas
@@ -10,10 +11,11 @@ import AsignarArticuloLista from '@/components/AsignarArticuloLista';
 // Solo se monta en páginas que ya han comprobado (con RLS) el acceso a la solicitud.
 
 type Estado = {
-  tipo: 'enviado' | 'modificado' | 'pendiente' | 'asignado';
+  tipo: 'enviado' | 'modificado' | 'pendiente' | 'asignado' | 'rechazada';
   detalle: string;
   asignable?: boolean;
   reasignable?: boolean;
+  rechazable?: boolean;
 };
 
 function fmt(n: number | null | undefined) {
@@ -84,11 +86,20 @@ export default async function ListaFotoInforme({
         const escrita = productoId === l.producto_propuesto_id ? l.cantidad_producto : l.cantidad_escrita;
 
         let estado: Estado;
-        if (l.asignado && productoId && actual > 0) {
+        const libre = !productoId || !enPedidoCompra.has(productoId); // aún no está en un pedido de compra
+        if (l.rechazada) {
+          estado = {
+            tipo: 'rechazada',
+            detalle: `Por ${l.rechazada.por_nombre} el ${new Date(l.rechazada.en).toLocaleDateString('es-ES')}`,
+          };
+        } else if (productoId && actual === 0 && rechazados.has(productoId)) {
+          estado = { tipo: 'rechazada', detalle: 'Rechazada por el aprobador.' };
+        } else if (l.asignado && productoId && actual > 0) {
           const fecha = new Date(l.asignado.en).toLocaleDateString('es-ES');
           estado = {
             tipo: 'asignado',
-            reasignable: !enPedidoCompra.has(productoId),
+            reasignable: libre,
+            rechazable: libre,
             detalle: `Por ${l.asignado.por_nombre} el ${fecha} · ${l.asignado.bc_item_no}${
               l.cantidad_carrito != null && actual !== l.cantidad_carrito ? ` · ${fmt(l.cantidad_carrito)} → ${fmt(actual)} ${unidad}` : ''
             }`,
@@ -97,6 +108,7 @@ export default async function ListaFotoInforme({
           estado = {
             tipo: 'pendiente',
             asignable: true,
+            rechazable: true,
             detalle: l.producto_propuesto_id
               ? 'Descartada al revisar la lista.'
               : l.candidatos?.length
@@ -104,13 +116,9 @@ export default async function ListaFotoInforme({
                 : 'No hay nada parecido en la tienda.',
           };
         } else if (actual === 0) {
-          estado = {
-            tipo: 'pendiente',
-            asignable: !rechazados.has(productoId),
-            detalle: rechazados.has(productoId) ? 'Rechazada por el aprobador.' : 'Se quitó del carrito antes de enviar.',
-          };
+          estado = { tipo: 'pendiente', asignable: true, rechazable: true, detalle: 'Se quitó del carrito antes de enviar.' };
         } else if (escrita != null && actual === escrita && productoId === l.producto_propuesto_id) {
-          estado = { tipo: 'enviado', detalle: '' };
+          estado = { tipo: 'enviado', detalle: '', rechazable: libre };
         } else {
           const motivos: string[] = [];
           if (productoId !== l.producto_propuesto_id) motivos.push('artículo elegido al revisar');
@@ -123,7 +131,11 @@ export default async function ListaFotoInforme({
           } else if (escrita == null) {
             motivos.push('sin cantidad en la lista');
           }
-          estado = { tipo: escrita == null && productoId === l.producto_propuesto_id ? 'enviado' : 'modificado', detalle: motivos.join(' · ') };
+          estado = {
+            tipo: escrita == null && productoId === l.producto_propuesto_id ? 'enviado' : 'modificado',
+            detalle: motivos.join(' · '),
+            rechazable: libre,
+          };
         }
         return { l, nombre, unidad, actual, estado };
       });
@@ -140,9 +152,22 @@ export default async function ListaFotoInforme({
     enviado: todas.filter((f) => f.estado.tipo === 'enviado').length,
     modificado: todas.filter((f) => f.estado.tipo === 'modificado').length,
     pendiente: todas.filter((f) => f.estado.tipo === 'pendiente').length,
+    rechazada: todas.filter((f) => f.estado.tipo === 'rechazada').length,
   };
-  const badge = { enviado: 'badge-entregado', modificado: 'badge-proceso', pendiente: 'badge-pendiente', asignado: 'badge-proceso' } as const;
-  const texto = { enviado: 'Enviado', modificado: 'Modificado', pendiente: 'Pendiente', asignado: 'Asignado' } as const;
+  const badge = {
+    enviado: 'badge-entregado',
+    modificado: 'badge-proceso',
+    pendiente: 'badge-pendiente',
+    asignado: 'badge-proceso',
+    rechazada: 'badge-cancelado',
+  } as const;
+  const texto = {
+    enviado: 'Enviado',
+    modificado: 'Modificado',
+    pendiente: 'Pendiente',
+    asignado: 'Asignado',
+    rechazada: 'Rechazada',
+  } as const;
 
   return (
     <section className="bg-white border border-borde rounded-lg p-4 sm:p-5 mt-6">
@@ -151,8 +176,14 @@ export default async function ListaFotoInforme({
         Solicitud creada a partir de una foto de la lista de materiales. {resumen.enviado} enviadas tal cual,{' '}
         {resumen.modificado} modificadas,{' '}
         {resumen.asignado > 0 ? `${resumen.asignado} asignadas después, ` : ''}
+        {resumen.rechazada > 0 ? `${resumen.rechazada} rechazadas, ` : ''}
         {resumen.pendiente} pendientes.
       </p>
+      {resumen.pendiente > 0 && asignar && pedidoAbierto && (
+        <p className="text-xs text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2 mb-4">
+          Para poder aprobar la solicitud, todas las líneas deben tener un artículo asignado o estar rechazadas.
+        </p>
+      )}
 
       {bloques.map((b) => (
         <div key={b.id} className="flex flex-col md:flex-row gap-5 items-start mb-4 last:mb-0">
@@ -211,6 +242,7 @@ export default async function ListaFotoInforme({
                           proveedores={proveedores}
                         />
                       )}
+                      {asignar && pedidoAbierto && estado.rechazable && <RechazarLineaLista listaId={b.id} n={l.n} />}
                     </td>
                   </tr>
                 ))}
