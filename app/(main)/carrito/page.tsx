@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { crearPedido } from '@/app/actions/pedidos';
 import SolicitudModal from './SolicitudModal';
+import { fotosListasCarrito } from '@/app/actions/lista-foto';
 
 function validarCantidad(cantidad: number, multiplo: number): string | null {
   if (!Number.isFinite(cantidad) || cantidad <= 0) return 'Indica una cantidad válida.';
@@ -17,7 +18,7 @@ function validarCantidad(cantidad: number, multiplo: number): string | null {
 }
 
 export default function CarritoPage() {
-  const { items, updateCantidad, removeItem, clear, listasFoto } = useCart();
+  const { items, updateCantidad, removeItem, clear, listasFoto, removeListaFoto } = useCart();
   const [mostrarModal, setMostrarModal] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,12 +74,7 @@ export default function CarritoPage() {
           Crear carrito desde foto
         </Link>
       </div>
-      {listasFoto.length > 0 && items.length > 0 && (
-        <p className="text-xs text-slate -mt-4 mb-4">
-          Este carrito incluye artículos de {listasFoto.length === 1 ? 'una lista en foto' : `${listasFoto.length} listas en foto`}: la
-          foto y su informe irán en la solicitud.
-        </p>
-      )}
+      {listasFoto.length > 0 && items.length > 0 && <FotosDelCarrito ids={listasFoto} onQuitar={removeListaFoto} />}
 
       {items.length === 0 ? (
         <p className="text-slate text-sm">
@@ -175,6 +171,82 @@ export default function CarritoPage() {
           enviando={enviando}
         />
       )}
+    </div>
+  );
+}
+
+// Fotos de listas de materiales vinculadas al carrito: se pueden ver o quitar antes
+// de enviar la solicitud (los artículos del carrito no se tocan).
+function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: string) => void }) {
+  const [listas, setListas] = useState<{ id: string; url: string | null; lineas: number }[] | null>(null);
+  const [confirmar, setConfirmar] = useState<string | null>(null);
+  const clave = ids.join(',');
+
+  useEffect(() => {
+    let vigente = true;
+    fotosListasCarrito(ids).then((r) => {
+      if (!vigente) return;
+      setListas(r.listas);
+      if ('error' in r && r.error) return;
+      // Ids que ya no existen (p. ej. lista borrada o ya enviada): se quitan del carrito.
+      const encontrados = new Set(r.listas.map((l) => l.id));
+      ids.filter((id) => !encontrados.has(id)).forEach(onQuitar);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [clave]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!listas || listas.length === 0) return null;
+
+  return (
+    <div className="bg-white border border-borde rounded-lg p-3 mb-4 space-y-3">
+      <p className="text-xs text-slate">
+        Este carrito incluye artículos de {listas.length === 1 ? 'una lista en foto' : `${listas.length} listas en foto`}: la
+        foto y su informe irán en la solicitud.
+      </p>
+      {listas.map((l) => (
+        <div key={l.id} className="flex items-center gap-3">
+          {l.url ? (
+            <a href={l.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+              <img src={l.url} alt="Lista en foto" className="w-14 h-14 object-cover rounded-md border border-borde" />
+            </a>
+          ) : (
+            <div className="w-14 h-14 bg-fondo rounded-md shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-grafito">Lista en foto</p>
+            <p className="text-xs text-slate">{l.lineas} {l.lineas === 1 ? 'línea' : 'líneas'} leídas</p>
+          </div>
+          {l.url && (
+            <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-marca hover:underline shrink-0">
+              Ver foto
+            </a>
+          )}
+          {confirmar === l.id ? (
+            <span className="text-sm shrink-0">
+              <span className="text-grafito">¿Quitar la foto?</span>{' '}
+              <button
+                onClick={() => {
+                  setConfirmar(null);
+                  onQuitar(l.id);
+                }}
+                className="text-rojo font-medium hover:underline"
+              >
+                Sí
+              </button>{' '}
+              <button onClick={() => setConfirmar(null)} className="text-slate hover:underline">
+                No
+              </button>
+            </span>
+          ) : (
+            <button onClick={() => setConfirmar(l.id)} className="text-sm text-rojo hover:underline shrink-0">
+              Quitar foto
+            </button>
+          )}
+        </div>
+      ))}
+      <p className="text-xs text-slate">Al quitar la foto, los artículos siguen en el carrito; solo se deja de adjuntar la foto y su informe.</p>
     </div>
   );
 }

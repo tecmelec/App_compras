@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { obtenerItemBC } from '@/lib/business-central';
+import { BUCKET_LISTAS_FOTO } from '@/lib/lista-foto';
 import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 
 // Guarda lo que el usuario decidió al revisar la lista (producto y cantidad que
@@ -319,5 +320,47 @@ export async function rechazarLineaListaFoto(listaId: string, n: number) {
   for (const ruta of ['/comprador', '/responsable', '/admin/pedidos', '/mis-pedidos', '/lineas-compras']) {
     revalidatePath(`${ruta}/${pedido.id}`);
   }
+  return { success: true };
+}
+
+// --- Listas en foto del carrito (antes de enviar la solicitud) ----------------------
+
+// Fotos de las listas del carrito del usuario (aún sin solicitud), con URL firmada.
+export async function fotosListasCarrito(ids: string[]) {
+  const { user } = await perfilActual();
+  if (!user || ids.length === 0) return { listas: [] as { id: string; url: string | null; lineas: number }[] };
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('listas_foto')
+    .select('id, imagen_path, lineas')
+    .in('id', ids)
+    .eq('usuario_id', user.id)
+    .is('pedido_id', null);
+  if (error) return { listas: [] as { id: string; url: string | null; lineas: number }[], error: error.message };
+  const listas = await Promise.all(
+    (data || []).map(async (l) => {
+      const { data: firmada } = await admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(l.imagen_path, 60 * 60);
+      return { id: l.id, url: firmada?.signedUrl || null, lineas: ((l.lineas as any[]) || []).length };
+    })
+  );
+  return { listas };
+}
+
+// Quita una lista en foto del carrito: se borra la foto y su registro (solo si es del
+// usuario y aún no se ha enviado en una solicitud). Los artículos del carrito no se tocan.
+export async function descartarListaFoto(id: string) {
+  const { user } = await perfilActual();
+  if (!user) return { error: 'No autenticado.' };
+  const admin = createAdminClient();
+  const { data: lista } = await admin
+    .from('listas_foto')
+    .select('id, imagen_path')
+    .eq('id', id)
+    .eq('usuario_id', user.id)
+    .is('pedido_id', null)
+    .maybeSingle();
+  if (!lista) return { success: true };
+  await admin.storage.from(BUCKET_LISTAS_FOTO).remove([lista.imagen_path]);
+  await admin.from('listas_foto').delete().eq('id', lista.id);
   return { success: true };
 }

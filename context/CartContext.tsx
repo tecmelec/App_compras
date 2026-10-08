@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { descartarListaFoto } from '@/app/actions/lista-foto';
 
 export type CartItem = {
   producto_id: string;
@@ -21,6 +22,7 @@ type CartContextType = {
   // Listas en foto (carrito desde foto) cuyos artículos están en el carrito
   listasFoto: string[];
   addListaFoto: (id: string) => void;
+  removeListaFoto: (id: string) => void;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -102,11 +104,26 @@ export function CartProvider({ userId, children }: { userId: string; children: R
     setListasFoto((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
+  // Quita la foto del carrito y la borra (si aún no se ha enviado en una solicitud).
+  function removeListaFoto(id: string) {
+    setListasFoto((prev) => prev.filter((x) => x !== id));
+    descartarListaFoto(id).catch(() => {});
+  }
+
+  // Si se vacía el carrito quitando artículos, las fotos dejan de tener sentido.
+  useEffect(() => {
+    if (loaded && items.length === 0 && listasFoto.length > 0) {
+      const ids = listasFoto;
+      setListasFoto([]);
+      ids.forEach((id) => descartarListaFoto(id).catch(() => {}));
+    }
+  }, [loaded, items.length, listasFoto]);
+
   // Nº de artículos distintos en el carrito (no la suma de unidades)
   const totalItems = items.length;
 
   return (
-    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto }}>
+    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto }}>
       {children}
     </CartContext.Provider>
   );
