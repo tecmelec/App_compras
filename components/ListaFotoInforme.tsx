@@ -1,19 +1,29 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BUCKET_LISTAS_FOTO } from '@/lib/lista-foto';
 import type { LineaLista } from '@/lib/lista-foto-tipos';
+import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import AsignarArticuloLista from '@/components/AsignarArticuloLista';
 
 // Foto de la lista de materiales y el informe de lo escrito frente a lo que lleva la
 // solicitud AHORA (enviado tal cual, modificado o pendiente). Se calcula con las líneas
 // actuales del pedido, así que refleja también los cambios del aprobador o de Compras.
 // Solo se monta en páginas que ya han comprobado (con RLS) el acceso a la solicitud.
 
-type Estado = { tipo: 'enviado' | 'modificado' | 'pendiente'; detalle: string };
+type Estado = { tipo: 'enviado' | 'modificado' | 'pendiente' | 'asignado'; detalle: string; asignable?: boolean };
 
 function fmt(n: number | null | undefined) {
   return n == null ? '—' : Number(n).toLocaleString('es-ES', { maximumFractionDigits: 3 });
 }
 
-export default async function ListaFotoInforme({ pedidoId }: { pedidoId: string }) {
+// asignar: quién puede asignar un artículo de BC a las líneas pendientes desde esta
+// vista ('responsable': artículo y cantidad; 'compras': además precio y proveedor).
+export default async function ListaFotoInforme({
+  pedidoId,
+  asignar,
+}: {
+  pedidoId: string;
+  asignar?: 'responsable' | 'compras';
+}) {
   const admin = createAdminClient();
   const { data: listas } = await admin
     .from('listas_foto')
@@ -21,6 +31,11 @@ export default async function ListaFotoInforme({ pedidoId }: { pedidoId: string 
     .eq('pedido_id', pedidoId)
     .order('created_at');
   if (!listas || listas.length === 0) return null;
+
+  const { data: pedido } = await admin.from('pedidos').select('estado_general, aprobado').eq('id', pedidoId).single();
+  const pedidoAbierto = !!pedido && pedido.estado_general !== 'Anulado' && pedido.aprobado !== false;
+  const proveedores =
+    asignar === 'compras' ? ((await obtenerTodosLosProveedores(admin)).data as any[]) || [] : [];
 
   const { data: items } = await admin
     .from('pedido_items')
@@ -62,9 +77,18 @@ export default async function ListaFotoInforme({ pedidoId }: { pedidoId: string 
         const escrita = productoId === l.producto_propuesto_id ? l.cantidad_producto : l.cantidad_escrita;
 
         let estado: Estado;
-        if (!productoId) {
+        if (l.asignado && productoId && actual > 0) {
+          const fecha = new Date(l.asignado.en).toLocaleDateString('es-ES');
+          estado = {
+            tipo: 'asignado',
+            detalle: `Por ${l.asignado.por_nombre} el ${fecha} · ${l.asignado.bc_item_no}${
+              l.cantidad_carrito != null && actual !== l.cantidad_carrito ? ` · ${fmt(l.cantidad_carrito)} → ${fmt(actual)} ${unidad}` : ''
+            }`,
+          };
+        } else if (!productoId) {
           estado = {
             tipo: 'pendiente',
+            asignable: true,
             detalle: l.producto_propuesto_id
               ? 'Descartada al revisar la lista.'
               : l.candidatos?.length
@@ -74,6 +98,7 @@ export default async function ListaFotoInforme({ pedidoId }: { pedidoId: string 
         } else if (actual === 0) {
           estado = {
             tipo: 'pendiente',
+            asignable: !rechazados.has(productoId),
             detalle: rechazados.has(productoId) ? 'Rechazada por el aprobador.' : 'Se quitó del carrito antes de enviar.',
           };
         } else if (escrita != null && actual === escrita && productoId === l.producto_propuesto_id) {
@@ -103,19 +128,22 @@ export default async function ListaFotoInforme({ pedidoId }: { pedidoId: string 
 
   const todas = bloques.flatMap((b) => b.filas);
   const resumen = {
+    asignado: todas.filter((f) => f.estado.tipo === 'asignado').length,
     enviado: todas.filter((f) => f.estado.tipo === 'enviado').length,
     modificado: todas.filter((f) => f.estado.tipo === 'modificado').length,
     pendiente: todas.filter((f) => f.estado.tipo === 'pendiente').length,
   };
-  const badge = { enviado: 'badge-entregado', modificado: 'badge-proceso', pendiente: 'badge-pendiente' } as const;
-  const texto = { enviado: 'Enviado', modificado: 'Modificado', pendiente: 'Pendiente' } as const;
+  const badge = { enviado: 'badge-entregado', modificado: 'badge-proceso', pendiente: 'badge-pendiente', asignado: 'badge-proceso' } as const;
+  const texto = { enviado: 'Enviado', modificado: 'Modificado', pendiente: 'Pendiente', asignado: 'Asignado' } as const;
 
   return (
     <section className="bg-white border border-borde rounded-lg p-4 sm:p-5 mt-6">
       <h2 className="text-base font-semibold text-grafito">Lista en foto</h2>
       <p className="text-xs text-slate mb-4">
         Solicitud creada a partir de una foto de la lista de materiales. {resumen.enviado} enviadas tal cual,{' '}
-        {resumen.modificado} modificadas, {resumen.pendiente} pendientes.
+        {resumen.modificado} modificadas,{' '}
+        {resumen.asignado > 0 ? `${resumen.asignado} asignadas después, ` : ''}
+        {resumen.pendiente} pendientes.
       </p>
 
       {bloques.map((b) => (
@@ -164,6 +192,16 @@ export default async function ListaFotoInforme({ pedidoId }: { pedidoId: string 
                     <td className="py-2">
                       <span className={`badge ${badge[estado.tipo]}`}>{texto[estado.tipo]}</span>
                       {estado.detalle && <p className="text-xs text-slate mt-1">{estado.detalle}</p>}
+                      {asignar && pedidoAbierto && estado.asignable && (
+                        <AsignarArticuloLista
+                          listaId={b.id}
+                          n={l.n}
+                          texto={l.texto}
+                          cantidadEscrita={l.cantidad_escrita}
+                          conPrecio={asignar === 'compras'}
+                          proveedores={proveedores}
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}

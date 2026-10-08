@@ -1,7 +1,7 @@
 // Integración con Business Central (Cloud) vía OData v4 + OAuth2 client credentials.
 // Nunca importar desde el navegador: usa el Client Secret.
 
-type ItemBC = {
+export type ItemBC = {
   No: string;
   Description: string;
   Base_Unit_of_Measure: string;
@@ -268,6 +268,14 @@ export async function buscarArticulosBC(
   const url = `${base}?$filter=${encodeURIComponent(filtro)}&$select=No,Description&$top=${limite}`;
   const items: { No: string; Description: string }[] = await consultarBC(url);
   return (items || []).map((i) => ({ No: i.No, Description: i.Description }));
+}
+
+// Un artículo de la ficha de productos de BC por su Nº (con o sin artículo común).
+export async function obtenerItemBC(no: string): Promise<ItemBC | null> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE!);
+  const filtro = `No eq '${no.replace(/'/g, "''")}'`;
+  const items: ItemBC[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
+  return items?.[0] || null;
 }
 
 export async function obtenerProyectosBC(): Promise<ProyectoBC[]> {

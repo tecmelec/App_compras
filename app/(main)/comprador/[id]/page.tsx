@@ -233,6 +233,9 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       <GestionPedidosBC pedidos={pedidosBC} />
 
       <FormularioComprador
+        // Si se añade una línea (p. ej. al asignar un artículo de la lista en foto), el
+        // formulario se vuelve a montar para incluirla en su estado.
+        key={(p.pedido_items as any[]).map((i) => i.id).join(',')}
         pedidoId={p.id}
         items={p.pedido_items.map((item: any) => ({
           id: item.id,
@@ -266,7 +269,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         estados={estados || []}
         proveedores={proveedores || []}
       />
-      <ListaFotoInforme pedidoId={params.id} />
+      <ListaFotoInforme pedidoId={params.id} asignar="compras" />
     </div>
   );
 }

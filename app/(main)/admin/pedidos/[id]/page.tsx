@@ -108,7 +108,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
       <p className="text-right font-mono text-grafito">
         Total: <strong>{formatoImporte(p.total_estimado)} €</strong>
       </p>
-      <ListaFotoInforme pedidoId={params.id} />
+      <ListaFotoInforme pedidoId={params.id} asignar="compras" />
     </div>
   );
 }

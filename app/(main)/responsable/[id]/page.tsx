@@ -74,6 +74,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
 
       {pendiente ? (
         <RevisionAprobacion
+          key={(p.pedido_items as any[]).map((i) => i.id).join(',')}
           pedidoId={p.id}
           lineas={p.pedido_items.map((item: any) => ({
             id: item.id,
@@ -126,7 +127,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
           {p.requiere_aprobacion && <AprobacionBotones pedidoId={p.id} aprobado={p.aprobado} />}
         </>
       )}
-      <ListaFotoInforme pedidoId={params.id} />
+      <ListaFotoInforme pedidoId={params.id} asignar="responsable" />
     </div>
   );
 }

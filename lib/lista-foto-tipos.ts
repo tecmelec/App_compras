@@ -25,6 +25,15 @@ export type LineaLista = {
   // Decisión del usuario al añadir al carrito
   producto_id?: string | null;
   cantidad_carrito?: number | null;
+  // Artículo asignado después, desde el detalle de la solicitud (línea que había quedado pendiente)
+  asignado?: {
+    por_id: string;
+    por_nombre: string;
+    rol: string;
+    en: string;
+    bc_item_no: string;
+    nombre: string;
+  } | null;
 };
 
 // --- Redondeo al múltiplo -----------------------------------------------------------
