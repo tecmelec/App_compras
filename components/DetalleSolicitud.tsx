@@ -1,3 +1,4 @@
+import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
@@ -51,7 +52,7 @@ export default async function DetalleSolicitud({
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -377,6 +378,13 @@ export default async function DetalleSolicitud({
                       <p className="text-xs text-slate mt-0.5">{item.productos.descripcion}</p>
                     )}
                     {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-1" />}
+                    {item.eliminada_en_bc && (
+                      <EliminadaEnBCBadge
+                        className="mt-1"
+                        cantidadSolicitada={item.cantidad_antes_bc}
+                        unidad={item.productos?.unidad_medida}
+                      />
+                    )}
                   </div>
                   <div className="text-xs text-slate w-36">
                     <p className="text-slate/70 mb-0.5">Fecha estimada de entrega</p>

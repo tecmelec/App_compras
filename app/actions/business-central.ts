@@ -324,7 +324,7 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
 
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('id, numero_tecmelec, estado_id, estado_recepcion, cantidad, cantidad_original, cantidad_antes_bc, productos(bc_item_no)')
+    .select('id, numero_tecmelec, estado_id, estado_recepcion, cantidad, cantidad_original, cantidad_antes_bc, eliminada_en_bc, productos(bc_item_no)')
     .eq('pedido_id', pedidoId);
 
   let actualizados = 0;
@@ -364,7 +364,11 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     // Solo las líneas de esta solicitud que ya pertenecen a ESTE pedido de
     // compra concreto — así, si hay varios (uno por proveedor), cada uno
     // actualiza únicamente lo suyo.
-    const itemsDeEstePedido = (items || []).filter((item: any) => item.numero_tecmelec === pedidoBC.No);
+    // (Las ya marcadas como borradas en BC no participan: si el artículo vuelve a
+    // aparecer en el pedido, entra como línea nueva añadida en BC.)
+    const itemsDeEstePedido = (items || []).filter(
+      (item: any) => item.numero_tecmelec === pedidoBC.No && !item.eliminada_en_bc
+    );
 
     // --- Emparejar líneas de la app con líneas de BC ----------------------------------
     // 1º por artículo + cantidad exacta. 2º, para las que no casan, por artículo si en
@@ -449,10 +453,26 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
             cambios.precio_unitario = Number((lineaBC.Line_Amount / lineaBC.Quantity).toFixed(5));
           }
         } else if (!errorLineas) {
-          avisar(
-            avisos,
-            `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No} (línea ${item.id}).`
-          );
+          // ¿Queda alguna línea libre de BC con ese artículo? Entonces es ambigüedad
+          // (varias líneas del mismo artículo con cantidades cambiadas): solo se avisa.
+          const quedanDelArticulo = lineasArticuloBC.some(({ l, idx }) => !usadas.has(idx) && l.No === bcItemNo);
+          if (bcItemNo && !quedanDelArticulo) {
+            // El artículo ya no está en el pedido de compra: se ha borrado en BC.
+            cambios.cantidad = 0;
+            cambios.eliminada_en_bc = true;
+            cambios.estado_recepcion = 'Anulado';
+            if (item.cantidad_antes_bc == null) cambios.cantidad_antes_bc = item.cantidad;
+            if (item.cantidad_original == null) cambios.cantidad_original = item.cantidad;
+            avisar(
+              avisos,
+              `El artículo "${bcItemNo}" se había solicitado (${item.cantidad}) pero se ha borrado del pedido ${pedidoBC.No} desde BC: su cantidad queda a 0.`
+            );
+          } else {
+            avisar(
+              avisos,
+              `No se encontró en BC una línea de "${bcItemNo || 'artículo sin código BC'}" con cantidad ${item.cantidad} dentro del pedido ${pedidoBC.No} (línea ${item.id}).`
+            );
+          }
         }
       }
 

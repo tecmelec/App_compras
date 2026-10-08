@@ -46,7 +46,7 @@ export default async function ListaFotoInforme({
 
   const { data: items } = await admin
     .from('pedido_items')
-    .select('producto_id, cantidad, rechazada_por_aprobador, numero_tecmelec, anadida_en_bc, productos(nombre, unidad_medida, multiplo_compra)')
+    .select('producto_id, cantidad, rechazada_por_aprobador, numero_tecmelec, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, productos(nombre, unidad_medida, multiplo_compra)')
     .eq('pedido_id', pedidoId);
 
   // Cantidad actual por producto (sin líneas rechazadas) y productos rechazados.
@@ -54,6 +54,7 @@ export default async function ListaFotoInforme({
   const rechazados = new Set<string>();
   const enPedidoCompra = new Set<string>();
   const anadidosEnBC = new Set<string>();
+  const eliminadosEnBC = new Map<string, number | null>();
   const infoProducto = new Map<string, { nombre: string; unidad: string; multiplo: number }>();
   for (const it of (items || []) as any[]) {
     infoProducto.set(it.producto_id, {
@@ -63,6 +64,7 @@ export default async function ListaFotoInforme({
     });
     if (it.numero_tecmelec) enPedidoCompra.add(it.producto_id);
     if (it.anadida_en_bc) anadidosEnBC.add(it.producto_id);
+    if (it.eliminada_en_bc) eliminadosEnBC.set(it.producto_id, it.cantidad_antes_bc ?? null);
     if (it.rechazada_por_aprobador) {
       rechazados.add(it.producto_id);
     } else {
@@ -93,6 +95,12 @@ export default async function ListaFotoInforme({
           estado = {
             tipo: 'rechazada',
             detalle: `Por ${l.rechazada.por_nombre} el ${new Date(l.rechazada.en).toLocaleDateString('es-ES')}`,
+          };
+        } else if (productoId && actual === 0 && eliminadosEnBC.has(productoId)) {
+          const antes = eliminadosEnBC.get(productoId);
+          estado = {
+            tipo: 'rechazada',
+            detalle: `Borrado del pedido de compra en BC${antes != null ? ` (se habían solicitado ${fmt(antes)} ${unidad})` : ''}.`,
           };
         } else if (productoId && actual === 0 && rechazados.has(productoId)) {
           estado = { tipo: 'rechazada', detalle: 'Rechazada por el aprobador.' };
@@ -279,6 +287,7 @@ export default async function ListaFotoInforme({
                   x{fmt(cantidad)} {infoProducto.get(id)?.unidad}
                 </span>
                 {anadidosEnBC.has(id) && <span className="text-xs text-[#2F6690] ml-1.5">· añadida en BC</span>}
+                {eliminadosEnBC.has(id) && <span className="text-xs text-rojo ml-1.5">· borrado del pedido en BC</span>}
               </li>
             ))}
           </ul>

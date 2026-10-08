@@ -8,6 +8,7 @@ import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
+import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
 type Estado = { id: number; nombre: string };
@@ -23,6 +24,7 @@ type ItemForm = {
   modificadaPorComprador?: boolean;
   cantidadAntesBC?: number | null;
   anadidaEnBC?: boolean;
+  eliminadaEnBC?: boolean;
   rechazadaPorAprobador?: boolean;
   unidad?: string;
   multiplo?: number;
@@ -424,6 +426,9 @@ function ItemFila({
           <div>
             <p className="text-sm font-medium text-grafito">{item.nombre}</p>
             {item.anadidaEnBC && <AnadidaEnBCBadge className="mt-0.5" />}
+            {item.eliminadaEnBC && (
+              <EliminadaEnBCBadge className="mt-0.5" cantidadSolicitada={item.cantidadAntesBC ?? null} unidad={item.unidad} />
+            )}
             <div className="font-mono text-slate text-xs mt-0.5 flex items-center gap-0.5">
               {!item.rechazadaPorAprobador && (
                 <CantidadModificadaAviso
