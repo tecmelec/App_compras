@@ -9,7 +9,12 @@ import AsignarArticuloLista from '@/components/AsignarArticuloLista';
 // actuales del pedido, así que refleja también los cambios del aprobador o de Compras.
 // Solo se monta en páginas que ya han comprobado (con RLS) el acceso a la solicitud.
 
-type Estado = { tipo: 'enviado' | 'modificado' | 'pendiente' | 'asignado'; detalle: string; asignable?: boolean };
+type Estado = {
+  tipo: 'enviado' | 'modificado' | 'pendiente' | 'asignado';
+  detalle: string;
+  asignable?: boolean;
+  reasignable?: boolean;
+};
 
 function fmt(n: number | null | undefined) {
   return n == null ? '—' : Number(n).toLocaleString('es-ES', { maximumFractionDigits: 3 });
@@ -39,12 +44,13 @@ export default async function ListaFotoInforme({
 
   const { data: items } = await admin
     .from('pedido_items')
-    .select('producto_id, cantidad, rechazada_por_aprobador, productos(nombre, unidad_medida, multiplo_compra)')
+    .select('producto_id, cantidad, rechazada_por_aprobador, numero_tecmelec, productos(nombre, unidad_medida, multiplo_compra)')
     .eq('pedido_id', pedidoId);
 
   // Cantidad actual por producto (sin líneas rechazadas) y productos rechazados.
   const cantidadPorProducto = new Map<string, number>();
   const rechazados = new Set<string>();
+  const enPedidoCompra = new Set<string>();
   const infoProducto = new Map<string, { nombre: string; unidad: string; multiplo: number }>();
   for (const it of (items || []) as any[]) {
     infoProducto.set(it.producto_id, {
@@ -52,6 +58,7 @@ export default async function ListaFotoInforme({
       unidad: it.productos?.unidad_medida || 'ud.',
       multiplo: it.productos?.multiplo_compra || 1,
     });
+    if (it.numero_tecmelec) enPedidoCompra.add(it.producto_id);
     if (it.rechazada_por_aprobador) {
       rechazados.add(it.producto_id);
     } else {
@@ -81,6 +88,7 @@ export default async function ListaFotoInforme({
           const fecha = new Date(l.asignado.en).toLocaleDateString('es-ES');
           estado = {
             tipo: 'asignado',
+            reasignable: !enPedidoCompra.has(productoId),
             detalle: `Por ${l.asignado.por_nombre} el ${fecha} · ${l.asignado.bc_item_no}${
               l.cantidad_carrito != null && actual !== l.cantidad_carrito ? ` · ${fmt(l.cantidad_carrito)} → ${fmt(actual)} ${unidad}` : ''
             }`,
@@ -192,8 +200,9 @@ export default async function ListaFotoInforme({
                     <td className="py-2">
                       <span className={`badge ${badge[estado.tipo]}`}>{texto[estado.tipo]}</span>
                       {estado.detalle && <p className="text-xs text-slate mt-1">{estado.detalle}</p>}
-                      {asignar && pedidoAbierto && estado.asignable && (
+                      {asignar && pedidoAbierto && (estado.asignable || estado.reasignable) && (
                         <AsignarArticuloLista
+                          cambiar={!!estado.reasignable}
                           listaId={b.id}
                           n={l.n}
                           texto={l.texto}

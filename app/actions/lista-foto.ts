@@ -130,9 +130,21 @@ export async function asignarArticuloLineaListaFoto(datos: {
 
   const { data: itemsPedido } = await admin
     .from('pedido_items')
-    .select('producto_id, cantidad, precio_unitario, rechazada_por_aprobador, productos(precio)')
+    .select('id, producto_id, numero_tecmelec, rechazada_por_aprobador')
     .eq('pedido_id', pedido.id);
-  if (linea.producto_id && (itemsPedido || []).some((it: any) => it.producto_id === linea.producto_id)) {
+
+  // Cambio de asignación: solo para líneas asignadas desde aquí y mientras su línea
+  // de solicitud no esté en un pedido de compra. Se sustituye esa línea.
+  let idsAnteriores: string[] = [];
+  if (linea.asignado && linea.producto_id) {
+    const anteriores = (itemsPedido || []).filter(
+      (it: any) => it.producto_id === linea.producto_id && !it.rechazada_por_aprobador
+    );
+    if (anteriores.some((it: any) => it.numero_tecmelec)) {
+      return { error: 'El artículo asignado ya está en un pedido de compra: no se puede cambiar.' };
+    }
+    idsAnteriores = anteriores.map((it: any) => it.id);
+  } else if (linea.producto_id && (itemsPedido || []).some((it: any) => it.producto_id === linea.producto_id)) {
     return { error: 'Esta línea ya tiene un artículo en la solicitud.' };
   }
 
@@ -173,7 +185,11 @@ export async function asignarArticuloLineaListaFoto(datos: {
     producto = nuevo;
   }
 
-  if ((itemsPedido || []).some((it: any) => it.producto_id === producto!.id && !it.rechazada_por_aprobador)) {
+  if (
+    (itemsPedido || []).some(
+      (it: any) => it.producto_id === producto!.id && !it.rechazada_por_aprobador && !idsAnteriores.includes(it.id)
+    )
+  ) {
     return { error: 'Ese artículo ya está en la solicitud: modifica su cantidad en lugar de añadirlo otra vez.' };
   }
 
@@ -193,6 +209,10 @@ export async function asignarArticuloLineaListaFoto(datos: {
     proveedor_id: esCompras ? datos.proveedorId || producto.proveedor_predeterminado_id || null : producto.proveedor_predeterminado_id || null,
   });
   if (errorItem) return { error: 'No se pudo añadir la línea a la solicitud: ' + errorItem.message };
+  if (idsAnteriores.length > 0) {
+    const { error: errorBorrado } = await admin.from('pedido_items').delete().in('id', idsAnteriores);
+    if (errorBorrado) console.error('[asignarArticuloLineaListaFoto] No se pudo quitar la línea anterior:', errorBorrado);
+  }
 
   // Registro en la lista para el informe.
   const nuevasLineas = lineas.map((l) =>

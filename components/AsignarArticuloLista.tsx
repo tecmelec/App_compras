@@ -29,7 +29,9 @@ export default function AsignarArticuloLista({
   cantidadEscrita,
   conPrecio,
   proveedores = [],
+  cambiar = false,
 }: {
+  cambiar?: boolean;
   listaId: string;
   n: number;
   texto: string;
@@ -41,7 +43,7 @@ export default function AsignarArticuloLista({
   return (
     <>
       <button type="button" onClick={() => setAbierto(true)} className="text-xs text-marca font-medium hover:underline mt-1">
-        Asignar artículo
+        {cambiar ? 'Cambiar artículo' : 'Asignar artículo'}
       </button>
       {abierto && (
         <Modal
@@ -51,6 +53,7 @@ export default function AsignarArticuloLista({
           cantidadEscrita={cantidadEscrita}
           conPrecio={conPrecio}
           proveedores={proveedores}
+          cambiar={cambiar}
           onCerrar={() => setAbierto(false)}
         />
       )}
@@ -65,8 +68,10 @@ function Modal({
   cantidadEscrita,
   conPrecio,
   proveedores,
+  cambiar,
   onCerrar,
 }: {
+  cambiar: boolean;
   listaId: string;
   n: number;
   texto: string;
@@ -194,11 +199,16 @@ function Modal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onMouseDown={onCerrar}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6" onMouseDown={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-grafito mb-1">Asignar artículo</h2>
+        <h2 className="text-lg font-semibold text-grafito mb-1">{cambiar ? 'Cambiar artículo asignado' : 'Asignar artículo'}</h2>
         <p className="text-sm text-slate mb-1">
           Escrito en la lista: <span className="italic text-grafito">“{texto}”</span>
         </p>
-        <p className="text-sm text-slate mb-5">Busca el artículo en Business Central por su código o por su descripción.</p>
+        <p className="text-sm text-slate mb-2">Busca el artículo en Business Central por su código o por su descripción.</p>
+        {cambiar && (
+          <p className="text-xs text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2 mb-4">
+            La línea asignada actualmente se sustituirá por la nueva (artículo, cantidad{conPrecio ? ', precio y proveedor' : ''}).
+          </p>
+        )}
 
         <div className="space-y-4">
           <div className="relative">
@@ -281,7 +291,7 @@ function Modal({
             disabled={!datos || !!errorCantidad || !!errorPrecio || guardando}
             className="text-sm bg-marca text-white rounded-lg px-4 py-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {guardando ? 'Añadiendo…' : 'Añadir a la solicitud'}
+            {guardando ? 'Guardando…' : cambiar ? 'Sustituir en la solicitud' : 'Añadir a la solicitud'}
           </button>
         </div>
       </div>
