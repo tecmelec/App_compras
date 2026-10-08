@@ -29,9 +29,12 @@ type Previa = {
 export default function CrearPedidoBCBoton({
   pedidoId,
   puedeCrear = true,
+  motivoBloqueo,
 }: {
   pedidoId: string;
   puedeCrear?: boolean;
+  // Texto del aviso cuando el bloqueo no es el general (p. ej. lista en foto sin resolver)
+  motivoBloqueo?: string | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -83,7 +86,7 @@ export default function CrearPedidoBCBoton({
       <button
         onClick={puedeCrear ? handleAbrir : undefined}
         disabled={!puedeCrear}
-        title={puedeCrear ? undefined : MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO}
+        title={puedeCrear ? undefined : motivoBloqueo || MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO}
         className="btn-primary whitespace-nowrap"
       >
         + Crear pedido en BC

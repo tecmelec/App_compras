@@ -181,7 +181,7 @@ export default async function ListaFotoInforme({
       </p>
       {resumen.pendiente > 0 && asignar && pedidoAbierto && (
         <p className="text-xs text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2 mb-4">
-          Para poder aprobar la solicitud, todas las líneas deben tener un artículo asignado o estar rechazadas.
+          Para poder aprobar la solicitud y crear su pedido en BC, todas las líneas deben tener un artículo asignado o estar rechazadas.
         </p>
       )}
 

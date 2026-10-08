@@ -1,3 +1,4 @@
+import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
@@ -38,6 +39,8 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   if (!pedido) notFound();
 
   const p = pedido as any;
+  // Lista en foto: no se crea el pedido en BC mientras queden líneas sin artículo ni rechazar.
+  const listaSinResolver = await lineasListaFotoSinResolver(p.id);
 
   const proveedoresPorId = new Map<string, string>(
     (proveedores || []).map((pr: any) => [pr.id, `${pr.bc_proveedor_no} — ${pr.nombre}`])
@@ -114,7 +117,15 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <p className="font-mono text-sm text-marca">{p.numero_app}</p>
           <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
         </div>
-        <CrearPedidoBCBoton pedidoId={p.id} puedeCrear={puedeCrearPedidoBC(p.pedido_items, estados || [], p)} />
+        <CrearPedidoBCBoton
+          pedidoId={p.id}
+          puedeCrear={puedeCrearPedidoBC(p.pedido_items, estados || [], p) && listaSinResolver.length === 0}
+          motivoBloqueo={
+            listaSinResolver.length > 0
+              ? `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista en foto (${listaSinResolver.length}).`
+              : null
+          }
+        />
       </div>
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">

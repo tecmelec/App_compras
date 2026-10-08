@@ -25,6 +25,7 @@ import {
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import { despacharPushPendientes } from '@/lib/push';
 
 export async function sincronizarProductosBC() {
@@ -884,6 +885,13 @@ export async function crearPedidosCompraBC(pedidoId: string) {
   ]);
   if (!puedeCrearPedidoBC(lineasSolicitud || [], estadosPedido || [], solicitud || undefined)) {
     return { error: MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO };
+  }
+
+  const sinResolver = await lineasListaFotoSinResolver(pedidoId);
+  if (sinResolver.length > 0) {
+    return {
+      error: `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista en foto: ${sinResolver.join(', ')}.`,
+    };
   }
 
   const previa = await agruparPorProveedorParaBC(supabase, pedidoId);
