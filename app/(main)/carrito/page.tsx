@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { crearPedido } from '@/app/actions/pedidos';
 import SolicitudModal from './SolicitudModal';
@@ -16,7 +17,7 @@ function validarCantidad(cantidad: number, multiplo: number): string | null {
 }
 
 export default function CarritoPage() {
-  const { items, updateCantidad, removeItem, clear } = useCart();
+  const { items, updateCantidad, removeItem, clear, listasFoto } = useCart();
   const [mostrarModal, setMostrarModal] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +47,7 @@ export default function CarritoPage() {
     setEnviando(true);
     setError(null);
 
-    const resultado = await crearPedido(items, datos);
+    const resultado = await crearPedido(items, { ...datos, lista_foto_ids: listasFoto });
 
     setEnviando(false);
 
@@ -62,7 +63,22 @@ export default function CarritoPage() {
 
   return (
     <div className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-semibold text-grafito mb-6">Carrito</h1>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-semibold text-grafito">Carrito</h1>
+        <Link href="/carrito/foto" className="btn-secondary inline-flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+            <circle cx="12" cy="13" r="4" />
+          </svg>
+          Crear carrito desde foto
+        </Link>
+      </div>
+      {listasFoto.length > 0 && items.length > 0 && (
+        <p className="text-xs text-slate -mt-4 mb-4">
+          Este carrito incluye artículos de {listasFoto.length === 1 ? 'una lista en foto' : `${listasFoto.length} listas en foto`}: la
+          foto y su informe irán en la solicitud.
+        </p>
+      )}
 
       {items.length === 0 ? (
         <p className="text-slate text-sm">

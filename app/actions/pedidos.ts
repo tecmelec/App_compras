@@ -19,6 +19,7 @@ type DatosSolicitud = {
   fecha_requerida: string;
   comprador_id?: string | null;
   seguir_pedido?: boolean;
+  lista_foto_ids?: string[];
 };
 
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
@@ -261,6 +262,17 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
   if (errorItems) {
     return { error: 'El pedido se creó pero hubo un problema guardando los artículos.' };
+  }
+
+  // Carrito desde foto: vincula la(s) lista(s) en foto a la solicitud para su informe.
+  if (datos.lista_foto_ids && datos.lista_foto_ids.length > 0) {
+    const { error: errorListas } = await createAdminClient()
+      .from('listas_foto')
+      .update({ pedido_id: pedido.id })
+      .in('id', datos.lista_foto_ids)
+      .eq('usuario_id', user.id)
+      .is('pedido_id', null);
+    if (errorListas) console.error('[crearPedido] No se pudo vincular la lista en foto:', errorListas);
   }
 
   // 5. Obtener emails del comprador y responsable efectivos (ya considerando sustituto)

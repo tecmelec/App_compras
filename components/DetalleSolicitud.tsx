@@ -1,3 +1,4 @@
+import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -411,6 +412,7 @@ export default async function DetalleSolicitud({
           </div>
         );
       })}
+      <ListaFotoInforme pedidoId={id} />
     </div>
   );
 }

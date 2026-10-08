@@ -18,6 +18,9 @@ type CartContextType = {
   removeItem: (producto_id: string) => void;
   clear: () => void;
   totalItems: number;
+  // Listas en foto (carrito desde foto) cuyos artículos están en el carrito
+  listasFoto: string[];
+  addListaFoto: (id: string) => void;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -26,8 +29,13 @@ function storageKey(userId: string) {
   return `tecmelec_carrito_${userId}`;
 }
 
+function storageKeyListas(userId: string) {
+  return `tecmelec_carrito_listas_foto_${userId}`;
+}
+
 export function CartProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [listasFoto, setListasFoto] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   // Carga el carrito de ESTE usuario específico (nunca el de otro que haya usado el mismo navegador)
@@ -43,14 +51,21 @@ export function CartProvider({ userId, children }: { userId: string; children: R
     } else {
       setItems([]);
     }
+    try {
+      const rawListas = window.localStorage.getItem(storageKeyListas(userId));
+      setListasFoto(rawListas ? JSON.parse(rawListas) : []);
+    } catch {
+      setListasFoto([]);
+    }
     setLoaded(true);
   }, [userId]);
 
   useEffect(() => {
     if (loaded) {
       window.localStorage.setItem(storageKey(userId), JSON.stringify(items));
+      window.localStorage.setItem(storageKeyListas(userId), JSON.stringify(listasFoto));
     }
-  }, [items, loaded, userId]);
+  }, [items, listasFoto, loaded, userId]);
 
   function addItem(item: Omit<CartItem, 'cantidad'>, cantidad: number) {
     setItems((prev) => {
@@ -80,13 +95,18 @@ export function CartProvider({ userId, children }: { userId: string; children: R
 
   function clear() {
     setItems([]);
+    setListasFoto([]);
+  }
+
+  function addListaFoto(id: string) {
+    setListasFoto((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
   // Nº de artículos distintos en el carrito (no la suma de unidades)
   const totalItems = items.length;
 
   return (
-    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems }}>
+    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto }}>
       {children}
     </CartContext.Provider>
   );

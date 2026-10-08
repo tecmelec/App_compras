@@ -1,3 +1,4 @@
+import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
@@ -265,6 +266,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         estados={estados || []}
         proveedores={proveedores || []}
       />
+      <ListaFotoInforme pedidoId={params.id} />
     </div>
   );
 }

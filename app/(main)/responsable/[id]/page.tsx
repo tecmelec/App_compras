@@ -1,3 +1,4 @@
+import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import EstadoBadge from '@/components/EstadoBadge';
@@ -125,6 +126,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
           {p.requiere_aprobacion && <AprobacionBotones pedidoId={p.id} aprobado={p.aprobado} />}
         </>
       )}
+      <ListaFotoInforme pedidoId={params.id} />
     </div>
   );
 }
