@@ -890,7 +890,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
   const sinResolver = await lineasListaFotoSinResolver(pedidoId);
   if (sinResolver.length > 0) {
     return {
-      error: `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista en foto: ${sinResolver.join(', ')}.`,
+      error: `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista de materiales: ${sinResolver.join(', ')}.`,
     };
   }
 

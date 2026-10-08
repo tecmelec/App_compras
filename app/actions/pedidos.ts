@@ -508,7 +508,7 @@ export async function aprobarSolicitudConCambios(
     const sinResolver = await lineasListaFotoSinResolver(pedidoId);
     if (sinResolver.length > 0) {
       return {
-        error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista en foto: ${sinResolver.join(', ')}.`,
+        error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista de materiales: ${sinResolver.join(', ')}.`,
       };
     }
   }
@@ -542,7 +542,7 @@ export async function responderAprobacion(pedidoId: string, aprobado: boolean) {
     const sinResolver = await lineasListaFotoSinResolver(pedidoId);
     if (sinResolver.length > 0) {
       return {
-        error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista en foto: ${sinResolver.join(', ')}.`,
+        error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista de materiales: ${sinResolver.join(', ')}.`,
       };
     }
   }

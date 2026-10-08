@@ -141,17 +141,32 @@ function buscarCandidatos(catalogo: ProductoCatalogo[], consulta: string): Produ
 
 // --- Análisis completo --------------------------------------------------------------
 
+// Entrada del análisis: una foto de la lista o la lista escrita como texto en la app.
+export type EntradaLista = { imagen: { data: string; mediaType: string } } | { texto: string };
+
 export async function analizarListaFoto(imagen: { data: string; mediaType: string }): Promise<LineaLista[]> {
-  // 1. Lectura de la foto
-  const lectura = extraerJSON(
-    await llamarClaude(
-      [
-        { type: 'image', source: { type: 'base64', media_type: imagen.mediaType, data: imagen.data } },
-        { type: 'text', text: PROMPT_LECTURA },
-      ],
-      4000
-    )
-  );
+  return analizarLista({ imagen });
+}
+
+export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]> {
+  // 1. Lectura de la lista (foto con visión, o texto escrito en la app)
+  const contenido =
+    'imagen' in entrada
+      ? [
+          { type: 'image', source: { type: 'base64', media_type: entrada.imagen.mediaType, data: entrada.imagen.data } },
+          { type: 'text', text: PROMPT_LECTURA },
+        ]
+      : [
+          {
+            type: 'text',
+            text: PROMPT_LECTURA.replace(
+              'Esta foto es una lista de materiales escrita (normalmente a mano)',
+              'Este texto es una lista de materiales escrita'
+            ).replace('Si no hay ninguna lista de materiales legible', 'Si no hay ninguna lista de materiales') +
+              `\n\nLista:\n"""\n${entrada.texto.slice(0, 8000)}\n"""`,
+          },
+        ];
+  const lectura = extraerJSON(await llamarClaude(contenido, 4000));
   const leidas: { texto: string; cantidad: number | null; unidad: string | null; busqueda: string[] }[] = (
     Array.isArray(lectura?.lineas) ? lectura.lineas : []
   )

@@ -249,9 +249,9 @@ export default function RevisionAprobacion({
           <div className="flex gap-2 flex-wrap">
             {lineasListaSinResolver > 0 && !todasRechazadas && (
               <p className="w-full text-sm text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2">
-                Esta solicitud viene de una lista en foto y tiene {lineasListaSinResolver}{' '}
+                Esta solicitud viene de una lista de materiales y tiene {lineasListaSinResolver}{' '}
                 {lineasListaSinResolver === 1 ? 'línea pendiente' : 'líneas pendientes'}. Asígnales un artículo o recházalas
-                en la sección &quot;Lista en foto&quot; (más abajo) para poder aprobarla.
+                en la sección de la lista (más abajo) para poder aprobarla.
               </p>
             )}
             <button

@@ -34,7 +34,7 @@ export default async function ListaFotoInforme({
   const admin = createAdminClient();
   const { data: listas } = await admin
     .from('listas_foto')
-    .select('id, imagen_path, lineas, created_at')
+    .select('id, imagen_path, texto, lineas, created_at')
     .eq('pedido_id', pedidoId)
     .order('created_at');
   if (!listas || listas.length === 0) return null;
@@ -71,9 +71,9 @@ export default async function ListaFotoInforme({
   const productosDeListas = new Set<string>();
   const bloques = await Promise.all(
     listas.map(async (lista) => {
-      const { data: firmada } = await admin.storage
-        .from(BUCKET_LISTAS_FOTO)
-        .createSignedUrl(lista.imagen_path, 60 * 60);
+      const firmada = lista.imagen_path
+        ? (await admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(lista.imagen_path, 60 * 60)).data
+        : null;
       const lineas = (lista.lineas || []) as LineaLista[];
       const filas = lineas.map((l) => {
         const productoId = l.producto_id ?? null;
@@ -139,7 +139,13 @@ export default async function ListaFotoInforme({
         }
         return { l, nombre, unidad, actual, estado };
       });
-      return { id: lista.id, url: firmada?.signedUrl || null, filas };
+      return {
+        id: lista.id,
+        esFoto: !!lista.imagen_path,
+        url: firmada?.signedUrl || null,
+        texto: (lista.texto as string | null) || null,
+        filas,
+      };
     })
   );
 
@@ -171,9 +177,13 @@ export default async function ListaFotoInforme({
 
   return (
     <section className="bg-white border border-borde rounded-lg p-4 sm:p-5 mt-6">
-      <h2 className="text-base font-semibold text-grafito">Lista en foto</h2>
+      <h2 className="text-base font-semibold text-grafito">
+        {bloques.every((b) => b.esFoto) ? 'Lista en foto' : bloques.every((b) => !b.esFoto) ? 'Lista escrita' : 'Listas de materiales'}
+      </h2>
       <p className="text-xs text-slate mb-4">
-        Solicitud creada a partir de una foto de la lista de materiales. {resumen.enviado} enviadas tal cual,{' '}
+        {bloques.every((b) => b.esFoto)
+          ? 'Solicitud creada a partir de una foto de la lista de materiales.'
+          : 'Solicitud creada a partir de una lista de materiales escrita.'} {resumen.enviado} enviadas tal cual,{' '}
         {resumen.modificado} modificadas,{' '}
         {resumen.asignado > 0 ? `${resumen.asignado} asignadas después, ` : ''}
         {resumen.rechazada > 0 ? `${resumen.rechazada} rechazadas, ` : ''}
@@ -187,7 +197,11 @@ export default async function ListaFotoInforme({
 
       {bloques.map((b) => (
         <div key={b.id} className="flex flex-col md:flex-row gap-5 items-start mb-4 last:mb-0">
-          {b.url ? (
+          {!b.esFoto ? (
+            <pre className="shrink-0 w-full md:w-56 bg-fondo border border-borde rounded-md p-3 text-xs text-grafito whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+              {b.texto || '—'}
+            </pre>
+          ) : b.url ? (
             <a href={b.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
               <img src={b.url} alt="Lista de materiales" className="w-full md:w-56 rounded-md border border-borde" />
               <span className="text-xs text-slate">Ver foto ampliada</span>

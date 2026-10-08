@@ -122,7 +122,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           puedeCrear={puedeCrearPedidoBC(p.pedido_items, estados || [], p) && listaSinResolver.length === 0}
           motivoBloqueo={
             listaSinResolver.length > 0
-              ? `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista en foto (${listaSinResolver.length}).`
+              ? `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista de materiales (${listaSinResolver.length}).`
               : null
           }
         />

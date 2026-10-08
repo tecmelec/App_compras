@@ -331,19 +331,27 @@ export async function rechazarLineaListaFoto(listaId: string, n: number) {
 // Fotos de las listas del carrito del usuario (aún sin solicitud), con URL firmada.
 export async function fotosListasCarrito(ids: string[]) {
   const { user } = await perfilActual();
-  if (!user || ids.length === 0) return { listas: [] as { id: string; url: string | null; lineas: number }[] };
+  type ListaCarrito = { id: string; url: string | null; texto: string | null; lineas: number };
+  if (!user || ids.length === 0) return { listas: [] as ListaCarrito[] };
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('listas_foto')
-    .select('id, imagen_path, lineas')
+    .select('id, imagen_path, texto, lineas')
     .in('id', ids)
     .eq('usuario_id', user.id)
     .is('pedido_id', null);
-  if (error) return { listas: [] as { id: string; url: string | null; lineas: number }[], error: error.message };
+  if (error) return { listas: [] as ListaCarrito[], error: error.message };
   const listas = await Promise.all(
     (data || []).map(async (l) => {
-      const { data: firmada } = await admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(l.imagen_path, 60 * 60);
-      return { id: l.id, url: firmada?.signedUrl || null, lineas: ((l.lineas as any[]) || []).length };
+      const firmada = l.imagen_path
+        ? (await admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(l.imagen_path, 60 * 60)).data
+        : null;
+      return {
+        id: l.id,
+        url: firmada?.signedUrl || null,
+        texto: (l.texto as string | null) || null,
+        lineas: ((l.lineas as any[]) || []).length,
+      } as ListaCarrito;
     })
   );
   return { listas };
@@ -363,7 +371,7 @@ export async function descartarListaFoto(id: string) {
     .is('pedido_id', null)
     .maybeSingle();
   if (!lista) return { success: true };
-  await admin.storage.from(BUCKET_LISTAS_FOTO).remove([lista.imagen_path]);
+  if (lista.imagen_path) await admin.storage.from(BUCKET_LISTAS_FOTO).remove([lista.imagen_path]);
   await admin.from('listas_foto').delete().eq('id', lista.id);
   return { success: true };
 }

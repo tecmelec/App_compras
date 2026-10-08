@@ -64,8 +64,9 @@ export default function CarritoPage() {
 
   return (
     <div className="p-8 max-w-3xl">
-      <div className="flex items-center justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-semibold text-grafito">Carrito</h1>
+        <div className="flex flex-wrap gap-2">
         <Link href="/carrito/foto" className="btn-secondary inline-flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
@@ -73,6 +74,18 @@ export default function CarritoPage() {
           </svg>
           Crear carrito desde foto
         </Link>
+        <Link href="/carrito/lista" className="btn-secondary inline-flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
+          Crear carrito desde lista
+        </Link>
+        </div>
       </div>
       {listasFoto.length > 0 && items.length > 0 && <FotosDelCarrito ids={listasFoto} onQuitar={removeListaFoto} />}
 
@@ -178,7 +191,8 @@ export default function CarritoPage() {
 // Fotos de listas de materiales vinculadas al carrito: se pueden ver o quitar antes
 // de enviar la solicitud (los artículos del carrito no se tocan).
 function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: string) => void }) {
-  const [listas, setListas] = useState<{ id: string; url: string | null; lineas: number }[] | null>(null);
+  const [listas, setListas] = useState<{ id: string; url: string | null; texto: string | null; lineas: number }[] | null>(null);
+  const [verTexto, setVerTexto] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<string | null>(null);
   const clave = ids.join(',');
 
@@ -202,20 +216,30 @@ function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: stri
   return (
     <div className="bg-white border border-borde rounded-lg p-3 mb-4 space-y-3">
       <p className="text-xs text-slate">
-        Este carrito incluye artículos de {listas.length === 1 ? 'una lista en foto' : `${listas.length} listas en foto`}: la
-        foto y su informe irán en la solicitud.
+        Este carrito incluye artículos de {listas.length === 1 ? 'una lista de materiales' : `${listas.length} listas de materiales`}:
+        la lista y su informe irán en la solicitud.
       </p>
       {listas.map((l) => (
-        <div key={l.id} className="flex items-center gap-3">
+        <div key={l.id}>
+        <div className="flex items-center gap-3">
           {l.url ? (
             <a href={l.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
               <img src={l.url} alt="Lista en foto" className="w-14 h-14 object-cover rounded-md border border-borde" />
             </a>
           ) : (
-            <div className="w-14 h-14 bg-fondo rounded-md shrink-0" />
+            <div className="w-14 h-14 bg-fondo rounded-md shrink-0 flex items-center justify-center text-slate">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-grafito">Lista en foto</p>
+            <p className="text-sm text-grafito">{l.url ? 'Lista en foto' : 'Lista escrita'}</p>
             <p className="text-xs text-slate">{l.lineas} {l.lineas === 1 ? 'línea' : 'líneas'} leídas</p>
           </div>
           {l.url && (
@@ -223,9 +247,17 @@ function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: stri
               Ver foto
             </a>
           )}
+          {!l.url && l.texto && (
+            <button
+              onClick={() => setVerTexto(verTexto === l.id ? null : l.id)}
+              className="text-sm text-marca hover:underline shrink-0"
+            >
+              {verTexto === l.id ? 'Ocultar lista' : 'Ver lista'}
+            </button>
+          )}
           {confirmar === l.id ? (
             <span className="text-sm shrink-0">
-              <span className="text-grafito">¿Quitar la foto?</span>{' '}
+              <span className="text-grafito">{l.url ? '¿Quitar la foto?' : '¿Quitar la lista?'}</span>{' '}
               <button
                 onClick={() => {
                   setConfirmar(null);
@@ -241,12 +273,18 @@ function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: stri
             </span>
           ) : (
             <button onClick={() => setConfirmar(l.id)} className="text-sm text-rojo hover:underline shrink-0">
-              Quitar foto
+              {l.url ? 'Quitar foto' : 'Quitar lista'}
             </button>
           )}
         </div>
+        {verTexto === l.id && l.texto && (
+          <pre className="mt-2 ml-[4.25rem] bg-fondo border border-borde rounded-md p-2 text-xs text-grafito whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">
+            {l.texto}
+          </pre>
+        )}
+        </div>
       ))}
-      <p className="text-xs text-slate">Al quitar la foto, los artículos siguen en el carrito; solo se deja de adjuntar la foto y su informe.</p>
+      <p className="text-xs text-slate">Al quitarla, los artículos siguen en el carrito; solo se deja de adjuntar la lista y su informe.</p>
     </div>
   );
 }
