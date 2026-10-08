@@ -199,8 +199,11 @@ export async function asignarArticuloLineaListaFoto(datos: {
   if (!Number.isInteger(cantidad) || cantidad <= 0) return { error: 'Indica una cantidad entera mayor que cero.' };
   if (cantidad % multiplo !== 0) return { error: `La cantidad debe ser múltiplo de ${multiplo}.` };
 
-  const precio = esCompras && datos.precio != null && Number.isFinite(Number(datos.precio)) ? Number(datos.precio) : null;
-  if (esCompras && !(precio != null && precio > 0)) return { error: 'Indica un precio mayor que 0.' };
+  // El precio es opcional: si no se indica queda a 0 € y Compras lo completa antes de
+  // crear el pedido en BC (las líneas a 0 € no se cargan a un pedido de compra).
+  const precio =
+    esCompras && datos.precio != null && Number.isFinite(Number(datos.precio)) ? Number(datos.precio) : 0;
+  if (precio < 0) return { error: 'El precio no puede ser negativo.' };
 
   const { error: errorItem } = await admin.from('pedido_items').insert({
     pedido_id: pedido.id,

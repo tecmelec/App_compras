@@ -129,7 +129,7 @@ function Modal({
     }
     setDatos(r.articulo);
     setCantidad(String(ajustarAMultiplo(cantidadEscrita ?? r.articulo.multiplo, r.articulo.multiplo) ?? ''));
-    setPrecio(String(r.articulo.precio ?? ''));
+    setPrecio('');
     setProveedorId(r.articulo.proveedor_id || '');
   }
 
@@ -153,7 +153,8 @@ function Modal({
       : cantidadNum % multiplo !== 0
         ? `Debe ser múltiplo de ${multiplo}.`
         : null;
-  const errorPrecio = conPrecio && datos && !(Number(precio.replace(',', '.')) > 0) ? 'Indica un precio mayor que 0.' : null;
+  const errorPrecio =
+    conPrecio && datos && precio.trim() !== '' && !(Number(precio.replace(',', '.')) >= 0) ? 'Indica un precio válido.' : null;
 
   async function guardar() {
     if (!datos || errorCantidad || errorPrecio) return;
@@ -164,7 +165,7 @@ function Modal({
       n,
       bcItemNo: datos.bc_item_no,
       cantidad: cantidadNum,
-      precio: conPrecio ? Number(precio.replace(',', '.')) : null,
+      precio: conPrecio && precio.trim() !== '' ? Number(precio.replace(',', '.')) : null,
       proveedorId: conPrecio ? proveedorId || null : null,
     });
     setGuardando(false);
@@ -254,10 +255,11 @@ function Modal({
               </div>
               {conPrecio && (
                 <div>
-                  <label className="block text-sm text-slate mb-1">Precio unitario (€)</label>
+                  <label className="block text-sm text-slate mb-1">Precio unitario (€, opcional)</label>
                   <input
                     inputMode="decimal"
                     className="input w-full"
+                    placeholder="0"
                     value={precio}
                     onChange={(e) => setPrecio(e.target.value)}
                   />
@@ -270,6 +272,9 @@ function Modal({
                   <ComboboxProveedor proveedores={proveedores} value={proveedorId} onChange={setProveedorId} className="w-full" />
                 </div>
               )}
+              <p className="col-span-2 text-xs text-slate">
+                Si no se indica, el precio queda a 0 € y Compras tendrá que ponerlo antes de crear el pedido en BC.
+              </p>
               {!datos.en_tienda && (
                 <p className="col-span-2 text-xs text-slate">
                   No está publicado en la tienda: se añade solo a esta solicitud.
