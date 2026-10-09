@@ -71,6 +71,28 @@ function Modal({
   const [asignarProveedor, setAsignarProveedor] = useState(true);
   const [eleccion, setEleccion] = useState<Record<string, number | null>>({});
   const [porQue, setPorQue] = useState<Record<string, PropuestaPrecio['por']>>({});
+  const [arrastrando, setArrastrando] = useState(false);
+
+  // Arrastrar y soltar el PDF (o fotos) sobre la ventana
+  function alArrastrar(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (fase === 'inicio' && Array.from(e.dataTransfer.types || []).includes('Files')) setArrastrando(true);
+  }
+  function alSoltar(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setArrastrando(false);
+    if (fase !== 'inicio') return;
+    const validos = Array.from(e.dataTransfer.files || []).filter(
+      (f) => f.type === 'application/pdf' || f.type.startsWith('image/')
+    );
+    if (validos.length === 0) {
+      setError('Solo se admiten archivos PDF o imágenes.');
+      return;
+    }
+    anadir(validos);
+  }
 
   function anadir(nuevos: File[]) {
     setArchivos((prev) => {
@@ -155,14 +177,34 @@ function Modal({
   const precioActual = (id: string) => preciosActuales.find((p) => p.id === id)?.precio ?? null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onMouseDown={onCerrar}>
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onMouseDown={onCerrar}
+      // Evita que el navegador abra el archivo si se suelta fuera de la ventana
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+    >
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6"
+        className={`relative bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 ${
+          arrastrando ? 'ring-2 ring-marca ring-offset-2' : ''
+        }`}
         onMouseDown={(e) => e.stopPropagation()}
+        onDragEnter={alArrastrar}
+        onDragOver={alArrastrar}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setArrastrando(false);
+        }}
+        onDrop={alSoltar}
       >
+        {arrastrando && (
+          <div className="absolute inset-0 z-10 rounded-xl bg-marcaClaro/80 border-2 border-dashed border-marca flex items-center justify-center pointer-events-none">
+            <p className="text-marca font-medium">Suelta aquí el presupuesto (PDF o imágenes)</p>
+          </div>
+        )}
         <h2 className="text-lg font-semibold text-grafito mb-1">Asignar precios desde presupuesto</h2>
         <p className="text-sm text-slate mb-5">
-          Adjunta el presupuesto del proveedor (PDF o fotos; también puedes pegar una captura con Ctrl+V). Se buscará cada
+          Adjunta el presupuesto del proveedor (PDF o fotos): arrástralo a esta ventana, pulsa &quot;Adjuntar&quot; o pega una
+          captura con Ctrl+V. Se buscará cada
           artículo de la solicitud en el presupuesto y podrás revisar los precios antes de aplicarlos.
         </p>
 
@@ -211,7 +253,9 @@ function Modal({
                   + Adjuntar presupuesto
                 </button>
               )}
-              {archivos.length < MAX_ARCHIVOS && <span className="text-xs text-slate">o pega una captura con Ctrl+V</span>}
+              {archivos.length < MAX_ARCHIVOS && (
+                <span className="text-xs text-slate">o arrastra aquí el PDF / pega una captura con Ctrl+V</span>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={onCerrar} className="text-sm text-slate hover:text-grafito px-4 py-2">
