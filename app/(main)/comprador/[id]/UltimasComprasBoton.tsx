@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ultimasComprasArticulo } from '@/app/actions/business-central';
 
 type Compra = {
@@ -30,14 +31,38 @@ export default function UltimasComprasBoton({
   const [compras, setCompras] = useState<Compra[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // El panel se pinta en document.body con posición fija, calculada a partir del botón:
+  // la tarjeta de la línea recorta (overflow) lo que sobresale de ella.
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  function calcularPosicion() {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const width = Math.min(576, window.innerWidth - 16);
+    const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+    setPos({ top: r.bottom + 6, left, width });
+  }
 
   useEffect(() => {
     if (!abierto) return;
+    calcularPosicion();
     function fuera(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setAbierto(false);
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setAbierto(false);
+    }
+    function cerrar() {
+      setAbierto(false);
     }
     document.addEventListener('mousedown', fuera);
-    return () => document.removeEventListener('mousedown', fuera);
+    window.addEventListener('resize', calcularPosicion);
+    window.addEventListener('scroll', cerrar, true);
+    return () => {
+      document.removeEventListener('mousedown', fuera);
+      window.removeEventListener('resize', calcularPosicion);
+      window.removeEventListener('scroll', cerrar, true);
+    };
   }, [abierto]);
 
   async function consultar() {
@@ -71,8 +96,12 @@ export default function UltimasComprasBoton({
         </svg>
       </button>
 
-      {abierto && (
-        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1.5 z-30 w-[min(36rem,90vw)] bg-white border border-borde rounded-lg shadow-lg p-3">
+      {abierto && pos && createPortal(
+        <div
+          ref={panelRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
+          className="z-50 bg-white border border-borde rounded-lg shadow-lg p-3 max-h-[60vh] overflow-y-auto"
+        >
           <p className="text-sm font-medium text-grafito mb-2">
             Últimas compras en BC <span className="font-mono text-slate text-xs">{bcItemNo}</span>
           </p>
@@ -117,7 +146,8 @@ export default function UltimasComprasBoton({
               </p>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
