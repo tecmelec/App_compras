@@ -63,6 +63,12 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
       roles: ['admin', 'usuario', 'comprador', 'responsable'],
       externo: true,
     },
+    {
+      href: 'https://tecmelec.github.io/ALTA-PRODUCTOS-BC/',
+      label: 'Crear artículo en BC',
+      roles: ['admin', 'comprador', 'responsable'],
+      externo: true,
+    },
   ].filter((l) => l.roles.includes(rol));
 
   return (
