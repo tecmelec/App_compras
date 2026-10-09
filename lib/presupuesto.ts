@@ -34,6 +34,87 @@ export type PropuestaPrecio = { item_id: string; linea_idx: number | null; por: 
 
 export type ArchivoPresupuesto = { data: string; mediaType: string };
 
+// --- PDF con texto ---------------------------------------------------------------------
+// Los presupuestos en PDF suelen tener capa de texto (p. ej. los de SAP, de decenas de
+// páginas y cientos de líneas). Leerlos como documento con Claude tarda demasiado, así
+// que se extraen las líneas aquí (columnas separadas por " | ") y a Claude solo se le
+// pasan la cabecera y las líneas de artículo relevantes para esta solicitud.
+
+async function lineasDePDF(base64: string): Promise<string[] | null> {
+  try {
+    const { getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(base64, 'base64')));
+    const lineas: string[] = [];
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const contenido = await page.getTextContent();
+      const filas: { y: number; items: { x: number; s: string }[] }[] = [];
+      for (const it of contenido.items as any[]) {
+        if (!it || typeof it.str !== 'string' || !it.str.trim()) continue;
+        const y = Math.round(it.transform[5]);
+        let fila = filas.find((f) => Math.abs(f.y - y) <= 2);
+        if (!fila) {
+          fila = { y, items: [] };
+          filas.push(fila);
+        }
+        fila.items.push({ x: it.transform[4], s: it.str.trim() });
+      }
+      filas
+        .sort((a, b) => b.y - a.y)
+        .forEach((f) => lineas.push(f.items.sort((a, b) => a.x - b.x).map((i) => i.s).join(' | ')));
+    }
+    // Sin capa de texto (escaneado): se lee como documento con Claude.
+    return lineas.join('').replace(/[\s|]/g, '').length > 200 ? lineas : null;
+  } catch (e) {
+    console.error('[presupuesto] No se pudo extraer el texto del PDF', e);
+    return null;
+  }
+}
+
+const pareceLineaArticulo = (l: string) => l.split(' | ').length >= 3 && /\d+[.,]\d{2}(?!\d)/.test(l);
+
+const palabras = (s: string) =>
+  (s || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^A-Z0-9]+/)
+    .filter((t) => t.length > 2);
+
+// Cabecera (para el proveedor) + líneas de artículo, filtradas por relevancia si hay muchas.
+function textoRelevante(lineas: string[], items: ItemSolicitud[]): string {
+  const cabecera = lineas.slice(0, 40);
+  const pie = lineas.filter((l) => /N\.?I\.?F|C\.?I\.?F/i.test(l)).slice(0, 3);
+  // Una sola vez cada artículo (referencia + descripción), aunque se repita en varios capítulos.
+  const vistos = new Set<string>();
+  const articulos: string[] = [];
+  for (const l of lineas) {
+    if (!pareceLineaArticulo(l)) continue;
+    const c = l.split(' | ');
+    const clave = `${c[0]}|${c[1] || ''}`;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    articulos.push(l);
+  }
+  let elegidas = articulos;
+  if (articulos.length > 120) {
+    const refs = items.flatMap((i) => [...referenciasDeNombre(i.nombre), i.bc_item_no || '']).map(compactar).filter((r) => r.length >= 3);
+    const porReferencia = articulos.filter((l) => refs.some((r) => compactar(l).includes(r)));
+    const porPalabras = articulos
+      .filter((l) => !porReferencia.includes(l))
+      .map((l) => {
+        const pl = new Set(palabras(l));
+        const puntos = Math.max(0, ...items.map((i) => palabras(i.nombre).filter((w) => pl.has(w)).length));
+        return { l, puntos };
+      })
+      .filter((x) => x.puntos >= 2)
+      .sort((a, b) => b.puntos - a.puntos)
+      .map((x) => x.l);
+    elegidas = [...porReferencia, ...porPalabras].slice(0, 120);
+  }
+  return `CABECERA DEL PRESUPUESTO:\n${[...cabecera, ...pie].join('\n')}\n\nLÍNEAS DE ARTÍCULOS (columnas separadas por " | "):\n${elegidas.join('\n')}`;
+}
+
 async function llamarClaude(content: any[], maxTokens: number): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Falta la variable de entorno ANTHROPIC_API_KEY en Vercel.');
@@ -147,15 +228,28 @@ export async function analizarPresupuesto(
   archivos: ArchivoPresupuesto[],
   items: ItemSolicitud[]
 ): Promise<{ proveedor: ProveedorPresupuesto; lineas: LineaPresupuesto[]; propuestas: PropuestaPrecio[] }> {
-  // 1. Lectura del presupuesto
-  const contenido: any[] = [
-    ...archivos.map((a) =>
-      a.mediaType === 'application/pdf'
-        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } }
-        : { type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } }
-    ),
-    { type: 'text', text: PROMPT_PRESUPUESTO },
-  ];
+  // 1. Lectura del presupuesto: los PDF con texto se pasan como texto (rápido); las
+  //    fotos y los PDF escaneados, como imagen/documento.
+  const contenido: any[] = [];
+  const textos: string[] = [];
+  for (const a of archivos) {
+    if (a.mediaType === 'application/pdf') {
+      const lineasPdf = await lineasDePDF(a.data);
+      if (lineasPdf) {
+        textos.push(textoRelevante(lineasPdf, items));
+        continue;
+      }
+      contenido.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
+    } else {
+      contenido.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } });
+    }
+  }
+  contenido.push({
+    type: 'text',
+    text:
+      PROMPT_PRESUPUESTO +
+      (textos.length ? `\n\nTexto extraído del presupuesto:\n"""\n${textos.join('\n\n').slice(0, 60000)}\n"""` : ''),
+  });
   const lectura = extraerJSON(await llamarClaude(contenido, 8000));
   const lineas: LineaPresupuesto[] = (Array.isArray(lectura?.lineas) ? lectura.lineas : [])
     .filter((l: any) => l && (l.descripcion || l.referencia))
