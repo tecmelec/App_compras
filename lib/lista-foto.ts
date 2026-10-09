@@ -148,13 +148,8 @@ function buscarCandidatos(catalogo: ProductoCatalogo[], consulta: string): Produ
 function codigosEnLinea(l: { texto: string; codigo?: string | null }): string[] {
   const codigos = new Set<string>();
   const limpio = (c: string) => c.toUpperCase().replace(/[\s-]/g, '');
-  const anadir = (c: string) => {
-    const base = limpio(c);
-    codigos.add(base);
-    // "GPQM999" → también "GPQM0999": los Nº de artículo suelen llevar 4 cifras.
-    const m = base.match(/^([A-Z]{2,6})([0-9]{1,3})([A-Z]?)$/);
-    if (m) codigos.add(`${m[1]}${m[2].padStart(4, '0')}${m[3]}`);
-  };
+  // El código se busca tal cual está escrito (sin añadir ceros ni otras variantes).
+  const anadir = (c: string) => codigos.add(limpio(c));
   if (typeof l.codigo === 'string' && l.codigo.trim()) anadir(l.codigo);
   // Sin \b delante: el código puede ir pegado a la cantidad ("300sch0998").
   for (const m of l.texto.toUpperCase().match(/(?<![A-Z])[A-Z]{2,6}[0-9]{2,7}[A-Z]?(?![A-Z0-9])/g) || []) anadir(m);
