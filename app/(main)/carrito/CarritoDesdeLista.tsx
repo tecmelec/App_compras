@@ -11,7 +11,7 @@ type Decision = { producto_id: string | null; cantidad: number | null };
 
 // Reduce la foto en el navegador (lado mayor 2000 px, JPEG) para subir rápido
 // y no superar el límite de tamaño de Vercel.
-async function reducirFoto(archivo: File): Promise<Blob> {
+async function reducirFoto(archivo: File, ladoMax = 2000, calidad = 0.85): Promise<Blob> {
   const url = URL.createObjectURL(archivo);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -20,26 +20,30 @@ async function reducirFoto(archivo: File): Promise<Blob> {
       i.onerror = () => reject(new Error('No se pudo leer la imagen. Prueba con una foto JPG o PNG.'));
       i.src = url;
     });
-    const escala = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+    const escala = Math.min(1, ladoMax / Math.max(img.naturalWidth, img.naturalHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(img.naturalWidth * escala);
     canvas.height = Math.round(img.naturalHeight * escala);
     canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
     return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo procesar la imagen.'))), 'image/jpeg', 0.85)
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No se pudo procesar la imagen.'))), 'image/jpeg', calidad)
     );
   } finally {
     URL.revokeObjectURL(url);
   }
 }
 
-// Carrito desde una lista de materiales: en foto (modo "foto") o escrita en un cuadro
-// de texto (modo "texto"). El análisis, la revisión y el informe son los mismos.
-export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) {
+// Carrito desde una lista de materiales: en foto (modo "foto"), escrita en un cuadro
+// de texto (modo "texto") o por referencias de fabricante, con texto y/o varias fotos
+// (modo "ref"). El análisis, la revisión y el informe son los mismos.
+const MAX_FOTOS = 4;
+
+export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | 'ref' }) {
   const router = useRouter();
   const { addItem, addListaFoto } = useCart();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [fotosRef, setFotosRef] = useState<{ file: File; url: string }[]>([]);
   const [textoLista, setTextoLista] = useState('');
   const [fase, setFase] = useState<'inicio' | 'analizando' | 'revision' | 'guardando'>('inicio');
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +52,7 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
   const [decisiones, setDecisiones] = useState<Record<number, Decision>>({});
 
   async function analizar(archivo: File | null) {
+    const archivos = modo === 'ref' ? fotosRef.map((f) => f.file) : archivo ? [archivo] : [];
     setError(null);
     setFase('analizando');
     // Un análisis anterior que no se llegó a añadir al carrito ya no sirve.
@@ -55,24 +60,27 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
       descartarListaFoto(listaId).catch(() => {});
       setListaId(null);
     }
-    if (archivo) setPreview(URL.createObjectURL(archivo));
+    setPreviews(modo === 'ref' ? fotosRef.map((f) => f.url) : archivo ? [URL.createObjectURL(archivo)] : []);
     try {
       const form = new FormData();
-      if (archivo) {
-        const foto = await reducirFoto(archivo);
+      if (modo === 'ref') form.append('modo', 'referencias');
+      for (const a of archivos) {
+        // Varias fotos: algo más reducidas para no pasar del límite de subida.
+        const foto = archivos.length > 1 ? await reducirFoto(a, 1600, 0.8) : await reducirFoto(a);
         form.append('foto', foto, 'lista.jpg');
-      } else {
-        form.append('texto', textoLista);
       }
+      if (modo !== 'foto' && textoLista.trim()) form.append('texto', textoLista);
       const r = await fetch('/api/carrito-foto', { method: 'POST', body: form });
       const datos = await r.json().catch(() => ({ error: `Error ${r.status} analizando la foto.` }));
       if (!r.ok || datos.error) throw new Error(datos.error || `Error ${r.status} analizando la foto.`);
       const ls: LineaLista[] = datos.lineas || [];
       if (ls.length === 0)
         throw new Error(
-          archivo
-            ? 'No se ha encontrado ninguna lista de materiales legible en la foto.'
-            : 'No se ha encontrado ningún material en el texto.'
+          modo === 'ref'
+            ? 'No se ha encontrado ningún artículo con referencia.'
+            : archivo
+              ? 'No se ha encontrado ninguna lista de materiales legible en la foto.'
+              : 'No se ha encontrado ningún material en el texto.'
         );
       setListaId(datos.id);
       setLineas(ls);
@@ -150,10 +158,12 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
         ← Volver al carrito
       </Link>
       <h1 className="text-2xl font-semibold text-grafito mt-2 mb-1">
-        {modo === 'foto' ? 'Crear carrito desde foto' : 'Crear carrito desde lista'}
+        {modo === 'foto' ? 'Crear carrito desde foto' : modo === 'ref' ? 'Crear carrito por REF.' : 'Crear carrito desde lista'}
       </h1>
       <p className="text-sm text-slate mb-6">
-        {modo === 'foto'
+        {modo === 'ref'
+          ? 'Escribe o pega las referencias de fabricante con su cantidad (p. ej. "1 LVS03606") y/o adjunta fotos de un presupuesto o listado. Cada referencia se busca en la descripción de los artículos de Business Central ("REF. LVS03606") y podrás revisar la propuesta antes de añadirla al carrito.'
+          : modo === 'foto'
           ? 'Haz una foto a la lista de materiales escrita. Se buscará cada material en la tienda y podrás revisar la propuesta antes de añadirla al carrito. La foto y un informe de lo pedido irán en la solicitud.'
           : 'Escribe la lista de materiales, un material por línea con su cantidad. Se buscará cada material en la tienda y podrás revisar la propuesta antes de añadirla al carrito. La lista y un informe de lo pedido irán en la solicitud.'}
       </p>
@@ -163,10 +173,17 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
         type="file"
         accept="image/*"
         className="hidden"
+        multiple={modo === 'ref'}
         onChange={(e) => {
-          const f = e.target.files?.[0];
+          const archivos = Array.from(e.target.files || []);
           e.target.value = '';
-          if (f) analizar(f);
+          if (modo === 'ref') {
+            setFotosRef((prev) =>
+              [...prev, ...archivos.map((file) => ({ file, url: URL.createObjectURL(file) }))].slice(0, MAX_FOTOS)
+            );
+          } else if (archivos[0]) {
+            analizar(archivos[0]);
+          }
         }}
       />
 
@@ -178,6 +195,46 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
         <button onClick={() => inputRef.current?.click()} className="btn-primary">
           Hacer o elegir foto
         </button>
+      )}
+
+      {fase === 'inicio' && modo === 'ref' && (
+        <div className="max-w-2xl space-y-3">
+          <textarea
+            value={textoLista}
+            onChange={(e) => setTextoLista(e.target.value)}
+            rows={8}
+            maxLength={8000}
+            placeholder={'Ej.:\n1 LVS03606\n2 A9F79432\n11 A9F79240'}
+            className="input w-full font-mono text-sm leading-relaxed"
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            {fotosRef.map((f, i) => (
+              <div key={f.url} className="relative">
+                <img src={f.url} alt={`Foto ${i + 1}`} className="w-20 h-20 object-cover rounded-md border border-borde" />
+                <button
+                  type="button"
+                  onClick={() => setFotosRef((prev) => prev.filter((x) => x.url !== f.url))}
+                  className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white border border-borde text-xs text-rojo leading-none"
+                  aria-label="Quitar foto"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            {fotosRef.length < MAX_FOTOS && (
+              <button type="button" onClick={() => inputRef.current?.click()} className="btn-secondary">
+                + Adjuntar foto{fotosRef.length > 0 ? ` (${fotosRef.length}/${MAX_FOTOS})` : ''}
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => analizar(null)}
+            disabled={!textoLista.trim() && fotosRef.length === 0}
+            className="btn-primary"
+          >
+            Buscar referencias
+          </button>
+        </div>
       )}
 
       {fase === 'inicio' && modo === 'texto' && (
@@ -203,12 +260,16 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
 
       {fase === 'analizando' && (
         <div className="flex items-center gap-4 bg-white border border-borde rounded-lg p-4">
-          {modo === 'foto' && preview && <img src={preview} alt="Lista" className="w-20 h-20 object-cover rounded-md" />}
+          {previews.slice(0, 1).map((u) => (
+            <img key={u} src={u} alt="Lista" className="w-20 h-20 object-cover rounded-md" />
+          ))}
           <div>
             <p className="text-sm font-medium text-grafito">Analizando la lista…</p>
             <p className="text-xs text-slate">
-              {modo === 'foto' ? 'Leyendo la foto y buscando' : 'Buscando'} cada material en la tienda. Puede tardar hasta un
-              minuto.
+              {modo === 'ref'
+                ? 'Leyendo las referencias y buscándolas en Business Central.'
+                : `${modo === 'foto' ? 'Leyendo la foto y buscando' : 'Buscando'} cada material en la tienda.`}{' '}
+              Puede tardar hasta un minuto.
             </p>
           </div>
         </div>
@@ -216,16 +277,20 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
 
       {(fase === 'revision' || fase === 'guardando') && (
         <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {modo === 'foto' && preview && (
-            <a href={preview} target="_blank" rel="noopener noreferrer" className="lg:sticky lg:top-4 shrink-0">
-              <img src={preview} alt="Lista en foto" className="w-full lg:w-64 rounded-lg border border-borde" />
-              <span className="text-xs text-slate">Ver foto ampliada</span>
-            </a>
-          )}
-          {modo === 'texto' && (
-            <pre className="lg:sticky lg:top-4 shrink-0 w-full lg:w-64 bg-white border border-borde rounded-lg p-3 text-xs text-grafito whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
-              {textoLista}
-            </pre>
+          {(previews.length > 0 || (modo !== 'foto' && textoLista.trim())) && (
+            <div className="lg:sticky lg:top-4 shrink-0 w-full lg:w-64 space-y-2">
+              {previews.map((u, i) => (
+                <a key={u} href={u} target="_blank" rel="noopener noreferrer" className="block">
+                  <img src={u} alt={`Foto ${i + 1}`} className="w-full rounded-lg border border-borde" />
+                  <span className="text-xs text-slate">Ver foto ampliada</span>
+                </a>
+              ))}
+              {modo !== 'foto' && textoLista.trim() && (
+                <pre className="bg-white border border-borde rounded-lg p-3 text-xs text-grafito whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+                  {textoLista}
+                </pre>
+              )}
+            </div>
           )}
 
           <div className="flex-1 min-w-0 w-full">
@@ -339,7 +404,7 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
                 disabled={fase === 'guardando'}
                 className="btn-secondary"
               >
-                {modo === 'foto' ? 'Usar otra foto' : 'Editar la lista'}
+                {modo === 'foto' ? 'Usar otra foto' : modo === 'ref' ? 'Editar referencias' : 'Editar la lista'}
               </button>
             </div>
           </div>

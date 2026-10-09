@@ -332,25 +332,30 @@ export async function rechazarLineaListaFoto(listaId: string, n: number) {
 // Fotos de las listas del carrito del usuario (aún sin solicitud), con URL firmada.
 export async function fotosListasCarrito(ids: string[]) {
   const { user } = await perfilActual();
-  type ListaCarrito = { id: string; url: string | null; texto: string | null; lineas: number };
+  type ListaCarrito = { id: string; url: string | null; urls: string[]; texto: string | null; modo: string; lineas: number };
   if (!user || ids.length === 0) return { listas: [] as ListaCarrito[] };
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('listas_foto')
-    .select('id, imagen_path, texto, lineas')
+    .select('id, imagen_path, imagenes, texto, modo, lineas')
     .in('id', ids)
     .eq('usuario_id', user.id)
     .is('pedido_id', null);
   if (error) return { listas: [] as ListaCarrito[], error: error.message };
   const listas = await Promise.all(
     (data || []).map(async (l) => {
-      const firmada = l.imagen_path
-        ? (await admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(l.imagen_path, 60 * 60)).data
-        : null;
+      const rutas: string[] = (l.imagenes as string[] | null)?.length ? (l.imagenes as string[]) : l.imagen_path ? [l.imagen_path] : [];
+      const urls = (
+        await Promise.all(rutas.map((r) => admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(r, 60 * 60)))
+      )
+        .map((x) => x.data?.signedUrl)
+        .filter(Boolean) as string[];
       return {
         id: l.id,
-        url: firmada?.signedUrl || null,
+        url: urls[0] || null,
+        urls,
         texto: (l.texto as string | null) || null,
+        modo: (l.modo as string) || 'materiales',
         lineas: ((l.lineas as any[]) || []).length,
       } as ListaCarrito;
     })
@@ -366,13 +371,14 @@ export async function descartarListaFoto(id: string) {
   const admin = createAdminClient();
   const { data: lista } = await admin
     .from('listas_foto')
-    .select('id, imagen_path')
+    .select('id, imagen_path, imagenes')
     .eq('id', id)
     .eq('usuario_id', user.id)
     .is('pedido_id', null)
     .maybeSingle();
   if (!lista) return { success: true };
-  if (lista.imagen_path) await admin.storage.from(BUCKET_LISTAS_FOTO).remove([lista.imagen_path]);
+  const rutas = Array.from(new Set([...((lista.imagenes as string[] | null) || []), ...(lista.imagen_path ? [lista.imagen_path] : [])]));
+  if (rutas.length) await admin.storage.from(BUCKET_LISTAS_FOTO).remove(rutas);
   await admin.from('listas_foto').delete().eq('id', lista.id);
   return { success: true };
 }

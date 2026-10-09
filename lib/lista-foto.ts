@@ -10,7 +10,7 @@
 // por defecto el mismo modelo que la Edge Function leer-pedido-albaran).
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { obtenerItemBC } from '@/lib/business-central';
+import { obtenerItemBC, buscarArticulosBC } from '@/lib/business-central';
 import { ajustarAMultiplo, type CandidatoLista, type LineaLista } from '@/lib/lista-foto-tipos';
 
 export type { CandidatoLista, LineaLista };
@@ -56,6 +56,21 @@ Ignora títulos, fechas, nombres, firmas y líneas tachadas. Si una línea indic
 Responde SOLO con JSON, sin texto adicional:
 {"lineas":[{"texto":"...","cantidad":100,"unidad":"m","codigo":null,"busqueda":["..."]}]}
 Si no hay ninguna lista de materiales legible, responde {"lineas":[]}.`;
+
+const PROMPT_LECTURA_REFERENCIAS = `Esto es un listado de materiales eléctricos con REFERENCIAS DE FABRICANTE (por ejemplo, un presupuesto o una oferta de un proveedor, en fotos y/o como texto). Si hay varias fotos, son páginas del mismo listado.
+
+Para cada artículo devuelve:
+- "texto": la referencia seguida de la descripción, tal cual aparecen (p. ej. "LVS03606 Tapa P NSX-CVS250 Hor.Man/Rot/Telem 4P").
+- "referencia": la referencia del fabricante exactamente como está escrita, en mayúsculas y sin espacios (p. ej. "LVS03606", "A9F79432"); null si la línea no tiene referencia.
+- "cantidad": número (usa punto decimal) o null.
+- "unidad": la unidad si se indica ("ud", "m"...) o null.
+- "busqueda": 3 a 8 palabras clave de la descripción (tipo de producto, medidas, polos, intensidad...).
+
+Ignora cabeceras de capítulo, títulos, precios, importes, totales, descuentos, columnas de clasificación (p. ej. "ABC") y notas.
+
+Responde SOLO con JSON, sin texto adicional:
+{"lineas":[{"texto":"...","referencia":"LVS03606","cantidad":1,"unidad":null,"busqueda":["..."]}]}
+Si no hay ningún artículo legible, responde {"lineas":[]}.`;
 
 // --- Catálogo y búsqueda de candidatos ----------------------------------------------
 
@@ -160,7 +175,7 @@ function codigosEnLinea(l: { texto: string; codigo?: string | null }): string[] 
 // el de la tabla productos si ya existe; si no, se crea con visible = false.
 async function productoOcultoPorCodigo(codigo: string): Promise<ProductoCatalogo | null> {
   const admin = createAdminClient();
-  const columnas = 'id, nombre, descripcion, categoria, bc_item_no, unidad_medida, multiplo_compra, imagen_url';
+  const columnas = 'id, nombre, descripcion, categoria, bc_item_no, unidad_medida, multiplo_compra, imagen_url, visible';
   let { data: p } = await admin.from('productos').select(columnas).eq('bc_item_no', codigo).maybeSingle();
   if (!p) {
     let item;
@@ -205,35 +220,119 @@ async function productoOcultoPorCodigo(codigo: string): Promise<ProductoCatalogo
   };
 }
 
+// --- Referencias de fabricante ---------------------------------------------------------
+
+const normalizarRef = (r: string) => r.toUpperCase().replace(/\s+/g, '');
+
+// ¿La descripción contiene la referencia como palabra completa? Devuelve 2 si va
+// precedida de "REF." (la forma en que se codifican en BC), 1 si aparece suelta, 0 si no.
+function puntuarReferencia(descripcion: string, ref: string): number {
+  const d = descripcion.toUpperCase();
+  const r = ref.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp(`REF\\.?\\s*:?\\s*${r}(?![A-Z0-9])`).test(d)) return 2;
+  if (new RegExp(`(?<![A-Z0-9])${r}(?![A-Z0-9])`).test(d)) return 1;
+  return 0;
+}
+
+// Artículos cuya descripción incluye la referencia de fabricante: primero en el
+// catálogo publicado; si no hay, en la ficha de productos de BC (que se dan de alta
+// ocultos). Se prefieren los que llevan "REF. <referencia>".
+async function articulosPorReferencia(
+  ref: string,
+  catalogo: ProductoCatalogo[]
+): Promise<{ productos: ProductoCatalogo[]; exacta: boolean; ocultos: boolean } | null> {
+  const enCatalogo = catalogo
+    .map((p) => ({ p, puntos: puntuarReferencia(p.nombre, ref) }))
+    .filter((x) => x.puntos > 0)
+    .sort((a, b) => b.puntos - a.puntos);
+  if (enCatalogo.length > 0) {
+    return { productos: enCatalogo.slice(0, 3).map((x) => x.p), exacta: enCatalogo[0].puntos === 2, ocultos: false };
+  }
+  let encontrados: { No: string; Description: string }[] = [];
+  try {
+    encontrados = await buscarArticulosBC(ref, 'descripcion', 15);
+  } catch (e) {
+    console.error(`[lista-foto] No se pudo buscar la referencia ${ref} en BC`, e);
+    return null;
+  }
+  const ordenados = encontrados
+    .map((a) => ({ a, puntos: puntuarReferencia(a.Description, ref) }))
+    .filter((x) => x.puntos > 0)
+    .sort((a, b) => b.puntos - a.puntos)
+    .slice(0, 3);
+  if (ordenados.length === 0) return null;
+  const productos: ProductoCatalogo[] = [];
+  for (const { a } of ordenados) {
+    try {
+      const p = await productoOcultoPorCodigo(a.No);
+      if (p) productos.push(p);
+    } catch (e) {
+      console.error(`[lista-foto] No se pudo dar de alta ${a.No} (referencia ${ref})`, e);
+    }
+  }
+  if (productos.length === 0) return null;
+  return { productos, exacta: ordenados[0].puntos === 2, ocultos: true };
+}
+
+// Ejecuta tareas asíncronas con un máximo de "n" a la vez (para no saturar BC).
+async function enParalelo<T, R>(elementos: T[], n: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> {
+  const resultados: R[] = new Array(elementos.length);
+  let siguiente = 0;
+  async function trabajador() {
+    while (siguiente < elementos.length) {
+      const i = siguiente++;
+      resultados[i] = await fn(elementos[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(n, elementos.length) }, trabajador));
+  return resultados;
+}
+
 // --- Análisis completo --------------------------------------------------------------
 
-// Entrada del análisis: una foto de la lista o la lista escrita como texto en la app.
-export type EntradaLista = { imagen: { data: string; mediaType: string } } | { texto: string };
+// Entrada del análisis: fotos de la lista y/o la lista escrita como texto en la app.
+// modo "materiales": lista de obra (descripciones); modo "referencias": listado con
+// referencias de fabricante (p. ej. un presupuesto), que se buscan en las descripciones
+// de los artículos de BC ("... REF. LVS03606").
+export type ModoLista = 'materiales' | 'referencias';
+export type EntradaLista = {
+  imagenes?: { data: string; mediaType: string }[];
+  texto?: string | null;
+  modo?: ModoLista;
+};
 
 export async function analizarListaFoto(imagen: { data: string; mediaType: string }): Promise<LineaLista[]> {
-  return analizarLista({ imagen });
+  return analizarLista({ imagenes: [imagen] });
 }
 
 export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]> {
-  // 1. Lectura de la lista (foto con visión, o texto escrito en la app)
-  const contenido =
-    'imagen' in entrada
-      ? [
-          { type: 'image', source: { type: 'base64', media_type: entrada.imagen.mediaType, data: entrada.imagen.data } },
-          { type: 'text', text: PROMPT_LECTURA },
-        ]
-      : [
-          {
-            type: 'text',
-            text: PROMPT_LECTURA.replace(
-              'Esta foto es una lista de materiales escrita (normalmente a mano)',
-              'Este texto es una lista de materiales escrita'
-            ).replace('Si no hay ninguna lista de materiales legible', 'Si no hay ninguna lista de materiales') +
-              `\n\nLista:\n"""\n${entrada.texto.slice(0, 8000)}\n"""`,
-          },
-        ];
+  const modo: ModoLista = entrada.modo || 'materiales';
+  const imagenes = entrada.imagenes || [];
+  const texto = (entrada.texto || '').trim();
+
+  // 1. Lectura de la lista (fotos con visión y/o texto escrito en la app)
+  let prompt = modo === 'referencias' ? PROMPT_LECTURA_REFERENCIAS : PROMPT_LECTURA;
+  if (modo === 'materiales' && imagenes.length === 0) {
+    prompt = prompt
+      .replace('Esta foto es una lista de materiales escrita (normalmente a mano)', 'Este texto es una lista de materiales escrita')
+      .replace('Si no hay ninguna lista de materiales legible', 'Si no hay ninguna lista de materiales');
+  }
+  const contenido: any[] = [
+    ...imagenes.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.mediaType, data: im.data } })),
+    {
+      type: 'text',
+      text: prompt + (texto ? `\n\nLista escrita:\n"""\n${texto.slice(0, 8000)}\n"""` : ''),
+    },
+  ];
   const lectura = extraerJSON(await llamarClaude(contenido, 4000));
-  const leidas: { texto: string; cantidad: number | null; unidad: string | null; codigo?: string | null; busqueda: string[] }[] = (
+  const leidas: {
+    texto: string;
+    cantidad: number | null;
+    unidad: string | null;
+    codigo?: string | null;
+    referencia?: string | null;
+    busqueda: string[];
+  }[] = (
     Array.isArray(lectura?.lineas) ? lectura.lineas : []
   )
     .filter((l: any) => typeof l?.texto === 'string' && l.texto.trim())
@@ -250,9 +349,30 @@ export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]
   // es de un producto publicado, se propone ese; si no está en la tienda pero existe en
   // BC, se da de alta oculto (visible = false) y se propone igualmente. Estas líneas no
   // pasan por la elección de Claude.
-  type ResultadoCodigo = { producto: ProductoCatalogo; oculto: boolean } | { error: string } | null;
-  const porCodigo: ResultadoCodigo[] = await Promise.all(
-    leidas.map(async (l, i): Promise<ResultadoCodigo> => {
+  type ResultadoCodigo =
+    | { producto: ProductoCatalogo; oculto: boolean; alternativas?: ProductoCatalogo[]; referencia?: string; exacta?: boolean }
+    | { error: string }
+    | null;
+  const porCodigo: ResultadoCodigo[] = await enParalelo(
+    leidas,
+    4,
+    async (l, i): Promise<ResultadoCodigo> => {
+      // Modo referencias: la referencia de fabricante en la descripción de BC ("REF. X").
+      if (modo === 'referencias' && typeof l.referencia === 'string' && l.referencia.trim()) {
+        const ref = normalizarRef(l.referencia);
+        if (ref.length >= 3) {
+          const r = await articulosPorReferencia(ref, catalogo);
+          if (r) {
+            return {
+              producto: r.productos[0],
+              oculto: r.ocultos,
+              alternativas: r.productos.slice(1),
+              referencia: ref,
+              exacta: r.exacta,
+            };
+          }
+        }
+      }
       const codigos = codigosEnLinea(l);
       for (const codigo of codigos) {
         const enCandidatos = candidatosPorLinea[i].find((c) => (c.bc_item_no || '').toUpperCase() === codigo);
@@ -267,11 +387,13 @@ export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]
         }
       }
       return null;
-    })
+    }
   );
   porCodigo.forEach((pc, i) => {
-    if (pc && 'producto' in pc && !candidatosPorLinea[i].some((c) => c.id === pc.producto.id)) {
-      candidatosPorLinea[i] = [pc.producto, ...candidatosPorLinea[i]].slice(0, MAX_CANDIDATOS);
+    if (pc && 'producto' in pc) {
+      const propios = [pc.producto, ...(pc.alternativas || [])];
+      const resto = candidatosPorLinea[i].filter((c) => !propios.some((p) => p.id === c.id));
+      candidatosPorLinea[i] = [...propios, ...resto].slice(0, MAX_CANDIDATOS);
     }
   });
 
@@ -338,9 +460,13 @@ Responde SOLO con JSON:
       producto_propuesto_id: elegido?.id || null,
       cantidad_producto: cantidadProducto,
       cantidad_propuesta: elegido ? ajustarAMultiplo(cantidadProducto ?? elegido.multiplo_compra, elegido.multiplo_compra) : null,
-      confianza: pc ? 'alta' : elegido ? (['alta', 'media', 'baja'].includes(r?.confianza) ? r.confianza : 'media') : null,
+      confianza: pc ? (pc.referencia && !pc.exacta ? 'media' : 'alta') : elegido ? (['alta', 'media', 'baja'].includes(r?.confianza) ? r.confianza : 'media') : null,
       nota: pc
-        ? pc.oculto
+        ? pc.referencia
+          ? `Encontrado por la referencia ${pc.referencia}${pc.exacta ? '' : ' (sin "REF." delante en la descripción: compruébalo)'}${
+              pc.alternativas && pc.alternativas.length > 0 ? `; hay ${pc.alternativas.length} artículo(s) más con esa referencia en el desplegable` : ''
+            }${pc.oculto ? '. No está publicado en la tienda.' : '.'}`
+          : pc.oculto
           ? `Encontrado por su código (${pc.producto.bc_item_no}) en Business Central; no está publicado en la tienda.`
           : `Encontrado por su código (${pc.producto.bc_item_no}).`
         : errorCodigo

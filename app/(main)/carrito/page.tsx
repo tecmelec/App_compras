@@ -85,6 +85,13 @@ export default function CarritoPage() {
           </svg>
           Crear carrito desde lista
         </Link>
+        <Link href="/carrito/referencias" className="btn-secondary inline-flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+            <line x1="7" y1="7" x2="7.01" y2="7" />
+          </svg>
+          Crear carrito por REF.
+        </Link>
         </div>
       </div>
       {listasFoto.length > 0 && <FotosDelCarrito ids={listasFoto} onQuitar={removeListaFoto} />}
@@ -204,7 +211,9 @@ export default function CarritoPage() {
 // Fotos de listas de materiales vinculadas al carrito: se pueden ver o quitar antes
 // de enviar la solicitud (los artículos del carrito no se tocan).
 function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: string) => void }) {
-  const [listas, setListas] = useState<{ id: string; url: string | null; texto: string | null; lineas: number }[] | null>(null);
+  const [listas, setListas] = useState<
+    { id: string; url: string | null; urls: string[]; texto: string | null; modo: string; lineas: number }[] | null
+  >(null);
   const [verTexto, setVerTexto] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<string | null>(null);
   const clave = ids.join(',');
@@ -252,7 +261,10 @@ function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: stri
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-grafito">{l.url ? 'Lista en foto' : 'Lista escrita'}</p>
+            <p className="text-sm text-grafito">
+              {l.modo === 'referencias' ? 'Lista por referencias' : l.url ? 'Lista en foto' : 'Lista escrita'}
+              {l.urls.length > 1 ? ` · ${l.urls.length} fotos` : ''}
+            </p>
             <p className="text-xs text-slate">{l.lineas} {l.lineas === 1 ? 'línea' : 'líneas'} leídas</p>
           </div>
           {l.url && (
@@ -260,7 +272,7 @@ function FotosDelCarrito({ ids, onQuitar }: { ids: string[]; onQuitar: (id: stri
               Ver foto
             </a>
           )}
-          {!l.url && l.texto && (
+          {l.texto && (
             <button
               onClick={() => setVerTexto(verTexto === l.id ? null : l.id)}
               className="text-sm text-marca hover:underline shrink-0"

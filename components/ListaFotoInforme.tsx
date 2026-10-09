@@ -34,7 +34,7 @@ export default async function ListaFotoInforme({
   const admin = createAdminClient();
   const { data: listas } = await admin
     .from('listas_foto')
-    .select('id, imagen_path, texto, lineas, created_at')
+    .select('id, imagen_path, imagenes, texto, modo, lineas, created_at')
     .eq('pedido_id', pedidoId)
     .order('created_at');
   if (!listas || listas.length === 0) return null;
@@ -75,9 +75,16 @@ export default async function ListaFotoInforme({
   const productosDeListas = new Set<string>();
   const bloques = await Promise.all(
     listas.map(async (lista) => {
-      const firmada = lista.imagen_path
-        ? (await admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(lista.imagen_path, 60 * 60)).data
-        : null;
+      const rutas: string[] = (lista.imagenes as string[] | null)?.length
+        ? (lista.imagenes as string[])
+        : lista.imagen_path
+          ? [lista.imagen_path]
+          : [];
+      const urls = (
+        await Promise.all(rutas.map((r) => admin.storage.from(BUCKET_LISTAS_FOTO).createSignedUrl(r, 60 * 60)))
+      )
+        .map((x) => x.data?.signedUrl)
+        .filter(Boolean) as string[];
       const lineas = (lista.lineas || []) as LineaLista[];
       const filas = lineas.map((l) => {
         const productoId = l.producto_id ?? null;
@@ -151,8 +158,10 @@ export default async function ListaFotoInforme({
       });
       return {
         id: lista.id,
-        esFoto: !!lista.imagen_path,
-        url: firmada?.signedUrl || null,
+        esFoto: rutas.length > 0,
+        modo: (lista.modo as string) || 'materiales',
+        urls,
+        hayFotos: rutas.length > 0,
         texto: (lista.texto as string | null) || null,
         filas,
       };
@@ -188,10 +197,18 @@ export default async function ListaFotoInforme({
   return (
     <section className="bg-white border border-borde rounded-lg p-4 sm:p-5 mt-6">
       <h2 className="text-base font-semibold text-grafito">
-        {bloques.every((b) => b.esFoto) ? 'Lista en foto' : bloques.every((b) => !b.esFoto) ? 'Lista escrita' : 'Listas de materiales'}
+        {bloques.some((b) => b.modo === 'referencias')
+          ? 'Lista por referencias'
+          : bloques.every((b) => b.esFoto)
+            ? 'Lista en foto'
+            : bloques.every((b) => !b.esFoto)
+              ? 'Lista escrita'
+              : 'Listas de materiales'}
       </h2>
       <p className="text-xs text-slate mb-4">
-        {bloques.every((b) => b.esFoto)
+        {bloques.some((b) => b.modo === 'referencias')
+          ? 'Solicitud creada a partir de un listado de referencias de fabricante.'
+          : bloques.every((b) => b.esFoto)
           ? 'Solicitud creada a partir de una foto de la lista de materiales.'
           : 'Solicitud creada a partir de una lista de materiales escrita.'} {resumen.enviado} enviadas tal cual,{' '}
         {resumen.modificado} modificadas,{' '}
@@ -207,18 +224,20 @@ export default async function ListaFotoInforme({
 
       {bloques.map((b) => (
         <div key={b.id} className="flex flex-col md:flex-row gap-5 items-start mb-4 last:mb-0">
-          {!b.esFoto ? (
-            <pre className="shrink-0 w-full md:w-56 bg-fondo border border-borde rounded-md p-3 text-xs text-grafito whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
-              {b.texto || '—'}
-            </pre>
-          ) : b.url ? (
-            <a href={b.url} target="_blank" rel="noopener noreferrer" className="shrink-0">
-              <img src={b.url} alt="Lista de materiales" className="w-full md:w-56 rounded-md border border-borde" />
-              <span className="text-xs text-slate">Ver foto ampliada</span>
-            </a>
-          ) : (
-            <p className="text-xs text-slate md:w-56">No se pudo cargar la foto.</p>
-          )}
+          <div className="shrink-0 w-full md:w-56 space-y-2">
+            {b.urls.map((u, i) => (
+              <a key={u} href={u} target="_blank" rel="noopener noreferrer" className="block">
+                <img src={u} alt={`Lista de materiales ${i + 1}`} className="w-full rounded-md border border-borde" />
+                <span className="text-xs text-slate">Ver foto ampliada</span>
+              </a>
+            ))}
+            {b.hayFotos && b.urls.length === 0 && <p className="text-xs text-slate">No se pudo cargar la foto.</p>}
+            {b.texto && (
+              <pre className="bg-fondo border border-borde rounded-md p-3 text-xs text-grafito whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+                {b.texto}
+              </pre>
+            )}
+          </div>
 
           <div className="flex-1 min-w-0 w-full overflow-x-auto">
             <table className="w-full text-sm">
