@@ -389,6 +389,24 @@ export async function obtenerPedidosCompraBC(numeroApp: string): Promise<PedidoC
   return consultarBC(url);
 }
 
+// Proveedor de varios pedidos de compra por su Nº (cabeceras), para las últimas
+// compras de un artículo: las líneas no traen el proveedor.
+export async function obtenerProveedorPedidosCompraBC(
+  numeros: string[]
+): Promise<Map<string, { vendorNo: string; vendorName: string | null }>> {
+  const mapa = new Map<string, { vendorNo: string; vendorName: string | null }>();
+  if (numeros.length === 0) return mapa;
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
+  const filtro = numeros.map((n) => `No eq '${n.replace(/'/g, "''")}'`).join(' or ');
+  const cabeceras: any[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
+  for (const c of cabeceras || []) {
+    if (c?.No && c.Buy_from_Vendor_No) {
+      mapa.set(c.No, { vendorNo: c.Buy_from_Vendor_No, vendorName: c.Buy_from_Vendor_Name || null });
+    }
+  }
+  return mapa;
+}
+
 // Líneas de un pedido de compra concreto en BC (por Nº pedido Tecmelec / Document_No),
 // para calcular el estado de recepción de cada artículo (Quantity vs Quantity_Received).
 export async function obtenerLineasPedidoCompraBC(documentNo: string): Promise<LineaPedidoCompraBC[]> {

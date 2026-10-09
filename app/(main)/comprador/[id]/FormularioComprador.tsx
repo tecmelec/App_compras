@@ -566,7 +566,7 @@ function ItemFila({
               />
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate text-xs pointer-events-none">€</span>
             </div>
-            <UltimasComprasBoton bcItemNo={item.bcItemNo ?? null} onUsarPrecio={onPrecio} />
+            <UltimasComprasBoton bcItemNo={item.bcItemNo ?? null} onUsarPrecio={onPrecio} onUsarProveedor={onProveedorId} />
           </div>
         </div>
       </div>

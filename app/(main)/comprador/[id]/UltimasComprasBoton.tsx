@@ -9,6 +9,8 @@ type Compra = {
   cantidad: number;
   descripcion: string;
   proveedor: string | null;
+  proveedorNo: string | null;
+  proveedorId: string | null;
   proyecto: string | null;
   precioUnitario: number;
 };
@@ -22,9 +24,11 @@ function fmt(n: number, dec = 5) {
 export default function UltimasComprasBoton({
   bcItemNo,
   onUsarPrecio,
+  onUsarProveedor,
 }: {
   bcItemNo: string | null;
   onUsarPrecio: (precio: string) => void;
+  onUsarProveedor?: (proveedorId: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -39,7 +43,7 @@ export default function UltimasComprasBoton({
   function calcularPosicion() {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
-    const width = Math.min(576, window.innerWidth - 16);
+    const width = Math.min(720, window.innerWidth - 16);
     const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
     setPos({ top: r.bottom + 6, left, width });
   }
@@ -114,6 +118,7 @@ export default function UltimasComprasBoton({
                 <thead>
                   <tr className="text-left text-slate border-b border-borde">
                     <th className="py-1.5 pr-2 font-medium">Pedido</th>
+                    <th className="py-1.5 pr-2 font-medium">Proveedor</th>
                     <th className="py-1.5 pr-2 font-medium text-right">Cantidad</th>
                     <th className="py-1.5 pr-2 font-medium">Descripción</th>
                     <th className="py-1.5 font-medium text-right">Precio ud.</th>
@@ -125,14 +130,25 @@ export default function UltimasComprasBoton({
                       key={`${c.pedido}-${i}`}
                       onClick={() => {
                         onUsarPrecio(String(c.precioUnitario));
+                        if (c.proveedorId && onUsarProveedor) onUsarProveedor(c.proveedorId);
                         setAbierto(false);
                       }}
                       className="cursor-pointer hover:bg-fondo"
-                      title="Usar este precio"
+                      title="Usar este precio y proveedor"
                     >
-                      <td className="py-1.5 pr-2 font-mono text-grafito whitespace-nowrap">
-                        {c.pedido}
-                        {c.proveedor && <span className="block font-sans text-slate">{c.proveedor}</span>}
+                      <td className="py-1.5 pr-2 font-mono text-grafito whitespace-nowrap">{c.pedido}</td>
+                      <td className="py-1.5 pr-2 text-grafito">
+                        {c.proveedorNo ? (
+                          <>
+                            <span className="font-mono text-slate">{c.proveedorNo}</span>
+                            {c.proveedor && <span className="block">{c.proveedor}</span>}
+                            {!c.proveedorId && (
+                              <span className="block text-[11px] text-[#8A5A15]">No sincronizado en la app</span>
+                            )}
+                          </>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="py-1.5 pr-2 font-mono text-right">{fmt(c.cantidad, 3)}</td>
                       <td className="py-1.5 pr-2 text-grafito">{c.descripcion}</td>
@@ -142,7 +158,7 @@ export default function UltimasComprasBoton({
                 </tbody>
               </table>
               <p className="text-[11px] text-slate mt-2">
-                Precio ud. = importe de línea excl. IVA / cantidad. Pulsa una fila para usar su precio (después, guarda).
+                Precio ud. = importe de línea excl. IVA / cantidad. Pulsa una fila para usar su precio y su proveedor (después, guarda).
               </p>
             </div>
           )}

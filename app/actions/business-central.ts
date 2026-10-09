@@ -13,6 +13,7 @@ import {
   obtenerLineasPedidoCompraBC,
   obtenerItemBC,
   obtenerUltimasComprasArticuloBC,
+  obtenerProveedorPedidosCompraBC,
   obtenerCrudoBC,
   obtenerCrudoBCFiltrado,
   crearPedidoCompraBC,
@@ -1267,16 +1268,35 @@ export async function ultimasComprasArticulo(bcItemNo: string) {
   if (!bcItemNo) return { error: 'El artículo no tiene código de BC.' };
   try {
     const lineas = await obtenerUltimasComprasArticuloBC(bcItemNo, 5);
+    // Proveedor de cada pedido (cabecera en BC) y su ficha en la app.
+    let cabeceras = new Map<string, { vendorNo: string; vendorName: string | null }>();
+    try {
+      cabeceras = await obtenerProveedorPedidosCompraBC(Array.from(new Set(lineas.map((l) => l.Document_No))));
+    } catch (e) {
+      console.error('[ultimasComprasArticulo] No se pudo leer el proveedor de los pedidos', e);
+    }
+    const vendorNos = Array.from(new Set(Array.from(cabeceras.values()).map((c) => c.vendorNo)));
+    const { data: proveedoresApp } = vendorNos.length
+      ? await supabase.from('proveedores').select('id, bc_proveedor_no, nombre').in('bc_proveedor_no', vendorNos)
+      : { data: [] as { id: string; bc_proveedor_no: string; nombre: string | null }[] };
+    const proveedorPorNo = new Map((proveedoresApp || []).map((p) => [p.bc_proveedor_no, p]));
     return {
       success: true,
-      compras: lineas.map((l) => ({
+      compras: lineas.map((l) => {
+        const cab = cabeceras.get(l.Document_No);
+        const vendorNo = cab?.vendorNo || l.Buy_from_Vendor_No || null;
+        const prov = vendorNo ? proveedorPorNo.get(vendorNo) : undefined;
+        return {
         pedido: l.Document_No,
         cantidad: l.Quantity,
         descripcion: l.Description || '',
-        proveedor: l.Buy_from_Vendor_Name || l.Buy_from_Vendor_No || null,
+        proveedorNo: vendorNo,
+        proveedor: prov?.nombre || cab?.vendorName || l.Buy_from_Vendor_Name || null,
+        proveedorId: prov?.id || null,
         proyecto: l.Job_No || null,
         precioUnitario: Number((l.Line_Amount / l.Quantity).toFixed(5)),
-      })),
+        };
+      }),
     };
   } catch (e: any) {
     return { error: 'No se pudo consultar Business Central: ' + (e.message || '') };
