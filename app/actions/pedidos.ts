@@ -434,12 +434,13 @@ export async function actualizarLineasTecmelec(
   // que limpiarla; si no la toca, se deja tal cual está.
   const { data: actuales } = await supabase
     .from('pedido_items')
-    .select('id, fecha_estimada_entrega')
+    .select('id, fecha_estimada_entrega, precio_unitario')
     .in(
       'id',
       items.map((i) => i.id)
     );
   const fechaActualPorId = new Map((actuales || []).map((a) => [a.id, a.fecha_estimada_entrega]));
+  const precioActualPorId = new Map((actuales || []).map((a) => [a.id, a.precio_unitario]));
 
   for (const item of items) {
     const fechaNueva = item.fecha_estimada_entrega || null;
@@ -455,6 +456,10 @@ export async function actualizarLineasTecmelec(
         estado_recepcion: item.estado_recepcion,
         proveedor_id: item.proveedor_id,
         precio_unitario: item.precio_unitario,
+        // Si el comprador cambia el precio a mano, deja de ser "precio desde presupuesto".
+        ...(Number(precioActualPorId.get(item.id) ?? NaN) !== Number(item.precio_unitario)
+          ? { precio_presupuesto_id: null }
+          : {}),
       })
       .eq('id', item.id);
 

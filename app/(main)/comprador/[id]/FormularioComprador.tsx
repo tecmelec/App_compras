@@ -27,6 +27,7 @@ type ItemForm = {
   anadidaEnBC?: boolean;
   eliminadaEnBC?: boolean;
   bcItemNo?: string | null;
+  precioDesdePresupuesto?: boolean;
   rechazadaPorAprobador?: boolean;
   rechazadaPor?: string;
   unidad?: string;
@@ -569,6 +570,11 @@ function ItemFila({
             </div>
             <UltimasComprasBoton bcItemNo={item.bcItemNo ?? null} onUsarPrecio={onPrecio} onUsarProveedor={onProveedorId} />
           </div>
+          {item.precioDesdePresupuesto && (
+            <span className="inline-block mt-1 text-[11px] font-medium text-[#2F6690] bg-[#EAF1F6] border border-[#C7DBE7] rounded px-1.5 py-0.5">
+              Precios desde presupuesto
+            </span>
+          )}
         </div>
       </div>
 

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
+import PresupuestoBoton from './PresupuestoBoton';
+import PresupuestosSolicitud from './PresupuestosSolicitud';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import GestionPedidosBC from './GestionPedidosBC';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
@@ -25,7 +27,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
+      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
     )
     .eq('id', params.id)
     .single();
@@ -240,14 +242,32 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         )}
       </div>
 
-      <SincronizarPedidoBCBoton pedidoId={p.id} />
+      <div className="flex flex-wrap items-start gap-3">
+        <SincronizarPedidoBCBoton pedidoId={p.id} />
+        <div className="mb-4">
+          <PresupuestoBoton
+            pedidoId={p.id}
+            proveedores={(proveedores as any[]) || []}
+            preciosActuales={(p.pedido_items as any[]).map((i) => ({
+              id: i.id,
+              precio: Number(i.precio_unitario ?? i.productos?.precio ?? 0),
+            }))}
+          />
+        </div>
+      </div>
+      <PresupuestosSolicitud
+        pedidoId={p.id}
+        nombresItems={Object.fromEntries((p.pedido_items as any[]).map((i) => [i.id, i.productos?.nombre || 'Producto']))}
+      />
 
       <GestionPedidosBC pedidos={pedidosBC} />
 
       <FormularioComprador
         // Si se añade una línea (p. ej. al asignar un artículo de la lista en foto), el
         // formulario se vuelve a montar para incluirla en su estado.
-        key={(p.pedido_items as any[]).map((i) => i.id).join(',')}
+        key={(p.pedido_items as any[])
+          .map((i) => `${i.id}:${i.precio_unitario ?? ''}:${i.proveedor_id ?? ''}:${i.precio_presupuesto_id ?? ''}`)
+          .join(',')}
         pedidoId={p.id}
         items={p.pedido_items.map((item: any) => ({
           id: item.id,
@@ -262,6 +282,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           anadidaEnBC: !!item.anadida_en_bc,
           eliminadaEnBC: !!item.eliminada_en_bc,
           bcItemNo: item.productos?.bc_item_no ?? null,
+          precioDesdePresupuesto: !!item.precio_presupuesto_id,
           rechazadaPorAprobador: !!item.rechazada_por_aprobador,
           rechazadaPor: quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre),
           unidad: item.productos?.unidad_medida || 'ud.',
