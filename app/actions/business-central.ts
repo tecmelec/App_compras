@@ -12,6 +12,7 @@ import {
   obtenerPedidosCompraBC,
   obtenerLineasPedidoCompraBC,
   obtenerItemBC,
+  obtenerUltimasComprasArticuloBC,
   obtenerCrudoBC,
   obtenerCrudoBCFiltrado,
   crearPedidoCompraBC,
@@ -1250,5 +1251,34 @@ export async function diagnosticoJefeObraProyecto(jobNo: string) {
     return { success: true, ...jefe, perfil };
   } catch (e: any) {
     return { error: e.message || 'No se pudo consultar Business Central.' };
+  }
+}
+
+// Últimas 5 compras de un artículo en BC (Líns. compra), para el comprador: Nº de
+// pedido, cantidad, descripción y precio unitario (importe de línea excl. IVA / cantidad).
+export async function ultimasComprasArticulo(bcItemNo: string) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'No autenticado.' };
+  const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
+  if (!perfil || !['comprador', 'admin'].includes(perfil.rol)) return { error: 'No autorizado.' };
+  if (!bcItemNo) return { error: 'El artículo no tiene código de BC.' };
+  try {
+    const lineas = await obtenerUltimasComprasArticuloBC(bcItemNo, 5);
+    return {
+      success: true,
+      compras: lineas.map((l) => ({
+        pedido: l.Document_No,
+        cantidad: l.Quantity,
+        descripcion: l.Description || '',
+        proveedor: l.Buy_from_Vendor_Name || l.Buy_from_Vendor_No || null,
+        proyecto: l.Job_No || null,
+        precioUnitario: Number((l.Line_Amount / l.Quantity).toFixed(5)),
+      })),
+    };
+  } catch (e: any) {
+    return { error: 'No se pudo consultar Business Central: ' + (e.message || '') };
   }
 }

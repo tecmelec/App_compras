@@ -8,6 +8,7 @@ import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
+import UltimasComprasBoton from './UltimasComprasBoton';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 
@@ -25,6 +26,7 @@ type ItemForm = {
   cantidadAntesBC?: number | null;
   anadidaEnBC?: boolean;
   eliminadaEnBC?: boolean;
+  bcItemNo?: string | null;
   rechazadaPorAprobador?: boolean;
   unidad?: string;
   multiplo?: number;
@@ -553,15 +555,18 @@ function ItemFila({
 
         <div>
           <p className="text-xs text-slate mb-1">Precio / ud.</p>
-          <div className="relative">
-            <input
-              type="number"
-              step="0.00001"
-              className="input py-1 w-28 font-mono"
-              value={precio}
-              onChange={(e) => onPrecio(e.target.value)}
-            />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate text-xs pointer-events-none">€</span>
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <input
+                type="number"
+                step="0.00001"
+                className="input py-1 w-28 font-mono"
+                value={precio}
+                onChange={(e) => onPrecio(e.target.value)}
+              />
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate text-xs pointer-events-none">€</span>
+            </div>
+            <UltimasComprasBoton bcItemNo={item.bcItemNo ?? null} onUsarPrecio={onPrecio} />
           </div>
         </div>
       </div>

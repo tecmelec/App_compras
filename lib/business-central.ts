@@ -398,6 +398,37 @@ export async function obtenerLineasPedidoCompraBC(documentNo: string): Promise<L
   return consultarBC(url);
 }
 
+// Últimas compras de un artículo en Líns. compra de BC (pedidos de compra), para
+// orientar el precio. Usa el mismo servicio de líneas de compra que la sincronización.
+// Se pide ordenado por Nº documento descendente (los pedidos son correlativos); si BC
+// no admite el $orderby en ese servicio, se piden sin ordenar y se ordenan aquí.
+export type CompraArticuloBC = {
+  Document_No: string;
+  Description?: string;
+  Quantity: number;
+  Line_Amount: number;
+  Buy_from_Vendor_No?: string;
+  Buy_from_Vendor_Name?: string;
+  Job_No?: string;
+};
+
+export async function obtenerUltimasComprasArticuloBC(no: string, limite = 5): Promise<CompraArticuloBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_LINEAS_COMPRA!);
+  const filtro = `Document_Type eq 'Order' and No eq '${no.replace(/'/g, "''")}'`;
+  let lineas: CompraArticuloBC[];
+  try {
+    lineas = await consultarBC(
+      `${base}?$filter=${encodeURIComponent(filtro)}&$orderby=${encodeURIComponent('Document_No desc')}&$top=${limite * 4}`
+    );
+  } catch {
+    lineas = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
+  }
+  return (lineas || [])
+    .filter((l) => l.Quantity > 0)
+    .sort((a, b) => (a.Document_No < b.Document_No ? 1 : a.Document_No > b.Document_No ? -1 : 0))
+    .slice(0, limite);
+}
+
 // Crea la cabecera de un pedido de compra nuevo en BC. Devuelve el registro
 // creado (incluye el Nº asignado por la serie de numeración de BC).
 export async function crearPedidoCompraBC(datos: {
