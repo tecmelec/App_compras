@@ -176,6 +176,7 @@ export async function asignarArticuloLineaListaFoto(datos: {
         unidad_medida: item.Base_Unit_of_Measure,
         precio: item.Unit_Price || 0,
         multiplo_compra: item.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1,
+        producto_comun: (item.Common_Item_No || '').trim() || null,
         visible: false,
         ...(categoria ? { categoria } : {}),
         ...(proveedorBC?.id ? { proveedor_predeterminado_id: proveedorBC.id } : {}),

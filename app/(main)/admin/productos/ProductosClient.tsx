@@ -20,6 +20,7 @@ type Producto = {
   precio: number;
   unidad_medida: string | null;
   bc_item_no: string | null;
+  producto_comun: string | null;
   proveedor_predeterminado_id: string | null;
   multiplo_compra: number;
 };
@@ -34,7 +35,12 @@ type Filtros = {
   precioMin: string;
   precioMax: string;
   visibles: string[];
+  comunes: string[];
 };
+
+// Valor del filtro para los productos sin Nº producto común en BC (p. ej. los dados
+// de alta al asignar artículos en solicitudes).
+const SIN_COMUN = '(sin Nº producto común)';
 
 const FILTROS_VACIOS: Filtros = {
   nombre: '',
@@ -44,9 +50,10 @@ const FILTROS_VACIOS: Filtros = {
   precioMin: '',
   precioMax: '',
   visibles: [],
+  comunes: [],
 };
 
-type CampoOrden = 'nombre' | 'bc_item_no' | 'unidad_medida' | 'categoria' | 'precio' | 'visible';
+type CampoOrden = 'nombre' | 'bc_item_no' | 'producto_comun' | 'unidad_medida' | 'categoria' | 'precio' | 'visible';
 
 export default function ProductosClient({
   productos,
@@ -73,13 +80,18 @@ export default function ProductosClient({
     [productos]
   );
 
+  const comunesUnicos = useMemo(() => {
+    const valores = Array.from(new Set(productos.map((p) => p.producto_comun).filter(Boolean))).sort() as string[];
+    return productos.some((p) => !p.producto_comun) ? [...valores, SIN_COMUN] : valores;
+  }, [productos]);
+
   const hayFiltrosActivos = busqueda !== '' || JSON.stringify(filtros) !== JSON.stringify(FILTROS_VACIOS);
 
   function actualizar<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
     setFiltros((prev) => ({ ...prev, [campo]: valor }));
   }
 
-  function alternarLista(campo: 'unidades' | 'categorias' | 'visibles', valor: string) {
+  function alternarLista(campo: 'unidades' | 'categorias' | 'visibles' | 'comunes', valor: string) {
     setFiltros((prev) => {
       const lista = prev[campo];
       const nueva = lista.includes(valor) ? lista.filter((v) => v !== valor) : [...lista, valor];
@@ -99,6 +111,7 @@ export default function ProductosClient({
     }
     if (filtros.nombre && !p.nombre.toLowerCase().includes(filtros.nombre.toLowerCase())) return false;
     if (filtros.bcItemNo && !(p.bc_item_no || '').toLowerCase().includes(filtros.bcItemNo.toLowerCase())) return false;
+    if (filtros.comunes.length > 0 && !filtros.comunes.includes(p.producto_comun || SIN_COMUN)) return false;
     if (filtros.unidades.length > 0 && !filtros.unidades.includes(p.unidad_medida || '')) return false;
     if (filtros.categorias.length > 0 && !filtros.categorias.includes(p.categoria || '')) return false;
     if (filtros.precioMin && p.precio < Number(filtros.precioMin)) return false;
@@ -152,6 +165,7 @@ export default function ProductosClient({
           columnas={[
             { titulo: 'Nombre', valor: (p) => p.nombre, ancho: 40 },
             { titulo: 'Nº BC', valor: (p) => p.bc_item_no, ancho: 14 },
+            { titulo: 'Nº producto común', valor: (p) => p.producto_comun, ancho: 16 },
             { titulo: 'Unidad', valor: (p) => p.unidad_medida, ancho: 9 },
             { titulo: 'Categoría', valor: (p) => p.categoria, ancho: 12 },
             { titulo: 'Precio', valor: (p) => p.precio, formato: 'precio', ancho: 12 },
@@ -224,6 +238,35 @@ export default function ProductosClient({
                   onChange={(e) => actualizar('bcItemNo', e.target.value)}
                   autoFocus
                 />
+              </ColumnaFiltroOrden>
+
+              <ColumnaFiltroOrden
+                titulo="Nº producto común"
+                campoOrden="producto_comun"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="comun"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={filtros.comunes.length > 0}
+                onLimpiarFiltro={() => actualizar('comunes', [])}
+              >
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {comunesUnicos.length === 0 ? (
+                    <p className="text-sm text-slate">Sin opciones.</p>
+                  ) : (
+                    comunesUnicos.map((c) => (
+                      <label key={c} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filtros.comunes.includes(c)}
+                          onChange={() => alternarLista('comunes', c)}
+                        />
+                        {c}
+                      </label>
+                    ))
+                  )}
+                </div>
               </ColumnaFiltroOrden>
 
               <ColumnaFiltroOrden
@@ -346,7 +389,7 @@ export default function ProductosClient({
           <tbody className="divide-y divide-borde">
             {ordenados.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-slate text-sm">
+                <td colSpan={10} className="px-4 py-6 text-center text-slate text-sm">
                   No hay productos que coincidan con los filtros.
                 </td>
               </tr>
@@ -363,6 +406,7 @@ export default function ProductosClient({
                     </td>
                     <td className="px-4 py-3 text-grafito">{p.nombre}</td>
                     <td className="px-4 py-3 font-mono text-slate">{p.bc_item_no || '—'}</td>
+                    <td className="px-4 py-3 font-mono text-slate">{p.producto_comun || '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.unidad_medida || '—'}</td>
                     <td className="px-4 py-3 text-slate">{p.categoria || '—'}</td>
                     <td className="px-4 py-3 font-mono text-grafito">{formatoPrecioUnitario(p.precio)} €</td>
@@ -379,7 +423,7 @@ export default function ProductosClient({
                   </tr>
                   {editandoId === p.id && (
                     <tr>
-                      <td colSpan={9} className="bg-fondo p-4">
+                      <td colSpan={10} className="bg-fondo p-4">
                         <ProductoForm
                           producto={p}
                           proveedores={proveedores}

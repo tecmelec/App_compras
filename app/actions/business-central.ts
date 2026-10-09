@@ -63,6 +63,7 @@ export async function sincronizarProductosBC() {
       unidad_medida: item.Base_Unit_of_Measure,
       precio: item.Unit_Price,
       multiplo_compra: item.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1,
+      producto_comun: (item.Common_Item_No || '').trim() || null,
     };
     if (proveedorPredetId) cambiosComunes.proveedor_predeterminado_id = proveedorPredetId;
 
@@ -86,6 +87,19 @@ export async function sincronizarProductosBC() {
       if (error) errores.push(`${item.No}: ${error.message}`);
       else creados++;
     }
+  }
+
+  // Productos que ya no tienen Nº producto común en BC (se lo han quitado): se vacía
+  // también en la app, para que el filtro refleje lo que hay en BC.
+  const conComunEnBC = new Set(items.map((i) => i.No));
+  const { data: conComunEnApp } = await supabase
+    .from('productos')
+    .select('id, bc_item_no')
+    .not('producto_comun', 'is', null);
+  const sinComun = (conComunEnApp || []).filter((p) => p.bc_item_no && !conComunEnBC.has(p.bc_item_no)).map((p) => p.id);
+  if (sinComun.length > 0) {
+    const { error } = await supabase.from('productos').update({ producto_comun: null }).in('id', sinComun);
+    if (error) errores.push(`No se pudo vaciar el Nº producto común de ${sinComun.length} productos: ${error.message}`);
   }
 
   if (proveedoresSinSincronizar.size > 0) {
@@ -257,6 +271,7 @@ async function incorporarLineaAnadidaEnBC(
         unidad_medida: item?.Base_Unit_of_Measure || null,
         precio: item?.Unit_Price || 0,
         multiplo_compra: item?.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1,
+        producto_comun: (item?.Common_Item_No || '').trim() || null,
         visible: false,
         ...(categoria ? { categoria } : {}),
       })
