@@ -24,7 +24,9 @@ type DatosSolicitud = {
 };
 
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
-  if (items.length === 0) {
+  // Se permite enviar sin artículos si va una lista de materiales (foto o escrita):
+  // el responsable asignará los artículos o rechazará las líneas al aprobarla.
+  if (items.length === 0 && !(datos.lista_foto_ids && datos.lista_foto_ids.length > 0)) {
     return { error: 'El carrito está vacío.' };
   }
 
@@ -259,13 +261,16 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   }
 
   // 4. Crear las líneas del pedido
-  const { error: errorItems } = await supabase.from('pedido_items').insert(
-    items.map((i) => ({
-      pedido_id: pedido.id,
-      producto_id: i.producto_id,
-      cantidad: i.cantidad,
-    }))
-  );
+  const { error: errorItems } =
+    items.length > 0
+      ? await supabase.from('pedido_items').insert(
+          items.map((i) => ({
+            pedido_id: pedido.id,
+            producto_id: i.producto_id,
+            cantidad: i.cantidad,
+          }))
+        )
+      : { error: null };
 
   if (errorItems) {
     return { error: 'El pedido se creó pero hubo un problema guardando los artículos.' };
@@ -504,6 +509,17 @@ export async function aprobarSolicitudConCambios(
   // Lista en foto: no se puede aprobar con líneas sin artículo ni rechazar (sí se puede
   // rechazar la solicitud entera).
   const rechazaTodo = lineas.length > 0 && lineas.every((l) => l.rechazada);
+  {
+    const { data: activos } = await supabase
+      .from('pedido_items')
+      .select('id')
+      .eq('pedido_id', pedidoId)
+      .eq('rechazada_por_aprobador', false)
+      .limit(1);
+    if (!activos || activos.length === 0) {
+      return { error: 'La solicitud no tiene ningún artículo para aprobar: asigna artículos o recházala.' };
+    }
+  }
   if (!rechazaTodo) {
     const sinResolver = await lineasListaFotoSinResolver(pedidoId);
     if (sinResolver.length > 0) {
@@ -539,6 +555,15 @@ export async function responderAprobacion(pedidoId: string, aprobado: boolean) {
   if (!user) return { error: 'Debes iniciar sesión.' };
 
   if (aprobado) {
+    const { data: activos } = await supabase
+      .from('pedido_items')
+      .select('id')
+      .eq('pedido_id', pedidoId)
+      .eq('rechazada_por_aprobador', false)
+      .limit(1);
+    if (!activos || activos.length === 0) {
+      return { error: 'La solicitud no tiene ningún artículo para aprobar: asigna artículos o recházala.' };
+    }
     const sinResolver = await lineasListaFotoSinResolver(pedidoId);
     if (sinResolver.length > 0) {
       return {

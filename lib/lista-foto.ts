@@ -210,16 +210,19 @@ Responde SOLO con JSON:
   const eleccion = extraerJSON(await llamarClaude([{ type: 'text', text: promptEleccion }], 6000));
   const resultados = new Map<number, any>();
   for (const r of Array.isArray(eleccion?.resultados) ? eleccion.resultados : []) {
-    if (typeof r?.linea === 'number') resultados.set(r.linea, r);
+    const n = Number(r?.linea);
+    if (Number.isInteger(n) && n > 0) resultados.set(n, r);
   }
 
   return leidas.map((l, i) => {
     const r = resultados.get(i + 1);
     const candidatos = candidatosPorLinea[i];
     let elegido: ProductoCatalogo | null = null;
-    if (typeof r?.candidato === 'string') {
-      const k = Number(r.candidato.split('.')[1]) - 1;
-      elegido = candidatos[k] || null;
+    // "1.2" (texto o número) → candidato 2 de la línea 1
+    if (r?.candidato != null && r.candidato !== '') {
+      const partes = String(r.candidato).split('.');
+      const k = Number(partes[partes.length - 1]) - 1;
+      elegido = Number.isInteger(k) && k >= 0 ? candidatos[k] || null : null;
     }
     const cantidadEscrita = typeof l.cantidad === 'number' && l.cantidad > 0 ? l.cantidad : null;
     const cantidadProducto = elegido

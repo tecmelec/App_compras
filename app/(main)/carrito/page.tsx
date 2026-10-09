@@ -87,9 +87,22 @@ export default function CarritoPage() {
         </Link>
         </div>
       </div>
-      {listasFoto.length > 0 && items.length > 0 && <FotosDelCarrito ids={listasFoto} onQuitar={removeListaFoto} />}
+      {listasFoto.length > 0 && <FotosDelCarrito ids={listasFoto} onQuitar={removeListaFoto} />}
 
-      {items.length === 0 ? (
+      {items.length === 0 && listasFoto.length > 0 ? (
+        <>
+          <p className="text-sm text-slate">
+            El carrito no tiene artículos de la tienda. Puedes enviar la solicitud solo con la lista de materiales: el
+            responsable asignará los artículos (o rechazará las líneas) al aprobarla.
+          </p>
+          {error && (
+            <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mt-4">{error}</p>
+          )}
+          <button onClick={() => setMostrarModal(true)} className="btn-primary mt-6">
+            Solicitar materiales
+          </button>
+        </>
+      ) : items.length === 0 ? (
         <p className="text-slate text-sm">
           Tu carrito está vacío. Ve a la{' '}
           <a href="/tienda" className="text-marca underline">

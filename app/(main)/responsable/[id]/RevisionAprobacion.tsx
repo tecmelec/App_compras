@@ -53,7 +53,9 @@ export default function RevisionAprobacion({
     (l) => !cambios[l.id].rechazada && Number(cambios[l.id].cantidad) !== l.cantidad
   ).length;
   const hayCambios = numRechazadas > 0 || numModificadas > 0;
-  const todasRechazadas = numRechazadas === lineas.length;
+  const todasRechazadas = lineas.length > 0 && numRechazadas === lineas.length;
+  // Solicitud de lista de materiales sin ningún artículo (todo pendiente o rechazado)
+  const sinArticulos = lineas.length === 0;
 
   const total = useMemo(
     () =>
@@ -247,6 +249,11 @@ export default function RevisionAprobacion({
           </div>
         ) : (
           <div className="flex gap-2 flex-wrap">
+            {sinArticulos && lineasListaSinResolver === 0 && (
+              <p className="w-full text-sm text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2">
+                Todas las líneas de la lista están rechazadas y la solicitud no tiene ningún artículo: recházala.
+              </p>
+            )}
             {lineasListaSinResolver > 0 && !todasRechazadas && (
               <p className="w-full text-sm text-[#8A5A15] bg-[#FDF2E3] border border-[#F2D9AE] rounded-md px-3 py-2">
                 Esta solicitud viene de una lista de materiales y tiene {lineasListaSinResolver}{' '}
@@ -256,7 +263,7 @@ export default function RevisionAprobacion({
             )}
             <button
               onClick={aprobar}
-              disabled={enviando || hayErrores || (lineasListaSinResolver > 0 && !todasRechazadas)}
+              disabled={enviando || hayErrores || sinArticulos || (lineasListaSinResolver > 0 && !todasRechazadas)}
               className="btn-aprobar"
             >
               {enviando

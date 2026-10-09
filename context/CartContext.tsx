@@ -110,14 +110,8 @@ export function CartProvider({ userId, children }: { userId: string; children: R
     descartarListaFoto(id).catch(() => {});
   }
 
-  // Si se vacía el carrito quitando artículos, las fotos dejan de tener sentido.
-  useEffect(() => {
-    if (loaded && items.length === 0 && listasFoto.length > 0) {
-      const ids = listasFoto;
-      setListasFoto([]);
-      ids.forEach((id) => descartarListaFoto(id).catch(() => {}));
-    }
-  }, [loaded, items.length, listasFoto]);
+  // (Un carrito sin artículos pero con una lista de materiales es válido: se puede
+  // enviar la solicitud solo con la lista. La lista se quita a mano desde el carrito.)
 
   // Nº de artículos distintos en el carrito (no la suma de unidades)
   const totalItems = items.length;

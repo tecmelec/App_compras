@@ -232,7 +232,7 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
             <p className="text-sm text-slate mb-3">
               {seleccionadas.length} de {lineas.length} líneas con artículo de la tienda.
               {lineas.length - seleccionadas.length > 0 &&
-                ` ${lineas.length - seleccionadas.length} sin artículo: quedarán como pendientes en el informe.`}
+                ` ${lineas.length - seleccionadas.length} sin artículo: quedarán pendientes y el responsable las asignará o rechazará al aprobar la solicitud.`}
             </p>
 
             <div className="bg-white border border-borde rounded-lg divide-y divide-borde">
@@ -325,12 +325,14 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' }) 
             <div className="flex flex-wrap gap-3 mt-6">
               <button
                 onClick={anadirAlCarrito}
-                disabled={fase === 'guardando' || hayErrores || seleccionadas.length === 0}
+                disabled={fase === 'guardando' || hayErrores}
                 className="btn-primary"
               >
                 {fase === 'guardando'
                   ? 'Añadiendo…'
-                  : `Añadir ${seleccionadas.length} ${seleccionadas.length === 1 ? 'artículo' : 'artículos'} al carrito`}
+                  : seleccionadas.length === 0
+                    ? 'Continuar solo con la lista'
+                    : `Añadir ${seleccionadas.length} ${seleccionadas.length === 1 ? 'artículo' : 'artículos'} al carrito`}
               </button>
               <button
                 onClick={() => (modo === 'foto' ? inputRef.current?.click() : setFase('inicio'))}
