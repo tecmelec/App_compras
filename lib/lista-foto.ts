@@ -10,6 +10,7 @@
 // por defecto el mismo modelo que la Edge Function leer-pedido-albaran).
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { obtenerItemBC } from '@/lib/business-central';
 import { ajustarAMultiplo, type CandidatoLista, type LineaLista } from '@/lib/lista-foto-tipos';
 
 export type { CandidatoLista, LineaLista };
@@ -47,12 +48,13 @@ Transcribe cada material de la lista. Para cada línea devuelve:
 - "texto": lo que pone, tal cual (corrige solo letras ilegibles evidentes).
 - "cantidad": número (usa punto decimal) o null si no se indica.
 - "unidad": la unidad escrita ("m", "ud", "rollo", "caja", "bobina"...) o null.
+- "codigo": el código de artículo si aparece escrito tal cual (p. ej. "ZKT0009", "GCAB0689"; normalmente letras seguidas de números), en mayúsculas; si no, null.
 - "busqueda": 3 a 8 palabras clave para buscarlo en un catálogo: el tipo de producto escrito completo (p. ej. "cable", "tubo", "caja", "tornillo"), designaciones técnicas normalizadas (RZ1-K, H07Z1-K, 3G1.5, 1x2.5, D20, M6...), medidas, marca y color si aparecen. Desarrolla abreviaturas habituales del gremio (p. ej. "corrug" → "corrugado", "mang" → "manguera").
 
 Ignora títulos, fechas, nombres, firmas y líneas tachadas. Si una línea indica varias medidas o variantes, sepáralas en líneas distintas.
 
 Responde SOLO con JSON, sin texto adicional:
-{"lineas":[{"texto":"...","cantidad":100,"unidad":"m","busqueda":["..."]}]}
+{"lineas":[{"texto":"...","cantidad":100,"unidad":"m","codigo":null,"busqueda":["..."]}]}
 Si no hay ninguna lista de materiales legible, responde {"lineas":[]}.`;
 
 // --- Catálogo y búsqueda de candidatos ----------------------------------------------
@@ -139,6 +141,66 @@ function buscarCandidatos(catalogo: ProductoCatalogo[], consulta: string): Produ
   return puntuados.slice(0, MAX_CANDIDATOS).map((x) => x.p);
 }
 
+// --- Códigos de artículo escritos en la lista -----------------------------------------
+
+// Códigos con forma de Nº de artículo de BC: letras seguidas de números (ZKT0009,
+// GCAB0689). Se toman del campo "codigo" que devuelve Claude y del propio texto.
+function codigosEnLinea(l: { texto: string; codigo?: string | null }): string[] {
+  const codigos = new Set<string>();
+  const limpio = (c: string) => c.toUpperCase().replace(/[\s-]/g, '');
+  if (typeof l.codigo === 'string' && l.codigo.trim()) codigos.add(limpio(l.codigo));
+  for (const m of l.texto.toUpperCase().match(/\b[A-Z]{2,6}[0-9]{2,7}[A-Z]?\b/g) || []) codigos.add(limpio(m));
+  return Array.from(codigos).filter((c) => /^[A-Z]{2,6}[0-9]{2,7}[A-Z]?$/.test(c));
+}
+
+// Producto oculto (no publicado en la tienda) para un código que existe en BC: se usa
+// el de la tabla productos si ya existe; si no, se crea con visible = false.
+async function productoOcultoPorCodigo(codigo: string): Promise<ProductoCatalogo | null> {
+  const admin = createAdminClient();
+  const columnas = 'id, nombre, descripcion, categoria, bc_item_no, unidad_medida, multiplo_compra, imagen_url';
+  let { data: p } = await admin.from('productos').select(columnas).eq('bc_item_no', codigo).maybeSingle();
+  if (!p) {
+    let item;
+    try {
+      item = await obtenerItemBC(codigo);
+    } catch (e) {
+      console.error(`[lista-foto] No se pudo consultar el código ${codigo} en BC`, e);
+      return null;
+    }
+    if (!item) return null;
+    const categoria = (item.Item_Category_Code || '').trim();
+    const { data: nuevo, error } = await admin
+      .from('productos')
+      .insert({
+        bc_item_no: item.No,
+        nombre: item.Description,
+        unidad_medida: item.Base_Unit_of_Measure,
+        precio: item.Unit_Price || 0,
+        multiplo_compra: item.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1,
+        visible: false,
+        ...(categoria ? { categoria } : {}),
+      })
+      .select(columnas)
+      .single();
+    if (error || !nuevo) {
+      console.error(`[lista-foto] No se pudo dar de alta el código ${codigo}`, error);
+      return null;
+    }
+    p = nuevo;
+  }
+  const texto = [p.nombre, p.descripcion, p.categoria, p.bc_item_no].filter(Boolean).join(' ');
+  return {
+    id: p.id,
+    nombre: p.nombre,
+    bc_item_no: p.bc_item_no,
+    unidad_medida: p.unidad_medida,
+    multiplo_compra: p.multiplo_compra || 1,
+    imagen_url: p.imagen_url,
+    texto,
+    tokens: new Set(tokenizar(texto)),
+  };
+}
+
 // --- Análisis completo --------------------------------------------------------------
 
 // Entrada del análisis: una foto de la lista o la lista escrita como texto en la app.
@@ -167,7 +229,7 @@ export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]
           },
         ];
   const lectura = extraerJSON(await llamarClaude(contenido, 4000));
-  const leidas: { texto: string; cantidad: number | null; unidad: string | null; busqueda: string[] }[] = (
+  const leidas: { texto: string; cantidad: number | null; unidad: string | null; codigo?: string | null; busqueda: string[] }[] = (
     Array.isArray(lectura?.lineas) ? lectura.lineas : []
   )
     .filter((l: any) => typeof l?.texto === 'string' && l.texto.trim())
@@ -179,6 +241,30 @@ export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]
   const candidatosPorLinea = leidas.map((l) =>
     buscarCandidatos(catalogo, `${l.texto} ${(l.busqueda || []).join(' ')}`)
   );
+
+  // 2b. Códigos de artículo escritos en la lista (p. ej. "3 uds ZKT0009"). Si el código
+  // es de un producto publicado, se propone ese; si no está en la tienda pero existe en
+  // BC, se da de alta oculto (visible = false) y se propone igualmente. Estas líneas no
+  // pasan por la elección de Claude.
+  const porCodigo = await Promise.all(
+    leidas.map(async (l, i) => {
+      const codigos = codigosEnLinea(l);
+      for (const codigo of codigos) {
+        const enCandidatos = candidatosPorLinea[i].find((c) => (c.bc_item_no || '').toUpperCase() === codigo);
+        if (enCandidatos) return { producto: enCandidatos, oculto: false };
+        const enCatalogo = catalogo.find((c) => (c.bc_item_no || '').toUpperCase() === codigo);
+        if (enCatalogo) return { producto: enCatalogo, oculto: false };
+        const oculto = await productoOcultoPorCodigo(codigo);
+        if (oculto) return { producto: oculto, oculto: true };
+      }
+      return null;
+    })
+  );
+  porCodigo.forEach((pc, i) => {
+    if (pc && !candidatosPorLinea[i].some((c) => c.id === pc.producto.id)) {
+      candidatosPorLinea[i] = [pc.producto, ...candidatosPorLinea[i]].slice(0, MAX_CANDIDATOS);
+    }
+  });
 
   // 3. Elección con Claude
   const bloques = leidas
@@ -218,15 +304,18 @@ Responde SOLO con JSON:
     const r = resultados.get(i + 1);
     const candidatos = candidatosPorLinea[i];
     let elegido: ProductoCatalogo | null = null;
-    // "1.2" (texto o número) → candidato 2 de la línea 1
-    if (r?.candidato != null && r.candidato !== '') {
+    const pc = porCodigo[i];
+    if (pc) {
+      elegido = pc.producto;
+    } else if (r?.candidato != null && r.candidato !== '') {
+      // "1.2" (texto o número) → candidato 2 de la línea 1
       const partes = String(r.candidato).split('.');
       const k = Number(partes[partes.length - 1]) - 1;
       elegido = Number.isInteger(k) && k >= 0 ? candidatos[k] || null : null;
     }
     const cantidadEscrita = typeof l.cantidad === 'number' && l.cantidad > 0 ? l.cantidad : null;
     const cantidadProducto = elegido
-      ? typeof r?.cantidad === 'number' && r.cantidad > 0
+      ? !pc && typeof r?.cantidad === 'number' && r.cantidad > 0
         ? r.cantidad
         : cantidadEscrita
       : cantidadEscrita;
@@ -238,8 +327,14 @@ Responde SOLO con JSON:
       producto_propuesto_id: elegido?.id || null,
       cantidad_producto: cantidadProducto,
       cantidad_propuesta: elegido ? ajustarAMultiplo(cantidadProducto ?? elegido.multiplo_compra, elegido.multiplo_compra) : null,
-      confianza: elegido ? (['alta', 'media', 'baja'].includes(r?.confianza) ? r.confianza : 'media') : null,
-      nota: typeof r?.nota === 'string' && r.nota.trim() ? r.nota.trim() : null,
+      confianza: pc ? 'alta' : elegido ? (['alta', 'media', 'baja'].includes(r?.confianza) ? r.confianza : 'media') : null,
+      nota: pc
+        ? pc.oculto
+          ? `Encontrado por su código (${pc.producto.bc_item_no}) en Business Central; no está publicado en la tienda.`
+          : `Encontrado por su código (${pc.producto.bc_item_no}).`
+        : typeof r?.nota === 'string' && r.nota.trim()
+          ? r.nota.trim()
+          : null,
       candidatos: candidatos.map(({ id, nombre, bc_item_no, unidad_medida, multiplo_compra, imagen_url }) => ({
         id,
         nombre,

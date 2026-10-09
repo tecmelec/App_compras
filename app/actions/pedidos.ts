@@ -176,7 +176,9 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
   // 1. Calcular el total real a partir de los precios guardados en la base (nunca confiar en el precio del cliente)
   const idsProductos = items.map((i) => i.producto_id);
-  const { data: productosDb } = await supabase
+  // Con el cliente admin: el carrito puede llevar artículos no publicados en la tienda
+  // (propuestos por su código desde una lista de materiales), que la RLS no deja leer.
+  const { data: productosDb } = await createAdminClient()
     .from('productos')
     .select('id, precio, nombre, multiplo_compra')
     .in('id', idsProductos);
