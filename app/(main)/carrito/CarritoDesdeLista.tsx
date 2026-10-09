@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
@@ -50,6 +50,38 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
   const [listaId, setListaId] = useState<string | null>(null);
   const [lineas, setLineas] = useState<LineaLista[]>([]);
   const [decisiones, setDecisiones] = useState<Record<number, Decision>>({});
+
+  // Modo referencias: pegar con Ctrl+V una captura de pantalla la adjunta como foto
+  // (también con el cursor en el cuadro de texto; si se pega solo texto, se pega normal).
+  useEffect(() => {
+    if (modo !== 'ref' || fase !== 'inicio') return;
+    function alPegar(e: ClipboardEvent) {
+      const imagenesPegadas = Array.from(e.clipboardData?.items || [])
+        .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+        .map((it) => it.getAsFile())
+        .filter(Boolean) as File[];
+      if (imagenesPegadas.length === 0) return;
+      e.preventDefault();
+      setFotosRef((prev) => {
+        const libres = MAX_FOTOS - prev.length;
+        if (libres <= 0) {
+          setError(`Como máximo ${MAX_FOTOS} fotos por lista.`);
+          return prev;
+        }
+        setError(null);
+        return [
+          ...prev,
+          ...imagenesPegadas.slice(0, libres).map((file, i) => {
+            const nombre = file.name && file.name !== 'image.png' ? file.name : `captura-${Date.now()}-${i}.png`;
+            const f = new File([file], nombre, { type: file.type });
+            return { file: f, url: URL.createObjectURL(f) };
+          }),
+        ];
+      });
+    }
+    window.addEventListener('paste', alPegar);
+    return () => window.removeEventListener('paste', alPegar);
+  }, [modo, fase]);
 
   async function analizar(archivo: File | null) {
     const archivos = modo === 'ref' ? fotosRef.map((f) => f.file) : archivo ? [archivo] : [];
@@ -225,6 +257,9 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
               <button type="button" onClick={() => inputRef.current?.click()} className="btn-secondary">
                 + Adjuntar foto{fotosRef.length > 0 ? ` (${fotosRef.length}/${MAX_FOTOS})` : ''}
               </button>
+            )}
+            {fotosRef.length < MAX_FOTOS && (
+              <span className="text-xs text-slate">o pega una captura de pantalla con Ctrl+V</span>
             )}
           </div>
           <button
