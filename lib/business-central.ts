@@ -393,15 +393,21 @@ export async function obtenerPedidosCompraBC(numeroApp: string): Promise<PedidoC
 // compras de un artículo: las líneas no traen el proveedor.
 export async function obtenerProveedorPedidosCompraBC(
   numeros: string[]
-): Promise<Map<string, { vendorNo: string; vendorName: string | null }>> {
-  const mapa = new Map<string, { vendorNo: string; vendorName: string | null }>();
+): Promise<Map<string, { vendorNo: string; vendorName: string | null; orderDate: string | null }>> {
+  const mapa = new Map<string, { vendorNo: string; vendorName: string | null; orderDate: string | null }>();
   if (numeros.length === 0) return mapa;
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PEDIDOS_COMPRA!);
   const filtro = numeros.map((n) => `No eq '${n.replace(/'/g, "''")}'`).join(' or ');
   const cabeceras: any[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
   for (const c of cabeceras || []) {
     if (c?.No && c.Buy_from_Vendor_No) {
-      mapa.set(c.No, { vendorNo: c.Buy_from_Vendor_No, vendorName: c.Buy_from_Vendor_Name || null });
+      // Fecha pedido (Order_Date); si el servicio no la trae, la fecha de emisión del documento.
+      const fecha = c.Order_Date || c.Document_Date || null;
+      mapa.set(c.No, {
+        vendorNo: c.Buy_from_Vendor_No,
+        vendorName: c.Buy_from_Vendor_Name || null,
+        orderDate: fecha && !String(fecha).startsWith('0001') ? String(fecha).slice(0, 10) : null,
+      });
     }
   }
   return mapa;

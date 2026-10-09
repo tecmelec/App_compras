@@ -6,6 +6,7 @@ import { ultimasComprasArticulo } from '@/app/actions/business-central';
 
 type Compra = {
   pedido: string;
+  fecha: string | null;
   cantidad: number;
   descripcion: string;
   proveedor: string | null;
@@ -43,7 +44,7 @@ export default function UltimasComprasBoton({
   function calcularPosicion() {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
-    const width = Math.min(720, window.innerWidth - 16);
+    const width = Math.min(800, window.innerWidth - 16);
     const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
     setPos({ top: r.bottom + 6, left, width });
   }
@@ -118,6 +119,7 @@ export default function UltimasComprasBoton({
                 <thead>
                   <tr className="text-left text-slate border-b border-borde">
                     <th className="py-1.5 pr-2 font-medium">Pedido</th>
+                    <th className="py-1.5 pr-2 font-medium">Fecha</th>
                     <th className="py-1.5 pr-2 font-medium">Proveedor</th>
                     <th className="py-1.5 pr-2 font-medium text-right">Cantidad</th>
                     <th className="py-1.5 pr-2 font-medium">Descripción</th>
@@ -137,6 +139,9 @@ export default function UltimasComprasBoton({
                       title="Usar este precio y proveedor"
                     >
                       <td className="py-1.5 pr-2 font-mono text-grafito whitespace-nowrap">{c.pedido}</td>
+                      <td className="py-1.5 pr-2 font-mono text-slate whitespace-nowrap">
+                        {c.fecha ? new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '—'}
+                      </td>
                       <td className="py-1.5 pr-2 text-grafito">
                         {c.proveedorNo ? (
                           <>

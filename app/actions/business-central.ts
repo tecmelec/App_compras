@@ -1269,7 +1269,7 @@ export async function ultimasComprasArticulo(bcItemNo: string) {
   try {
     const lineas = await obtenerUltimasComprasArticuloBC(bcItemNo, 5);
     // Proveedor de cada pedido (cabecera en BC) y su ficha en la app.
-    let cabeceras = new Map<string, { vendorNo: string; vendorName: string | null }>();
+    let cabeceras = new Map<string, { vendorNo: string; vendorName: string | null; orderDate: string | null }>();
     try {
       cabeceras = await obtenerProveedorPedidosCompraBC(Array.from(new Set(lineas.map((l) => l.Document_No))));
     } catch (e) {
@@ -1288,6 +1288,7 @@ export async function ultimasComprasArticulo(bcItemNo: string) {
         const prov = vendorNo ? proveedorPorNo.get(vendorNo) : undefined;
         return {
         pedido: l.Document_No,
+        fecha: cab?.orderDate || null,
         cantidad: l.Quantity,
         descripcion: l.Description || '',
         proveedorNo: vendorNo,
