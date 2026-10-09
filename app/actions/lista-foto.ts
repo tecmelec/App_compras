@@ -295,7 +295,7 @@ export async function rechazarLineaListaFoto(listaId: string, n: number) {
     if (activas.length > 0) {
       const { error } = await admin
         .from('pedido_items')
-        .update({ rechazada_por_aprobador: true })
+        .update({ rechazada_por_aprobador: true, rechazada_por_nombre: perfil.nombre_completo, rechazada_por_rol: perfil.rol })
         .in(
           'id',
           activas.map((it) => it.id)

@@ -28,6 +28,7 @@ type ItemForm = {
   eliminadaEnBC?: boolean;
   bcItemNo?: string | null;
   rechazadaPorAprobador?: boolean;
+  rechazadaPor?: string;
   unidad?: string;
   multiplo?: number;
   cantidadEditable?: boolean;
@@ -471,7 +472,7 @@ function ItemFila({
               <p className="text-[11px] text-[#8A5A15] mt-0.5">Cantidad cambiada · se guarda al pulsar Guardar</p>
             )}
             {item.rechazadaPorAprobador && (
-              <span className="badge badge-cancelado mt-1 inline-block">Rechazada por el aprobador</span>
+              <span className="badge badge-cancelado mt-1 inline-block">Rechazada por {item.rechazadaPor || 'el aprobador'}</span>
             )}
           </div>
         </div>

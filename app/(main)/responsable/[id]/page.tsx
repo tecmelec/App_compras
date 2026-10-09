@@ -1,3 +1,4 @@
+import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
@@ -16,7 +17,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, precio_unitario, productos(nombre, precio, unidad_medida, multiplo_compra))'
+      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, precio_unitario, productos(nombre, precio, unidad_medida, multiplo_compra))'
     )
     .eq('id', params.id)
     .single();
@@ -112,6 +113,11 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
                       {item.productos?.nombre || 'Producto no disponible'}
                     </p>
                     {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-0.5" />}
+                    {item.rechazada_por_aprobador && (
+                      <p className="text-xs text-rojo mt-0.5">
+                        Rechazada por {quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre)}
+                      </p>
+                    )}
                     {item.eliminada_en_bc && (
                       <EliminadaEnBCBadge
                         className="mt-0.5"

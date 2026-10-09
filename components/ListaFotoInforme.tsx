@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { BUCKET_LISTAS_FOTO } from '@/lib/lista-foto';
 import type { LineaLista } from '@/lib/lista-foto-tipos';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import { quienRechazo } from '@/lib/rechazo';
 import AsignarArticuloLista from '@/components/AsignarArticuloLista';
 import RechazarLineaLista from '@/components/RechazarLineaLista';
 
@@ -46,12 +47,13 @@ export default async function ListaFotoInforme({
 
   const { data: items } = await admin
     .from('pedido_items')
-    .select('producto_id, cantidad, rechazada_por_aprobador, numero_tecmelec, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, productos(nombre, unidad_medida, multiplo_compra)')
+    .select('producto_id, cantidad, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, productos(nombre, unidad_medida, multiplo_compra)')
     .eq('pedido_id', pedidoId);
 
   // Cantidad actual por producto (sin líneas rechazadas) y productos rechazados.
   const cantidadPorProducto = new Map<string, number>();
   const rechazados = new Set<string>();
+  const quienRechazoProducto = new Map<string, string>();
   const enPedidoCompra = new Set<string>();
   const anadidosEnBC = new Set<string>();
   const eliminadosEnBC = new Map<string, number | null>();
@@ -66,6 +68,7 @@ export default async function ListaFotoInforme({
     if (it.anadida_en_bc) anadidosEnBC.add(it.producto_id);
     if (it.eliminada_en_bc) eliminadosEnBC.set(it.producto_id, it.cantidad_antes_bc ?? null);
     if (it.rechazada_por_aprobador) {
+      quienRechazoProducto.set(it.producto_id, quienRechazo(it.rechazada_por_rol, it.rechazada_por_nombre));
       rechazados.add(it.producto_id);
     } else {
       cantidadPorProducto.set(it.producto_id, (cantidadPorProducto.get(it.producto_id) || 0) + Number(it.cantidad));
@@ -110,7 +113,7 @@ export default async function ListaFotoInforme({
             detalle: `Borrado del pedido de compra en BC${antes != null ? ` (se habían solicitado ${fmt(antes)} ${unidad})` : ''}.`,
           };
         } else if (productoId && actual === 0 && rechazados.has(productoId)) {
-          estado = { tipo: 'rechazada', detalle: 'Rechazada por el aprobador.' };
+          estado = { tipo: 'rechazada', detalle: `Rechazada por ${quienRechazoProducto.get(productoId) || 'el aprobador'}.` };
         } else if (l.asignado && productoId && actual > 0) {
           const fecha = new Date(l.asignado.en).toLocaleDateString('es-ES');
           estado = {

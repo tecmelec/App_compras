@@ -1,3 +1,4 @@
+import { quienRechazo } from '@/lib/rechazo';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
@@ -24,7 +25,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
+      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
     )
     .eq('id', params.id)
     .single();
@@ -262,6 +263,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           eliminadaEnBC: !!item.eliminada_en_bc,
           bcItemNo: item.productos?.bc_item_no ?? null,
           rechazadaPorAprobador: !!item.rechazada_por_aprobador,
+          rechazadaPor: quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre),
           unidad: item.productos?.unidad_medida || 'ud.',
           multiplo: item.productos?.multiplo_compra || 1,
           // El comprador puede cambiar la cantidad solo antes de crear el pedido en BC
