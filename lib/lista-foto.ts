@@ -148,8 +148,16 @@ function buscarCandidatos(catalogo: ProductoCatalogo[], consulta: string): Produ
 function codigosEnLinea(l: { texto: string; codigo?: string | null }): string[] {
   const codigos = new Set<string>();
   const limpio = (c: string) => c.toUpperCase().replace(/[\s-]/g, '');
-  if (typeof l.codigo === 'string' && l.codigo.trim()) codigos.add(limpio(l.codigo));
-  for (const m of l.texto.toUpperCase().match(/\b[A-Z]{2,6}[0-9]{2,7}[A-Z]?\b/g) || []) codigos.add(limpio(m));
+  const anadir = (c: string) => {
+    const base = limpio(c);
+    codigos.add(base);
+    // "GPQM999" → también "GPQM0999": los Nº de artículo suelen llevar 4 cifras.
+    const m = base.match(/^([A-Z]{2,6})([0-9]{1,3})([A-Z]?)$/);
+    if (m) codigos.add(`${m[1]}${m[2].padStart(4, '0')}${m[3]}`);
+  };
+  if (typeof l.codigo === 'string' && l.codigo.trim()) anadir(l.codigo);
+  // Sin \b delante: el código puede ir pegado a la cantidad ("300sch0998").
+  for (const m of l.texto.toUpperCase().match(/(?<![A-Z])[A-Z]{2,6}[0-9]{2,7}[A-Z]?(?![A-Z0-9])/g) || []) anadir(m);
   return Array.from(codigos).filter((c) => /^[A-Z]{2,6}[0-9]{2,7}[A-Z]?$/.test(c));
 }
 
@@ -185,7 +193,7 @@ async function productoOcultoPorCodigo(codigo: string): Promise<ProductoCatalogo
       .single();
     if (error || !nuevo) {
       console.error(`[lista-foto] No se pudo dar de alta el código ${codigo}`, error);
-      return null;
+      throw new Error(`El código ${codigo} existe en BC pero no se pudo dar de alta en la app: ${error?.message || 'sin respuesta'}`);
     }
     p = nuevo;
   }
@@ -247,22 +255,27 @@ export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]
   // es de un producto publicado, se propone ese; si no está en la tienda pero existe en
   // BC, se da de alta oculto (visible = false) y se propone igualmente. Estas líneas no
   // pasan por la elección de Claude.
-  const porCodigo = await Promise.all(
-    leidas.map(async (l, i) => {
+  type ResultadoCodigo = { producto: ProductoCatalogo; oculto: boolean } | { error: string } | null;
+  const porCodigo: ResultadoCodigo[] = await Promise.all(
+    leidas.map(async (l, i): Promise<ResultadoCodigo> => {
       const codigos = codigosEnLinea(l);
       for (const codigo of codigos) {
         const enCandidatos = candidatosPorLinea[i].find((c) => (c.bc_item_no || '').toUpperCase() === codigo);
         if (enCandidatos) return { producto: enCandidatos, oculto: false };
         const enCatalogo = catalogo.find((c) => (c.bc_item_no || '').toUpperCase() === codigo);
         if (enCatalogo) return { producto: enCatalogo, oculto: false };
-        const oculto = await productoOcultoPorCodigo(codigo);
-        if (oculto) return { producto: oculto, oculto: true };
+        try {
+          const oculto = await productoOcultoPorCodigo(codigo);
+          if (oculto) return { producto: oculto, oculto: true };
+        } catch (e: any) {
+          return { error: String(e?.message || e) };
+        }
       }
       return null;
     })
   );
   porCodigo.forEach((pc, i) => {
-    if (pc && !candidatosPorLinea[i].some((c) => c.id === pc.producto.id)) {
+    if (pc && 'producto' in pc && !candidatosPorLinea[i].some((c) => c.id === pc.producto.id)) {
       candidatosPorLinea[i] = [pc.producto, ...candidatosPorLinea[i]].slice(0, MAX_CANDIDATOS);
     }
   });
@@ -305,7 +318,9 @@ Responde SOLO con JSON:
     const r = resultados.get(i + 1);
     const candidatos = candidatosPorLinea[i];
     let elegido: ProductoCatalogo | null = null;
-    const pc = porCodigo[i];
+    const resultadoCodigo = porCodigo[i];
+    const pc = resultadoCodigo && 'producto' in resultadoCodigo ? resultadoCodigo : null;
+    const errorCodigo = resultadoCodigo && 'error' in resultadoCodigo ? resultadoCodigo.error : null;
     if (pc) {
       elegido = pc.producto;
     } else if (r?.candidato != null && r.candidato !== '') {
@@ -333,9 +348,11 @@ Responde SOLO con JSON:
         ? pc.oculto
           ? `Encontrado por su código (${pc.producto.bc_item_no}) en Business Central; no está publicado en la tienda.`
           : `Encontrado por su código (${pc.producto.bc_item_no}).`
-        : typeof r?.nota === 'string' && r.nota.trim()
-          ? r.nota.trim()
-          : null,
+        : errorCodigo
+          ? errorCodigo
+          : typeof r?.nota === 'string' && r.nota.trim()
+            ? r.nota.trim()
+            : null,
       candidatos: candidatos.map(({ id, nombre, bc_item_no, unidad_medida, multiplo_compra, imagen_url }) => ({
         id,
         nombre,
