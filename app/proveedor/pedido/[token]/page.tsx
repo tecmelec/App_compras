@@ -9,6 +9,14 @@ import Image from 'next/image';
 // token dentro de la misma petición.
 const obtenerPedidoCacheado = cache(obtenerPedidoPorToken);
 
+// Siempre con los datos actuales. Esta página no usa cookies (el proveedor no inicia
+// sesión) y solo consulta con el cliente admin, así que Next.js la trataba como
+// estática y guardaba en caché las consultas a Supabase: al volver a abrir el enlace
+// se veían las fechas de la primera visita, no las guardadas después.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const fetchCache = 'force-no-store';
+
 // Título y descripción para que el enlace se vea bien al compartirlo por
 // WhatsApp, email, etc. (en vez de mostrar la URL en crudo).
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {

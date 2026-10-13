@@ -51,8 +51,16 @@ function CampoFecha({ value, onChange }: { value: string; onChange: (v: string) 
 }
 
 export default function FechaEntregaForm({ token, items }: { token: string; items: ItemFechaEntrega[] }) {
-  const [modo, setModo] = useState<'unica' | 'porArticulo'>('unica');
-  const [fechaUnica, setFechaUnica] = useState('');
+  // Al volver a abrir el enlace se muestran las fechas ya guardadas: si todos los
+  // artículos tienen la misma, en "Misma fecha para todo el pedido"; si son distintas,
+  // por artículo.
+  const fechasGuardadas = Array.from(new Set(items.map((it) => it.fechaActual || '')));
+  const todasIguales = fechasGuardadas.length === 1 && !!fechasGuardadas[0];
+  const algunaGuardada = items.some((it) => it.fechaActual);
+  const [modo, setModo] = useState<'unica' | 'porArticulo'>(
+    algunaGuardada && !todasIguales ? 'porArticulo' : 'unica'
+  );
+  const [fechaUnica, setFechaUnica] = useState(todasIguales ? fechasGuardadas[0] : '');
   const [fechasPorItem, setFechasPorItem] = useState<Record<string, string>>(
     Object.fromEntries(items.map((it) => [it.id, it.fechaActual || '']))
   );
