@@ -9,6 +9,12 @@ export type Desvio = { to: string[]; cc: string[]; avisoHtml: string };
 
 export function aplicarDesvioEmail(to: string[], cc: string[] = []): Desvio {
   const desvio = (process.env.EMAIL_DESVIO_PRUEBAS || '').trim();
+  // Salvaguarda: en el despliegue de PRODUCCIÓN nunca se desvía, aunque la variable
+  // se haya marcado también para Production en Vercel por error.
+  if (process.env.VERCEL_ENV === 'production') {
+    if (desvio) console.warn('[desvio-email] EMAIL_DESVIO_PRUEBAS está definida en producción: se ignora.');
+    return { to, cc, avisoHtml: '' };
+  }
   if (!desvio) return { to, cc, avisoHtml: '' };
 
   const lista = (xs: string[]) => (xs.length ? xs.join(', ') : '—');
