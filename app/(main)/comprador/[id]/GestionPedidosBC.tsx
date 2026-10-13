@@ -23,12 +23,16 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
   if (pedidos.length === 0) return null;
 
   return (
-    <div className="bg-white border border-borde rounded-xl p-6 mb-6">
+    <div className="bg-white border border-borde rounded-xl p-4 sm:p-6 mb-6">
       <h2 className="text-sm font-semibold text-grafito mb-3">Gestión de pedidos</h2>
       <div className="divide-y divide-borde">
         {pedidos.map((p) => (
-          <div key={p.numeroTecmelec} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-            <div>
+          <div
+            key={p.numeroTecmelec}
+            // En móvil, datos del pedido arriba y acciones debajo (antes se salían del recuadro).
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 py-3 first:pt-0 last:pb-0"
+          >
+            <div className="min-w-0">
               <p className="text-sm font-mono text-grafito">{p.numeroTecmelec}</p>
               <p className="text-xs text-slate">
                 {p.proveedorNombre || 'Proveedor sin asignar'} · {p.lineas} {p.lineas === 1 ? 'línea' : 'líneas'} ·{' '}
@@ -40,7 +44,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
               <PdfEnviadoCheck numeroTecmelec={p.numeroTecmelec} pdfEnviado={p.pdfEnviado} />
               <div className="flex items-center gap-1.5">
                 <a

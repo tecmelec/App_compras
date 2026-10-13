@@ -196,7 +196,10 @@ export default function EnviarEmailPedidoBoton({
       </button>
 
       {abierto && (
-        <div className="absolute right-0 z-20 mt-2 w-96 rounded-lg border border-borde bg-white shadow-lg p-4 text-sm">
+        <div
+          // En móvil, panel fijo a lo ancho de la pantalla (anclado al botón se salía por la izquierda).
+          className="fixed inset-x-3 top-20 z-40 max-h-[calc(100vh-6rem)] overflow-y-auto sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:z-20 sm:mt-2 sm:w-96 sm:max-h-none sm:overflow-visible rounded-lg border border-borde bg-white shadow-lg p-4 text-sm"
+        >
           {cargando && <p className="text-xs text-slate">Cargando datos del proveedor…</p>}
 
           {!cargando && !enviado && (
