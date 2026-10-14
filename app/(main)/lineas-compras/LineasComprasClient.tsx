@@ -297,9 +297,11 @@ export default function LineasComprasClient({
       {columnaAbierta && <div className="fixed inset-0 z-10" onClick={() => setColumnaAbierta(null)} />}
 
       <div className="bg-white border border-borde rounded-lg overflow-visible">
-        <div className="overflow-x-auto">
+        {/* La tabla tiene su propio scroll (vertical y horizontal) para que la fila de
+            títulos quede fija arriba al desplazarse por las líneas. */}
+        <div className="overflow-auto max-h-[calc(100vh-15rem)] min-h-[20rem] rounded-lg">
         <table className="w-full text-sm">
-          <thead className="bg-fondo text-slate text-left">
+          <thead className="bg-fondo text-slate text-left sticky top-0 z-20 shadow-[0_1px_0_0_#DDE1E0]">
             <tr>
               <ColumnaFiltroOrden
                 titulo="Nº solicitud"
