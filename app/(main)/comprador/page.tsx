@@ -6,6 +6,23 @@ import SincronizarTodasBCBoton from './SincronizarTodasBCBoton';
 export default async function CompradorPage() {
   const supabase = createClient();
 
+  // Última sincronización masiva con BC (cron nocturno o botón "Sincronizar todas").
+  const { data: configSync } = await supabase
+    .from('configuracion')
+    .select('ultima_sincronizacion_bc, ultima_sincronizacion_bc_por')
+    .eq('id', 1)
+    .maybeSingle();
+  const textoUltimaSincronizacion = configSync?.ultima_sincronizacion_bc
+    ? `Última sincronización: ${new Date(configSync.ultima_sincronizacion_bc).toLocaleString('es-ES', {
+        timeZone: 'Europe/Madrid',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })}${configSync.ultima_sincronizacion_bc_por ? ` (${configSync.ultima_sincronizacion_bc_por})` : ''}`
+    : null;
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -125,7 +142,7 @@ export default async function CompradorPage() {
         Solicitudes de material de todos los usuarios. Puedes ver solo las que te han asignado o seguir las de ciertos usuarios u obras.
       </p>
 
-      <SincronizarTodasBCBoton />
+      <SincronizarTodasBCBoton ultima={textoUltimaSincronizacion} />
 
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No hay solicitudes.</p>

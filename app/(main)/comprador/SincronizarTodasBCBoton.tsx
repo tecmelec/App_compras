@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { sincronizarMisSolicitudesConBC } from '@/app/actions/business-central';
 
-export default function SincronizarTodasBCBoton() {
+export default function SincronizarTodasBCBoton({ ultima }: { ultima?: string | null }) {
   const [sincronizando, setSincronizando] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,9 +33,12 @@ export default function SincronizarTodasBCBoton() {
 
   return (
     <div className="mb-4">
-      <button onClick={handleSincronizar} disabled={sincronizando} className="btn-secondary">
-        {sincronizando ? 'Sincronizando…' : '↻ Sincronizar todas con Business Central'}
-      </button>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button onClick={handleSincronizar} disabled={sincronizando} className="btn-secondary">
+          {sincronizando ? 'Sincronizando…' : '↻ Sincronizar todas con Business Central'}
+        </button>
+        {ultima && <span className="text-xs text-slate/70">{ultima}</span>}
+      </div>
 
       {resultado && <p className="text-sm text-verde mt-2">{resultado}</p>}
       {error && (

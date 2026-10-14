@@ -638,6 +638,16 @@ async function pedidosAbiertosDe(supabase: any, filtro?: (q: any) => any) {
 // Cron horario (ver /app/api/cron/sincronizar-pedidos-bc): carga incremental,
 // solo repasa pedidos que aún no están cerrados en la app (evita golpear la
 // API de BC por cada pedido histórico ya anulado o completamente recibido).
+// Guarda cuándo se hizo la última sincronización masiva con BC (se muestra junto al
+// botón "Sincronizar todas"). Si la columna aún no existe, no rompe la sincronización.
+async function registrarUltimaSincronizacionBC(por: string) {
+  const { error } = await createAdminClient()
+    .from('configuracion')
+    .update({ ultima_sincronizacion_bc: new Date().toISOString(), ultima_sincronizacion_bc_por: por })
+    .eq('id', 1);
+  if (error) console.error('[sincronización BC] No se pudo guardar la fecha de la última sincronización:', error.message);
+}
+
 export async function sincronizarPedidosAbiertosConBC() {
   const supabase = createAdminClient();
 
@@ -650,6 +660,7 @@ export async function sincronizarPedidosAbiertosConBC() {
     resumen.push({ numeroApp: pedido.numero_app, resultado });
   }
 
+  await registrarUltimaSincronizacionBC('automática');
   revalidatePath('/comprador');
   revalidatePath('/admin/pedidos');
   revalidatePath('/responsable');
@@ -670,7 +681,7 @@ export async function sincronizarMisSolicitudesConBC() {
 
   if (!user) return { error: 'Debes iniciar sesión.' };
 
-  const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
+  const { data: perfil } = await supabase.from('profiles').select('rol, nombre_completo').eq('id', user.id).single();
 
   const idsFiltro = perfil?.rol !== 'admin' ? await idsEfectivos(supabase, user.id) : null;
 
@@ -690,6 +701,7 @@ export async function sincronizarMisSolicitudesConBC() {
     }
   }
 
+  await registrarUltimaSincronizacionBC(perfil?.nombre_completo || 'Compras');
   revalidatePath('/comprador');
 
   await despacharPushPendientes();
