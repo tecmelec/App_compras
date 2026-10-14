@@ -56,7 +56,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
     profile.rol === 'admin' || profile.rol === 'usuario' || profile.rol === 'comprador' || profile.rol === 'responsable';
 
   return (
-    <CartProvider userId={user.id}>
+    <CartProvider userId={user.id} rol={profile.rol}>
       <div className="flex">
         <Nav
           rol={profile.rol}

@@ -23,6 +23,7 @@ type CartContextType = {
   listasFoto: string[];
   addListaFoto: (id: string) => void;
   removeListaFoto: (id: string) => void;
+  rol: string | null;
 };
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -35,7 +36,14 @@ function storageKeyListas(userId: string) {
   return `tecmelec_carrito_listas_foto_${userId}`;
 }
 
-export function CartProvider({ userId, children }: { userId: string; children: React.ReactNode }) {
+export function CartProvider({
+  userId,
+  rol = null,
+  children,
+}: {
+  userId: string;
+  rol?: string | null;
+  children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [listasFoto, setListasFoto] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -117,7 +125,7 @@ export function CartProvider({ userId, children }: { userId: string; children: R
   const totalItems = items.length;
 
   return (
-    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto }}>
+    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto, rol }}>
       {children}
     </CartContext.Provider>
   );

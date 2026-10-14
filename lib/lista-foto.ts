@@ -173,7 +173,7 @@ function codigosEnLinea(l: { texto: string; codigo?: string | null }): string[] 
 
 // Producto oculto (no publicado en la tienda) para un código que existe en BC: se usa
 // el de la tabla productos si ya existe; si no, se crea con visible = false.
-async function productoOcultoPorCodigo(codigo: string): Promise<ProductoCatalogo | null> {
+export async function productoOcultoPorCodigo(codigo: string): Promise<ProductoCatalogo | null> {
   const admin = createAdminClient();
   const columnas = 'id, nombre, descripcion, categoria, bc_item_no, unidad_medida, multiplo_compra, imagen_url, visible';
   let { data: p } = await admin.from('productos').select(columnas).eq('bc_item_no', codigo).maybeSingle();
