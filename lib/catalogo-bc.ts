@@ -11,8 +11,10 @@ let cliente: SupabaseClient | null = null;
 
 function clienteReplica(): SupabaseClient {
   if (cliente) return cliente;
-  const url = process.env.ALTA_SUPABASE_URL;
-  const key = process.env.ALTA_SUPABASE_SERVICE_ROLE_KEY;
+  // Sin espacios ni comillas sobrantes (errores típicos al pegar el valor en Vercel).
+  const limpiar = (v: string | undefined) => (v || '').trim().replace(/^["']|["']$/g, '').trim();
+  const url = limpiar(process.env.ALTA_SUPABASE_URL);
+  const key = limpiar(process.env.ALTA_SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !key) {
     throw new Error('Faltan las variables ALTA_SUPABASE_URL y ALTA_SUPABASE_SERVICE_ROLE_KEY en Vercel.');
   }
@@ -54,7 +56,21 @@ export async function buscarCatalogoBC(busqueda: string, desde = 0, cuantos = 10
     );
   }
   const { data, error } = await consulta;
-  if (error) throw new Error(`No se pudo leer el catálogo de BC: ${error.message}`);
+  if (error) {
+    const host = (() => {
+      try {
+        return new URL((process.env.ALTA_SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '')).host;
+      } catch {
+        return '(URL no válida)';
+      }
+    })();
+    throw new Error(
+      `No se pudo leer el catálogo de BC (proyecto ${host}): ${error.message}` +
+        (/api key/i.test(error.message)
+          ? '. La clave ALTA_SUPABASE_SERVICE_ROLE_KEY no corresponde a ese proyecto: copia URL y clave del mismo proyecto (las variables SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY del backend de ALTA-PRODUCTOS-BC).'
+          : '')
+    );
+  }
   return (data || []).map((r: any) => ({
     no: r.no,
     descripcion: r.description || '',
