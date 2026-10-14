@@ -81,40 +81,6 @@ const palabras = (s: string) =>
     .split(/[^A-Z0-9]+/)
     .filter((t) => t.length > 2);
 
-// Cabecera (para el proveedor) + líneas de artículo, filtradas por relevancia si hay muchas.
-function textoRelevante(lineas: string[], items: ItemSolicitud[]): string {
-  const cabecera = lineas.slice(0, 40);
-  const pie = lineas.filter((l) => /N\.?I\.?F|C\.?I\.?F/i.test(l)).slice(0, 3);
-  // Una sola vez cada artículo (referencia + descripción), aunque se repita en varios capítulos.
-  const vistos = new Set<string>();
-  const articulos: string[] = [];
-  for (const l of lineas) {
-    if (!pareceLineaArticulo(l)) continue;
-    const c = l.split(' | ');
-    const clave = `${c[0]}|${c[1] || ''}`;
-    if (vistos.has(clave)) continue;
-    vistos.add(clave);
-    articulos.push(l);
-  }
-  let elegidas = articulos;
-  if (articulos.length > 120) {
-    const refs = items.flatMap((i) => [...referenciasDeNombre(i.nombre), i.bc_item_no || '']).map(compactar).filter((r) => r.length >= 3);
-    const porReferencia = articulos.filter((l) => refs.some((r) => compactar(l).includes(r)));
-    const porPalabras = articulos
-      .filter((l) => !porReferencia.includes(l))
-      .map((l) => {
-        const pl = new Set(palabras(l));
-        const puntos = Math.max(0, ...items.map((i) => palabras(i.nombre).filter((w) => pl.has(w)).length));
-        return { l, puntos };
-      })
-      .filter((x) => x.puntos >= 2)
-      .sort((a, b) => b.puntos - a.puntos)
-      .map((x) => x.l);
-    elegidas = [...porReferencia, ...porPalabras].slice(0, 120);
-  }
-  return `CABECERA DEL PRESUPUESTO:\n${[...cabecera, ...pie].join('\n')}\n\nLÍNEAS DE ARTÍCULOS (columnas separadas por " | "):\n${elegidas.join('\n')}`;
-}
-
 async function llamarClaude(content: any[], maxTokens: number): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('Falta la variable de entorno ANTHROPIC_API_KEY en Vercel.');
@@ -224,50 +190,150 @@ function referenciasDeNombre(nombre: string): string[] {
 
 const compactar = (s: string | null | undefined) => (s || '').toUpperCase().replace(/[\s.\-/]/g, '');
 
+// Número en formato español ("5.860,34 €", "3,00") o inglés ("5860.34"); null si no lo es
+// (p. ej. "#########" cuando la celda del Excel original era demasiado estrecha).
+function numero(texto: string | undefined): number | null {
+  if (!texto) return null;
+  let t = texto.replace(/[€\s]/g, '');
+  if (!/^-?[\d.,]+$/.test(t)) return null;
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  else if ((t.match(/\./g) || []).length > 1) t = t.replace(/\./g, '');
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function leerPresupuestoDeTexto(
+  lineasPdf: string[]
+): Promise<{ lineas: Omit<LineaPresupuesto, 'idx'>[]; proveedor: { nombre: string | null; cif: string | null } }> {
+  const articulos = lineasPdf.filter(pareceLineaArticulo);
+  const cabecera = lineasPdf.slice(0, 25);
+  const pie = lineasPdf.filter((l) => /N\.?I\.?F|C\.?I\.?F/i.test(l)).slice(0, 3);
+  const cabeceraColumnas = lineasPdf.find((l) => /descrip/i.test(l) && l.split(' | ').length >= 3) || '';
+  const muestra = articulos.slice(0, 12);
+
+  const prompt = `Este es el texto de un presupuesto u oferta de un proveedor de material eléctrico. Cada línea de artículo tiene sus columnas separadas por " | " (la columna 0 es la primera).
+
+CABECERA DEL DOCUMENTO:
+${[...cabecera, ...pie].join('\n')}
+
+FILA DE TÍTULOS DE COLUMNA (si existe):
+${cabeceraColumnas || '(no hay)'}
+
+LÍNEAS DE ARTÍCULO DE MUESTRA:
+${muestra.join('\n')}
+
+Indica:
+- "proveedor": el proveedor que EMITE el presupuesto (no el cliente, que es Tecmelec): {"nombre": "...", "cif": "..."}; null en cada campo si no aparece.
+- "columnas": el índice de cada columna en las líneas de artículo:
+  - "referencia": referencia o código del artículo,
+  - "descripcion",
+  - "cantidad",
+  - "precio_unitario": precio NETO por unidad con TODOS los descuentos aplicados (si hay una columna de precio unitario ya descontado, esa; si solo hay precio unitario sin descuento, esa),
+  - "precio_total": importe total NETO de la línea con descuentos (o null),
+  - "descuento_pct": si los precios unitarios de la línea NO llevan aplicado un descuento general que el documento indica (p. ej. "Dto 3%" sin columna unitaria descontada), ese porcentaje; si no, 0.
+Usa null si una columna no existe.
+
+Responde SOLO con JSON:
+{"proveedor":{"nombre":null,"cif":null},"columnas":{"referencia":0,"descripcion":1,"cantidad":2,"precio_unitario":5,"precio_total":6,"descuento_pct":0}}`;
+
+  const r = extraerJSON(await llamarClaude([{ type: 'text', text: prompt }], 800));
+  const c = r?.columnas || {};
+  const idx = (k: string) => (Number.isInteger(c[k]) && c[k] >= 0 ? (c[k] as number) : null);
+  const iRef = idx('referencia');
+  const iDesc = idx('descripcion');
+  const iCant = idx('cantidad');
+  const iPrecio = idx('precio_unitario');
+  const iTotal = idx('precio_total');
+  const dto = Number(c.descuento_pct) > 0 && Number(c.descuento_pct) < 100 ? Number(c.descuento_pct) : 0;
+
+  const lineas: Omit<LineaPresupuesto, 'idx'>[] = [];
+  for (const l of articulos) {
+    const col = l.split(' | ').map((x) => x.trim());
+    const cantidad = iCant !== null ? numero(col[iCant]) : null;
+    let precio = iPrecio !== null ? numero(col[iPrecio]) : null;
+    if (precio === null && iTotal !== null && cantidad) {
+      const total = numero(col[iTotal]);
+      if (total !== null) precio = total / cantidad;
+    }
+    if (precio !== null && dto) precio = precio * (1 - dto / 100);
+    const referencia = iRef !== null && col[iRef] ? col[iRef].toUpperCase().replace(/\s+/g, '') : null;
+    const descripcion = iDesc !== null ? col[iDesc] || '' : col.slice(1, 2).join(' ');
+    if (!referencia && !descripcion) continue;
+    lineas.push({
+      referencia,
+      descripcion,
+      cantidad,
+      precio_unitario: precio !== null ? Number(precio.toFixed(5)) : null,
+    });
+  }
+  return {
+    lineas,
+    proveedor: {
+      nombre: typeof r?.proveedor?.nombre === 'string' ? r.proveedor.nombre : null,
+      cif: typeof r?.proveedor?.cif === 'string' ? r.proveedor.cif : null,
+    },
+  };
+}
+
 export async function analizarPresupuesto(
   archivos: ArchivoPresupuesto[],
   items: ItemSolicitud[]
 ): Promise<{ proveedor: ProveedorPresupuesto; lineas: LineaPresupuesto[]; propuestas: PropuestaPrecio[] }> {
-  // 1. Lectura del presupuesto: los PDF con texto se pasan como texto (rápido); las
-  //    fotos y los PDF escaneados, como imagen/documento.
-  const contenido: any[] = [];
-  const textos: string[] = [];
+  // 1. Lectura del presupuesto.
+  //    - PDF con texto: las líneas se leen aquí. A Claude solo se le pide que diga qué
+  //      columna es cada dato (referencia, descripción, cantidad, precio neto por unidad)
+  //      a partir de la cabecera y unas líneas de muestra, y el proveedor. Así la
+  //      respuesta es corta aunque el presupuesto tenga cientos de líneas (antes Claude
+  //      las transcribía todas y se superaban los 60 s del servidor).
+  //    - Fotos y PDF escaneados: Claude los lee y transcribe (como hasta ahora).
+  const lineasLeidas: Omit<LineaPresupuesto, 'idx'>[] = [];
+  let proveedorLeido: { nombre: string | null; cif: string | null } = { nombre: null, cif: null };
+  const visuales: any[] = [];
   for (const a of archivos) {
     if (a.mediaType === 'application/pdf') {
       const lineasPdf = await lineasDePDF(a.data);
       if (lineasPdf) {
-        textos.push(textoRelevante(lineasPdf, items));
+        const r = await leerPresupuestoDeTexto(lineasPdf);
+        lineasLeidas.push(...r.lineas);
+        if (!proveedorLeido.nombre && !proveedorLeido.cif) proveedorLeido = r.proveedor;
         continue;
       }
-      contenido.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
+      visuales.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
     } else {
-      contenido.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } });
+      visuales.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.data } });
     }
   }
-  contenido.push({
-    type: 'text',
-    text:
-      PROMPT_PRESUPUESTO +
-      (textos.length ? `\n\nTexto extraído del presupuesto:\n"""\n${textos.join('\n\n').slice(0, 60000)}\n"""` : ''),
-  });
-  const lectura = extraerJSON(await llamarClaude(contenido, 8000));
-  const lineas: LineaPresupuesto[] = (Array.isArray(lectura?.lineas) ? lectura.lineas : [])
-    .filter((l: any) => l && (l.descripcion || l.referencia))
-    .slice(0, 200)
-    .map((l: any, i: number) => ({
-      idx: i + 1,
-      referencia: typeof l.referencia === 'string' && l.referencia.trim() ? l.referencia.trim().toUpperCase().replace(/\s+/g, '') : null,
-      descripcion: String(l.descripcion || '').trim(),
-      cantidad: Number.isFinite(Number(l.cantidad)) && l.cantidad !== null ? Number(l.cantidad) : null,
-      precio_unitario:
-        l.precio_unitario !== null && Number.isFinite(Number(l.precio_unitario)) ? Number(Number(l.precio_unitario).toFixed(5)) : null,
-    }));
+  if (visuales.length > 0) {
+    const lectura = extraerJSON(await llamarClaude([...visuales, { type: 'text', text: PROMPT_PRESUPUESTO }], 8000));
+    for (const l of (Array.isArray(lectura?.lineas) ? lectura.lineas : []).slice(0, 200)) {
+      if (!l || !(l.descripcion || l.referencia)) continue;
+      lineasLeidas.push({
+        referencia: typeof l.referencia === 'string' && l.referencia.trim() ? l.referencia.trim().toUpperCase().replace(/\s+/g, '') : null,
+        descripcion: String(l.descripcion || '').trim(),
+        cantidad: l.cantidad !== null && Number.isFinite(Number(l.cantidad)) ? Number(l.cantidad) : null,
+        precio_unitario:
+          l.precio_unitario !== null && Number.isFinite(Number(l.precio_unitario)) ? Number(Number(l.precio_unitario).toFixed(5)) : null,
+      });
+    }
+    if (!proveedorLeido.nombre && !proveedorLeido.cif) {
+      proveedorLeido = {
+        nombre: typeof lectura?.proveedor?.nombre === 'string' ? lectura.proveedor.nombre : null,
+        cif: typeof lectura?.proveedor?.cif === 'string' ? lectura.proveedor.cif : null,
+      };
+    }
+  }
+  // Una vez cada artículo (referencia + descripción + precio), aunque se repita en varios capítulos.
+  const vistas = new Set<string>();
+  const lineas: LineaPresupuesto[] = [];
+  for (const l of lineasLeidas) {
+    const clave = `${compactar(l.referencia)}|${l.descripcion.toUpperCase()}|${l.precio_unitario}`;
+    if (vistas.has(clave)) continue;
+    vistas.add(clave);
+    lineas.push({ idx: lineas.length + 1, ...l });
+  }
 
   // 2. Proveedor
-  const proveedor = await identificarProveedor(
-    typeof lectura?.proveedor?.nombre === 'string' ? lectura.proveedor.nombre : null,
-    typeof lectura?.proveedor?.cif === 'string' ? lectura.proveedor.cif : null
-  );
+  const proveedor = await identificarProveedor(proveedorLeido.nombre, proveedorLeido.cif);
 
   // 3. Emparejar líneas de la solicitud con el presupuesto
   const propuestas = new Map<string, PropuestaPrecio>();
@@ -287,7 +353,16 @@ export async function analizarPresupuesto(
   }
 
   const pendientes = items.filter((i) => !propuestas.has(i.id));
-  const libres = lineas.filter((l) => !usadas.has(l.idx));
+  // Para la elección con Claude, solo las líneas del presupuesto que comparten alguna
+  // palabra con los artículos pendientes (máx. 150), para que la consulta sea rápida.
+  const palabrasPendientes = new Set(items.filter((i) => !propuestas.has(i.id)).flatMap((i) => palabras(i.nombre)));
+  const libres = lineas
+    .filter((l) => !usadas.has(l.idx))
+    .map((l) => ({ l, puntos: palabras(`${l.referencia || ''} ${l.descripcion}`).filter((w) => palabrasPendientes.has(w)).length }))
+    .filter((x) => x.puntos > 0)
+    .sort((a, b) => b.puntos - a.puntos)
+    .slice(0, 150)
+    .map((x) => x.l);
   if (pendientes.length > 0 && libres.length > 0) {
     const prompt = `Empareja artículos de una solicitud de compra con las líneas de un presupuesto de proveedor. Solo empareja si es claramente el MISMO artículo (mismo tipo, medidas, polos, intensidad, referencia...). Si no hay ninguno igual, null.
 
