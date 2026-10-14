@@ -1,5 +1,12 @@
 'use server';
 
+import {
+  BOTON_FECHA_ENTREGA_ALTO,
+  BOTON_FECHA_ENTREGA_ANCHO,
+  BOTON_FECHA_ENTREGA_BASE64,
+  BOTON_FECHA_ENTREGA_CID,
+} from '@/lib/email/boton-fecha-entrega';
+
 import { randomUUID } from 'crypto';
 import { headers, cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
@@ -114,15 +121,20 @@ function construirCuerpoHtml(mensaje: string, enlaceFechaEntrega: string): strin
   return `
     <div style="font-family: sans-serif; color:#1C2126;">
       ${parrafos}
-      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0 6px;">
         <tr>
-          <td style="background-color:#178A4C;border-radius:8px;">
-            <a href="${enlaceFechaEntrega}" style="display:inline-block;padding:14px 22px;color:#ffffff;font-weight:bold;text-decoration:none;font-family:sans-serif;font-size:14px;">
-              📅 Indica la fecha de entrega estimada
+          <td>
+            <a href="${enlaceFechaEntrega}" style="text-decoration:none;">
+              <img src="cid:${BOTON_FECHA_ENTREGA_CID}" width="${BOTON_FECHA_ENTREGA_ANCHO}" height="${BOTON_FECHA_ENTREGA_ALTO}"
+                alt="Indica la fecha de entrega estimada" border="0"
+                style="display:block;border:0;outline:none;width:${BOTON_FECHA_ENTREGA_ANCHO}px;height:auto;max-width:100%;" />
             </a>
           </td>
         </tr>
       </table>
+      <p style="margin:0 0 10px;font-size:12px;color:#5B6670;">
+        Si no ves el botón, indica la fecha en este enlace: <a href="${enlaceFechaEntrega}" style="color:#178A4C;">${enlaceFechaEntrega}</a>
+      </p>
     </div>
   `;
 }
@@ -132,7 +144,8 @@ export type AdjuntoEmail = { nombre: string; tipo: string; base64: string };
 // Microsoft Graph (/sendMail) no admite emails de más de ~4 MB en total
 // (contando el PDF del pedido y la codificación base64). Para más haría falta
 // el permiso Mail.ReadWrite (subida por sesiones), que la app no tiene.
-const MAX_BASE64_EMAIL = 3_900_000;
+// (Se descuenta la imagen del botón de fecha de entrega, que va incrustada.)
+const MAX_BASE64_EMAIL = 3_900_000 - BOTON_FECHA_ENTREGA_BASE64.length;
 const MAX_ADJUNTOS = 10;
 const EXTENSIONES_BLOQUEADAS = /\.(exe|bat|cmd|com|msi|js|vbs|ps1|scr|jar|sh|dll)$/i;
 
@@ -242,6 +255,14 @@ export async function enviarPedidoPorEmail(
       nombreArchivo: `Pedido_compra_${numeroTecmelec}${conFotos ? '_con_fotos' : ''}.pdf`,
       contenidoBase64: pdfBase64,
       adjuntosExtra: adjuntosLimpios,
+      adjuntosEnLinea: [
+        {
+          nombre: 'indica-fecha-entrega.jpg',
+          tipo: 'image/jpeg',
+          base64: BOTON_FECHA_ENTREGA_BASE64,
+          contentId: BOTON_FECHA_ENTREGA_CID,
+        },
+      ],
     });
 
     const { error: errorGuardado } = await supabase.from('pedido_emails').insert({
