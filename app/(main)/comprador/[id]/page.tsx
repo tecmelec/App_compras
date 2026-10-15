@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import PresupuestoBoton from './PresupuestoBoton';
+import EditarEntregaBoton from './EditarEntregaBoton';
 import PresupuestosSolicitud from './PresupuestosSolicitud';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import GestionPedidosBC from './GestionPedidosBC';
@@ -27,7 +28,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
+      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
     )
     .eq('id', params.id)
     .single();
@@ -42,6 +43,14 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   if (!pedido) notFound();
 
   const p = pedido as any;
+  const datosEntrega = {
+    nombre: p.nombre_contacto || '',
+    telefono: p.telefono_contacto || '',
+    direccion: p.direcciones?.direccion || '',
+    codigo_postal: p.direcciones?.codigo_postal || '',
+    ciudad: p.direcciones?.ciudad || '',
+    provincia: p.direcciones?.provincia || '',
+  };
   // Lista en foto: no se crea el pedido en BC mientras queden líneas sin artículo ni rechazar.
   const listaSinResolver = await lineasListaFotoSinResolver(p.id);
 
@@ -197,7 +206,10 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
             </svg>
           </IconoDato>
           <div>
-            <p className="text-xs text-slate mb-0.5">Contacto</p>
+            <p className="text-xs text-slate mb-0.5 flex items-center gap-2">
+              Contacto
+              <EditarEntregaBoton pedidoId={p.id} actual={datosEntrega} />
+            </p>
             <p className="text-sm text-grafito">
               {p.nombre_contacto} — {p.telefono_contacto}
             </p>
@@ -212,7 +224,10 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
             </svg>
           </IconoDato>
           <div>
-            <p className="text-xs text-slate mb-0.5">Dirección de entrega</p>
+            <p className="text-xs text-slate mb-0.5 flex items-center gap-2">
+              Dirección de entrega
+              <EditarEntregaBoton pedidoId={p.id} actual={datosEntrega} />
+            </p>
             <p className="text-sm text-grafito">
               {p.direcciones
                 ? `${p.direcciones.alias} — ${p.direcciones.direccion}${p.direcciones.codigo_postal ? ` — CP ${p.direcciones.codigo_postal}` : ''}, ${p.direcciones.ciudad || ''}`
