@@ -3,9 +3,13 @@ type EstadoDef = { id: number; nombre: string; orden: number };
 export default function ProgresoEstado({
   estados,
   estadoActualId,
+  notas,
 }: {
   estados: EstadoDef[];
   estadoActualId: number | null;
+  // Texto en gris claro bajo un paso ya alcanzado, por nombre del estado en minúsculas
+  // (p. ej. quién aprobó la solicitud bajo "Solicitud aprobada").
+  notas?: Record<string, string>;
 }) {
   const actual = estados.find((e) => e.id === estadoActualId);
   const esAnulado = actual?.nombre?.trim().toLowerCase() === 'anulado';
@@ -46,6 +50,11 @@ export default function ProgresoEstado({
               <p className={`text-xs text-center mt-2 ${alcanzado ? 'text-grafito font-medium' : 'text-slate'}`}>
                 {e.nombre}
               </p>
+              {alcanzado && notas?.[e.nombre.trim().toLowerCase()] && (
+                <p className="text-[11px] text-center text-slate/70 mt-0.5 leading-tight">
+                  {notas[e.nombre.trim().toLowerCase()]}
+                </p>
+              )}
             </div>
             {!esUltimoDeLista && (
               <div className={`h-0.5 flex-1 mt-4 ${i < indiceActual ? 'bg-marca' : 'bg-borde'}`} />

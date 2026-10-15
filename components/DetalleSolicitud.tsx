@@ -60,7 +60,7 @@ export default async function DetalleSolicitud({
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, aprobado_por, responsable_id, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -76,6 +76,20 @@ export default async function DetalleSolicitud({
   const { data: estados } = await supabase.from('estados_pedido').select('id, nombre, orden').order('orden');
 
   const p = pedido as any;
+
+  // Quién aprobó la solicitud (debajo de "Solicitud aprobada"): "Automático" si no
+  // requería aprobación; si no, el aprobador (el responsable asignado si no consta).
+  // El nombre se lee con el cliente admin: el perfil usuario no puede leer otros perfiles.
+  let notaAprobacion: string | null = null;
+  if (!p.requiere_aprobacion) {
+    notaAprobacion = 'Automático';
+  } else if (p.aprobado === true) {
+    const idAprobador = p.aprobado_por || p.responsable_id;
+    const { data: aprobador } = idAprobador
+      ? await createAdminClient().from('profiles').select('nombre_completo').eq('id', idAprobador).maybeSingle()
+      : { data: null };
+    notaAprobacion = aprobador?.nombre_completo ? `Aprobador: ${aprobador.nombre_completo}` : null;
+  }
   const estadosPorId = new Map((estados || []).map((e: any) => [e.id, e.nombre]));
 
   // Estados de la secuencia que representan "recibido parcial" y "recibido completo"
@@ -158,7 +172,7 @@ export default async function DetalleSolicitud({
           <p className="text-slate text-sm">
             Proyecto: {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
           </p>
-          {!esSolicitante && p.profiles?.nombre_completo && (
+          {p.profiles?.nombre_completo && (
             <p className="text-slate text-sm">Solicitante: {p.profiles.nombre_completo}</p>
           )}
         </div>
@@ -357,7 +371,11 @@ export default async function DetalleSolicitud({
                 </span>
               </div>
             ) : (
-              <ProgresoEstado estados={estados || []} estadoActualId={resultado.id!} />
+              <ProgresoEstado
+                estados={estados || []}
+                estadoActualId={resultado.id!}
+                notas={notaAprobacion ? { 'solicitud aprobada': notaAprobacion } : undefined}
+              />
             )}
 
             <h3 className="font-medium text-grafito mt-6 mb-3 flex items-center gap-2">
