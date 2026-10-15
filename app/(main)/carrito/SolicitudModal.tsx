@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { aprobadoresParaSolicitud, type AprobadorOpcion } from '@/app/actions/aprobadores-proyecto';
 import { createClient } from '@/lib/supabase/client';
 import { crearDireccion, actualizarDireccion, eliminarDireccion } from '@/app/actions/direcciones';
 import { crearContactoEntrega, eliminarContactoEntrega } from '@/app/actions/contactos';
@@ -101,6 +102,7 @@ export default function SolicitudModal({
     fecha_requerida: string;
     comprador_id: string | null;
     seguir_pedido: boolean;
+    aprobador_id: string | null;
   }) => void;
   enviando: boolean;
 }) {
@@ -130,6 +132,27 @@ export default function SolicitudModal({
 
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [proyectoId, setProyectoId] = useState('');
+  // Proyectos con varios aprobadores: el solicitante elige quién aprueba la solicitud.
+  const [aprobadores, setAprobadores] = useState<AprobadorOpcion[]>([]);
+  const [aprobadorId, setAprobadorId] = useState('');
+  const [cargandoAprobadores, setCargandoAprobadores] = useState(false);
+  useEffect(() => {
+    setAprobadores([]);
+    setAprobadorId('');
+    if (!proyectoId) return;
+    let vigente = true;
+    setCargandoAprobadores(true);
+    aprobadoresParaSolicitud(proyectoId)
+      .then((lista) => {
+        if (vigente) setAprobadores(lista);
+      })
+      .finally(() => {
+        if (vigente) setCargandoAprobadores(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [proyectoId]);
   const [busquedaProyecto, setBusquedaProyecto] = useState('');
 
   const [pasoIndex, setPasoIndex] = useState(0);
@@ -215,6 +238,8 @@ export default function SolicitudModal({
   function validarPasoActual(): string | null {
     if (paso === 'proyecto') {
       if (!proyectoId) return 'Selecciona el proyecto.';
+      if (cargandoAprobadores) return 'Comprobando los aprobadores del proyecto…';
+      if (aprobadores.length > 0 && !aprobadorId) return 'Selecciona el aprobador para esta solicitud.';
     }
 
     if (paso === 'direccion') {
@@ -282,6 +307,7 @@ export default function SolicitudModal({
       fecha_requerida: fecha,
       comprador_id: rol === 'usuario' ? compradorAsignadoId : compradorSeleccionado,
       seguir_pedido: seguirPedido,
+      aprobador_id: aprobadores.length > 0 ? aprobadorId : null,
     });
   }
 
@@ -368,6 +394,28 @@ export default function SolicitudModal({
                           </label>
                         ))}
                     </div>
+                    {aprobadores.length > 0 && (
+                      <div className="mt-4 border border-[#F2D9AE] bg-[#FDF2E3] rounded-lg p-3">
+                        <p className="text-sm font-medium text-[#8A5A15] mb-2">
+                          Selecciona el aprobador para esta solicitud
+                        </p>
+                        <div className="space-y-1.5">
+                          {aprobadores.map((a) => (
+                            <label key={a.id} className="flex items-center gap-2 text-sm text-grafito cursor-pointer">
+                              <input
+                                type="radio"
+                                name="aprobador"
+                                checked={aprobadorId === a.id}
+                                onChange={() => setAprobadorId(a.id)}
+                              />
+                              {a.nombre}
+                              {a.jefeObraBC && <span className="text-xs text-slate">(jefe de obra en BC)</span>}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {cargandoAprobadores && <p className="text-xs text-slate mt-2">Comprobando los aprobadores del proyecto…</p>}
                   </>
                 )}
               </div>

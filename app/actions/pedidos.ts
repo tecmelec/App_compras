@@ -9,6 +9,7 @@ import { despacharPushPendientes } from '@/lib/push';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerJefeObraProyectoBC } from '@/lib/business-central';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
+import { aprobadoresElegibles } from '@/app/actions/aprobadores-proyecto';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -21,6 +22,7 @@ type DatosSolicitud = {
   comprador_id?: string | null;
   seguir_pedido?: boolean;
   lista_foto_ids?: string[];
+  aprobador_id?: string | null;
 };
 
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
@@ -151,7 +153,16 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   // al solicitante, como hasta ahora. Si BC no responde, no se bloquea la solicitud:
   // se registra el error y se usa también el responsable asignado.
   let jefeObraId: string | null = null;
-  try {
+  // Proyecto con varios aprobadores asignados en la app: el solicitante elige quién
+  // aprueba (debe ser uno de los elegibles) y sustituye al jefe de obra de BC.
+  const elegibles = await aprobadoresElegibles(datos.proyecto_id);
+  if (elegibles.length > 0) {
+    if (!datos.aprobador_id) return { error: 'Selecciona el aprobador para esta solicitud.' };
+    if (!elegibles.some((a) => a.id === datos.aprobador_id)) {
+      return { error: 'El aprobador elegido no es válido para este proyecto.' };
+    }
+    jefeObraId = datos.aprobador_id;
+  } else try {
     const { data: proyectoSolicitud } = await supabase
       .from('proyectos')
       .select('bc_job_no')

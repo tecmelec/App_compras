@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import SincronizarProyectosBoton from './SincronizarProyectosBoton';
 import DiagnosticoJefeObra from './DiagnosticoJefeObra';
+import AprobadoresProyectos from './AprobadoresProyectos';
+import { createAdminClient } from '@/lib/supabase/admin';
 import ExportarExcelSimple from '@/components/ExportarExcelSimple';
 
 export default async function ProyectosAdminPage() {
@@ -18,6 +20,13 @@ export default async function ProyectosAdminPage() {
     if (!data || data.length < 1000) break;
   }
 
+  // Aprobadores por proyecto y posibles aprobadores (responsables y admins activos)
+  const admin = createAdminClient();
+  const [{ data: asignaciones }, { data: personas }] = await Promise.all([
+    admin.from('proyecto_aprobadores').select('id, proyecto_id, usuario_id'),
+    admin.from('profiles').select('id, nombre_completo, rol').eq('activo', true).in('rol', ['responsable', 'admin']).order('nombre_completo'),
+  ]);
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Proyectos</h1>
@@ -31,6 +40,11 @@ export default async function ProyectosAdminPage() {
 
       <SincronizarProyectosBoton />
       <DiagnosticoJefeObra />
+      <AprobadoresProyectos
+        proyectos={proyectos.map(({ id, bc_job_no, descripcion }) => ({ id, bc_job_no, descripcion }))}
+        personas={(personas || []).map((p: any) => ({ id: p.id, nombre: p.nombre_completo, rol: p.rol }))}
+        asignaciones={(asignaciones as any[]) || []}
+      />
 
       {!proyectos || proyectos.length === 0 ? (
         <p className="text-slate text-sm">Todavía no hay proyectos sincronizados.</p>
