@@ -87,7 +87,7 @@ export default function DocumentosCarrito() {
         <div>
           <p className="text-sm font-medium text-grafito">Documentos adjuntos</p>
           <p className="text-xs text-slate">
-            Planos, presupuestos, fichas técnicas… Acompañan a la solicitud para facilitar la compra. Máx. 25 MB por archivo.
+            Comparativos, presupuestos, fichas técnicas… Acompañan a la solicitud para facilitar la compra. Máx. 25 MB por archivo.
           </p>
         </div>
         <button
