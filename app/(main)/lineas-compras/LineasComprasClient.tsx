@@ -51,6 +51,7 @@ type Filtros = {
   requeridaHasta: string;
   entregaDesde: string;
   entregaHasta: string;
+  entregaSituacion: string[];
   estados: string[];
 };
 
@@ -71,8 +72,15 @@ const FILTROS_VACIOS: Filtros = {
   requeridaHasta: '',
   entregaDesde: '',
   entregaHasta: '',
+  entregaSituacion: [],
   estados: [],
 };
+
+// Opciones del filtro de situación de la fecha estimada de entrega
+const SIT_CONFIRMADA = 'Confirmada por el proveedor';
+const SIT_SIN_CONFIRMAR = 'Sin confirmar';
+const SIT_RETRASO = 'Con días de retraso';
+const SIT_POR_DEFINIR = 'Por definir';
 
 type CampoOrden =
   | 'numero_app'
@@ -178,6 +186,14 @@ export default function LineasComprasClient({
       return false;
     if (filtros.requeridaHasta && (!f.fecha_requerida || new Date(f.fecha_requerida) > new Date(filtros.requeridaHasta)))
       return false;
+    // Situación de la fecha estimada: si se marcan varias, vale cualquiera de ellas.
+    if (filtros.entregaSituacion.length > 0) {
+      const sit: string[] = [];
+      if (!f.fecha_estimada_entrega) sit.push(SIT_POR_DEFINIR);
+      else sit.push(f.fecha_confirmada_en ? SIT_CONFIRMADA : SIT_SIN_CONFIRMAR);
+      if (diasRetraso(f.fecha_estimada_entrega, f.estado_recepcion) > 0) sit.push(SIT_RETRASO);
+      if (!filtros.entregaSituacion.some((x) => sit.includes(x))) return false;
+    }
     if (
       filtros.entregaDesde &&
       (!f.fecha_estimada_entrega || new Date(f.fecha_estimada_entrega) < new Date(filtros.entregaDesde))
@@ -510,9 +526,33 @@ export default function LineasComprasClient({
                 columnaId="entrega"
                 columnaAbierta={columnaAbierta}
                 setColumnaAbierta={setColumnaAbierta}
-                activoFiltro={!!filtros.entregaDesde || !!filtros.entregaHasta}
-                onLimpiarFiltro={() => { actualizar('entregaDesde', ''); actualizar('entregaHasta', ''); }}
+                activoFiltro={!!filtros.entregaDesde || !!filtros.entregaHasta || filtros.entregaSituacion.length > 0}
+                onLimpiarFiltro={() => {
+                  actualizar('entregaDesde', '');
+                  actualizar('entregaHasta', '');
+                  actualizar('entregaSituacion', []);
+                }}
               >
+                <div className="flex flex-col gap-1 mb-3">
+                  {[SIT_CONFIRMADA, SIT_SIN_CONFIRMAR, SIT_RETRASO, SIT_POR_DEFINIR].map((op) => (
+                    <label key={op} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filtros.entregaSituacion.includes(op)}
+                        onChange={() =>
+                          actualizar(
+                            'entregaSituacion',
+                            filtros.entregaSituacion.includes(op)
+                              ? filtros.entregaSituacion.filter((x) => x !== op)
+                              : [...filtros.entregaSituacion, op]
+                          )
+                        }
+                      />
+                      {op}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate mb-1">Entre fechas</p>
                 <div className="flex flex-col gap-2">
                   <input
                     className="input"
