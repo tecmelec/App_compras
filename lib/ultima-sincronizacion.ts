@@ -19,3 +19,22 @@ export async function textoUltimaSincronizacionBC(supabase: SupabaseClient): Pro
   });
   return `Última sincronización con BC: ${fecha}${data.ultima_sincronizacion_bc_por ? ` (${data.ultima_sincronizacion_bc_por})` : ''}`;
 }
+
+// Igual, para la sincronización de proyectos (Admin → Proyectos).
+export async function textoUltimaSincronizacionProyectos(supabase: SupabaseClient): Promise<string | null> {
+  const { data } = await supabase
+    .from('configuracion')
+    .select('ultima_sincronizacion_proyectos, ultima_sincronizacion_proyectos_por')
+    .eq('id', 1)
+    .maybeSingle();
+  if (!data?.ultima_sincronizacion_proyectos) return null;
+  const fecha = new Date(data.ultima_sincronizacion_proyectos).toLocaleString('es-ES', {
+    timeZone: 'Europe/Madrid',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `Última sincronización con BC: ${fecha}${data.ultima_sincronizacion_proyectos_por ? ` (${data.ultima_sincronizacion_proyectos_por})` : ''}`;
+}

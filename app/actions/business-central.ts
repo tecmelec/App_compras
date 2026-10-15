@@ -171,6 +171,22 @@ export async function sincronizarProyectosBC() {
   revalidatePath('/admin/proyectos');
   revalidatePath('/proyectos-equipo');
 
+  // Fecha y hora de esta sincronización (se muestra junto al botón en Admin → Proyectos)
+  {
+    const sup = createClient();
+    const {
+      data: { user },
+    } = await sup.auth.getUser();
+    const { data: yo } = user
+      ? await sup.from('profiles').select('nombre_completo').eq('id', user.id).single()
+      : { data: null };
+    const { error: errorFecha } = await createAdminClient()
+      .from('configuracion')
+      .update({ ultima_sincronizacion_proyectos: new Date().toISOString(), ultima_sincronizacion_proyectos_por: yo?.nombre_completo || null })
+      .eq('id', 1);
+    if (errorFecha) console.error('[proyectos] No se pudo guardar la fecha de la última sincronización:', errorFecha.message);
+  }
+
   return { success: true, creados, actualizados, totalBC: proyectos.length, errores };
 }
 

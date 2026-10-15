@@ -1,3 +1,4 @@
+import { textoUltimaSincronizacionProyectos } from '@/lib/ultima-sincronizacion';
 import { createClient } from '@/lib/supabase/server';
 import SincronizarProyectosBoton from './SincronizarProyectosBoton';
 import DiagnosticoJefeObra from './DiagnosticoJefeObra';
@@ -38,7 +39,7 @@ export default async function ProyectosAdminPage() {
         .
       </p>
 
-      <SincronizarProyectosBoton />
+      <SincronizarProyectosBoton ultima={await textoUltimaSincronizacionProyectos(supabase)} />
       <DiagnosticoJefeObra />
       <AprobadoresProyectos
         proyectos={proyectos.map(({ id, bc_job_no, descripcion }) => ({ id, bc_job_no, descripcion }))}
