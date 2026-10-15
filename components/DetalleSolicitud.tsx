@@ -77,14 +77,16 @@ export default async function DetalleSolicitud({
 
   const p = pedido as any;
 
-  // Quién aprobó la solicitud (debajo de "Solicitud aprobada"): "Automático" si no
-  // requería aprobación; si no, el aprobador (el responsable asignado si no consta).
-  // El nombre se lee con el cliente admin: el perfil usuario no puede leer otros perfiles.
+  // Quién aprueba la solicitud (debajo de "Solicitud aprobada"): "Automático" si no
+  // requería aprobación; si no, el aprobador, también mientras está pendiente (así se
+  // sabe a quién le toca). Si ya está aprobada, quien la aprobó (o el responsable
+  // asignado si no consta). El nombre se lee con el cliente admin: el perfil usuario no
+  // puede leer otros perfiles.
   let notaAprobacion: string | null = null;
   if (!p.requiere_aprobacion) {
     notaAprobacion = 'Automático';
-  } else if (p.aprobado === true) {
-    const idAprobador = p.aprobado_por || p.responsable_id;
+  } else if (p.aprobado === true || p.aprobado === null) {
+    const idAprobador = (p.aprobado === true && p.aprobado_por) || p.responsable_id;
     const { data: aprobador } = idAprobador
       ? await createAdminClient().from('profiles').select('nombre_completo').eq('id', idAprobador).maybeSingle()
       : { data: null };
