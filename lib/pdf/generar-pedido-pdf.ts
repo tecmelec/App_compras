@@ -128,7 +128,7 @@ export async function construirPedidoCompraPdf(
       proveedorDireccion,
       proveedorCif,
       contacto: (pedido as any)?.nombre_contacto
-        ? `${(pedido as any).nombre_contacto}${(pedido as any).telefono_contacto ? ` +34 ${(pedido as any).telefono_contacto}` : ''}`
+        ? `${(pedido as any).nombre_contacto}${(pedido as any).telefono_contacto ? ` ${telefonoConPrefijo((pedido as any).telefono_contacto)}` : ''}`
         : '',
       direccionEnvio,
       lineas,
@@ -170,4 +170,12 @@ async function prepararImagenParaPdf(url: string): Promise<string | undefined> {
   } catch {
     return undefined;
   }
+}
+
+// Teléfono con el prefijo +34 solo si no lo lleva ya (el teléfono guardado puede venir
+// como "621069115", "+34 621069115" o "0034621069115").
+function telefonoConPrefijo(telefono: string): string {
+  const t = String(telefono).trim();
+  if (/^(\+|00)/.test(t)) return t.replace(/^00/, '+');
+  return `+34 ${t}`;
 }
