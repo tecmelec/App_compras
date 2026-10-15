@@ -1,3 +1,4 @@
+import { textoUltimaSincronizacionBC } from '@/lib/ultima-sincronizacion';
 import { createClient } from '@/lib/supabase/server';
 import SolicitudesFiltrables, { type PedidoFila } from '@/components/SolicitudesFiltrables';
 import { numerosTecmelecTexto, idsEfectivos } from '@/lib/pedidos-utils';
@@ -6,22 +7,8 @@ import SincronizarTodasBCBoton from './SincronizarTodasBCBoton';
 export default async function CompradorPage() {
   const supabase = createClient();
 
-  // Última sincronización masiva con BC (cron nocturno o botón "Sincronizar todas").
-  const { data: configSync } = await supabase
-    .from('configuracion')
-    .select('ultima_sincronizacion_bc, ultima_sincronizacion_bc_por')
-    .eq('id', 1)
-    .maybeSingle();
-  const textoUltimaSincronizacion = configSync?.ultima_sincronizacion_bc
-    ? `Última sincronización: ${new Date(configSync.ultima_sincronizacion_bc).toLocaleString('es-ES', {
-        timeZone: 'Europe/Madrid',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })}${configSync.ultima_sincronizacion_bc_por ? ` (${configSync.ultima_sincronizacion_bc_por})` : ''}`
-    : null;
+  // Última sincronización masiva con BC (cron o botón "Sincronizar todas").
+  const textoUltimaSincronizacion = await textoUltimaSincronizacionBC(supabase);
 
   const {
     data: { user },

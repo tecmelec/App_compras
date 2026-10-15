@@ -1,3 +1,4 @@
+import { textoUltimaSincronizacionBC } from '@/lib/ultima-sincronizacion';
 import { createClient } from '@/lib/supabase/server';
 import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
 import { idsEfectivos, estadoLineaParaMostrar } from '@/lib/pedidos-utils';
@@ -5,6 +6,7 @@ import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 
 export default async function LineasCompraPage() {
   const supabase = createClient();
+  const ultimaSincronizacion = await textoUltimaSincronizacionBC(supabase);
 
   const {
     data: { user },
@@ -91,7 +93,12 @@ export default async function LineasCompraPage() {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Líns. compras</h1>
-      <p className="text-slate text-sm mb-6">Detalle de artículos solicitados en cada pedido.</p>
+      <p className="text-slate text-sm">Detalle de artículos solicitados en cada pedido.</p>
+      {ultimaSincronizacion ? (
+        <p className="text-xs text-slate/70 mt-1 mb-6">{ultimaSincronizacion}</p>
+      ) : (
+        <div className="mb-6" />
+      )}
 
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No hay líneas de compra para mostrar.</p>
