@@ -1,5 +1,6 @@
 import { textoUltimaSincronizacionBC } from '@/lib/ultima-sincronizacion';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
 import { idsEfectivos, estadoLineaParaMostrar } from '@/lib/pedidos-utils';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
@@ -22,15 +23,28 @@ export default async function LineasCompraPage() {
   let idsResponsable: string[] = [];
   if (perfil?.rol === 'responsable') idsResponsable = await idsEfectivos(supabase, user!.id);
 
+  // El perfil usuario ve sus líneas y las de todas las solicitudes de los proyectos que
+  // tiene habilitados (usuario_proyectos), las haya pedido quien las haya pedido. La RLS
+  // solo le deja leer las suyas, así que esta consulta se hace con el cliente admin y el
+  // filtro se aplica aquí.
+  let proyectosUsuario: string[] = [];
+  if (perfil?.rol === 'usuario') {
+    const { data: asignados } = await supabase.from('usuario_proyectos').select('proyecto_id').eq('usuario_id', user!.id);
+    proyectosUsuario = (asignados || []).map((a: any) => a.proyecto_id);
+  }
+  const db = perfil?.rol === 'usuario' ? createAdminClient() : supabase;
+
   function consulta() {
-    let q = supabase
+    let q = db
       .from('pedidos')
       .select(
         'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre, precio), proveedores(bc_proveedor_no, nombre))'
       )
       .order('created_at', { ascending: false });
     if (perfil?.rol === 'usuario') {
-      q = q.eq('usuario_id', user!.id);
+      q = proyectosUsuario.length
+        ? q.or(`usuario_id.eq.${user!.id},proyecto_id.in.(${proyectosUsuario.join(',')})`)
+        : q.eq('usuario_id', user!.id);
     } else if (perfil?.rol === 'responsable') {
       q = q.or(`responsable_id.in.(${idsResponsable.join(',')}),usuario_id.eq.${user!.id}`);
     }
@@ -50,7 +64,7 @@ export default async function LineasCompraPage() {
 
   // Según el rol, la página de detalle del pedido vive en una ruta distinta.
   const rutaDetalle: Record<string, string> = {
-    usuario: '/mis-pedidos',
+    usuario: '/lineas-compras', // solicitudes de otros en sus proyectos: detalle de consulta
     comprador: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     responsable: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     admin: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec

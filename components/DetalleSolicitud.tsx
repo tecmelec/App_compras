@@ -2,6 +2,7 @@ import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -33,20 +34,25 @@ export default async function DetalleSolicitud({
   volver,
   enlaceGestion,
   textoGestion = 'Gestionar solicitud',
+  accesoPorProyecto = false,
 }: {
   id: string;
   modo: 'solicitante' | 'consulta';
   volver: { href: string; texto: string };
   enlaceGestion?: string;
   textoGestion?: string;
+  // Usuario que consulta una solicitud de otro en un proyecto que tiene habilitado
+  // (acceso comprobado por la página): se lee con el cliente admin.
+  accesoPorProyecto?: boolean;
 }) {
-  const supabase = createClient();
+  const supabaseSesion = createClient();
+  const supabase = accesoPorProyecto ? createAdminClient() : supabaseSesion;
   const params = { id };
   const esSolicitante = modo === 'solicitante';
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabaseSesion.auth.getUser();
 
   const comprador = user && esSolicitante ? await obtenerContactoComprador(supabase, user.id) : null;
 
