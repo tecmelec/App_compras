@@ -52,6 +52,7 @@ type Filtros = {
   entregaDesde: string;
   entregaHasta: string;
   entregaSituacion: string[];
+  fotos: string[];
   estados: string[];
 };
 
@@ -73,6 +74,7 @@ const FILTROS_VACIOS: Filtros = {
   entregaDesde: '',
   entregaHasta: '',
   entregaSituacion: [],
+  fotos: [],
   estados: [],
 };
 
@@ -81,6 +83,10 @@ const SIT_CONFIRMADA = 'Confirmada por el proveedor';
 const SIT_SIN_CONFIRMAR = 'Sin confirmar';
 const SIT_RETRASO = 'Con días de retraso';
 const SIT_POR_DEFINIR = 'Por definir';
+
+// Opciones del filtro de fotos de albarán
+const FOTOS_CON = 'Con fotos de albarán';
+const FOTOS_SIN = 'Sin fotos de albarán';
 
 type CampoOrden =
   | 'numero_app'
@@ -93,7 +99,8 @@ type CampoOrden =
   | 'nro_obra'
   | 'fecha_requerida'
   | 'fecha_estimada_entrega'
-  | 'estado_recepcion';
+  | 'estado_recepcion'
+  | 'fotos';
 
 export default function LineasComprasClient({
   filas,
@@ -186,6 +193,11 @@ export default function LineasComprasClient({
       return false;
     if (filtros.requeridaHasta && (!f.fecha_requerida || new Date(f.fecha_requerida) > new Date(filtros.requeridaHasta)))
       return false;
+    // Fotos de albarán del pedido de compra
+    if (filtros.fotos.length > 0) {
+      const tiene = fotosDe(f.numero_tecmelec).length > 0;
+      if (!filtros.fotos.includes(tiene ? FOTOS_CON : FOTOS_SIN)) return false;
+    }
     // Situación de la fecha estimada: si se marcan varias, vale cualquiera de ellas.
     if (filtros.entregaSituacion.length > 0) {
       const sit: string[] = [];
@@ -212,9 +224,10 @@ export default function LineasComprasClient({
     if (!orden) return filtradas;
     const copia = [...filtradas];
     copia.sort((a, b) => {
-      let va: any = a[orden.campo];
-      let vb: any = b[orden.campo];
-      if (orden.campo === 'cantidad' || orden.campo === 'precio_unitario' || orden.campo === 'importe') {
+      // "fotos" no es un campo de la fila: se ordena por el nº de fotos de albarán del pedido
+      let va: any = orden.campo === 'fotos' ? fotosDe(a.numero_tecmelec).length : (a as any)[orden.campo];
+      let vb: any = orden.campo === 'fotos' ? fotosDe(b.numero_tecmelec).length : (b as any)[orden.campo];
+      if (orden.campo === 'fotos' || orden.campo === 'cantidad' || orden.campo === 'precio_unitario' || orden.campo === 'importe') {
         va = va ?? 0;
         vb = vb ?? 0;
       } else {
@@ -594,7 +607,35 @@ export default function LineasComprasClient({
                 </div>
               </ColumnaFiltroOrden>
 
-              <th className="px-4 py-3 font-medium whitespace-nowrap">Fotos Albaranes</th>
+              <ColumnaFiltroOrden
+                titulo="Fotos Albaranes"
+                campoOrden="fotos"
+                ordenActual={orden}
+                onOrdenar={ordenarPor}
+                columnaId="fotos"
+                columnaAbierta={columnaAbierta}
+                setColumnaAbierta={setColumnaAbierta}
+                activoFiltro={filtros.fotos.length > 0}
+                onLimpiarFiltro={() => actualizar('fotos', [])}
+              >
+                <div className="flex flex-col gap-1">
+                  {[FOTOS_CON, FOTOS_SIN].map((op) => (
+                    <label key={op} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filtros.fotos.includes(op)}
+                        onChange={() =>
+                          actualizar(
+                            'fotos',
+                            filtros.fotos.includes(op) ? filtros.fotos.filter((x) => x !== op) : [...filtros.fotos, op]
+                          )
+                        }
+                      />
+                      {op}
+                    </label>
+                  ))}
+                </div>
+              </ColumnaFiltroOrden>
             </tr>
           </thead>
           <tbody className="divide-y divide-borde">
