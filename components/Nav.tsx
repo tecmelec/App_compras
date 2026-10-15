@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { borrarFiltrosGuardados } from '@/lib/filtros-sesion';
 import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import Image from 'next/image';
@@ -127,7 +128,11 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
             <Link
               key={l.href}
               href={l.href}
-              onClick={() => setAbierto(false)}
+              onClick={() => {
+                // Cambiar de sección desde el menú borra los filtros guardados de las tablas
+                setAbierto(false);
+                borrarFiltrosGuardados();
+              }}
               className={clsx(
                 'flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium',
                 pathname.startsWith(l.href) ? 'bg-marca text-white' : 'text-white/80 hover:bg-white/10'

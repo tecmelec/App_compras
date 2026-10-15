@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useFiltrosEnSesion } from '@/lib/filtros-sesion';
 import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
 import ObraCelda from '@/components/ObraCelda';
@@ -107,6 +109,10 @@ export default function SolicitudesFiltrables({
   filtrosRapidos?: ConfigFiltrosRapidos;
 }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
+  // Se conservan al ir al detalle de una solicitud y volver (hasta cambiar de sección);
+  // cada pantalla que usa esta tabla guarda los suyos.
+  const rutaActual = usePathname();
+  useFiltrosEnSesion(`solicitudes:${rutaActual}`, filtros, setFiltros);
   const [modoRapido, setModoRapidoEstado] = useState<ModoRapido>('todas');
   const [guardados, setGuardados] = useState(filtrosRapidos?.guardados ?? { solicitantes: [], obras: [] });
 

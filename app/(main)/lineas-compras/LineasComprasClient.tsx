@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useFiltrosEnSesion } from '@/lib/filtros-sesion';
 import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
@@ -117,6 +118,9 @@ export default function LineasComprasClient({
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
   const [columnaAbierta, setColumnaAbierta] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ campo: CampoOrden; asc: boolean } | null>(null);
+  // Se conservan al ir al detalle de una solicitud y volver (hasta cambiar de sección).
+  useFiltrosEnSesion('lineas-compras', filtros, setFiltros);
+  useFiltrosEnSesion('lineas-compras:orden', orden, setOrden);
 
   const articulosUnicos = useMemo(
     () => Array.from(new Set(filas.map((f) => f.articulo))).sort(),
