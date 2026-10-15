@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BUCKET_DOCUMENTOS, extensionDe, tamanoLegible } from '@/lib/documentos-solicitud';
 
@@ -6,6 +7,15 @@ import { BUCKET_DOCUMENTOS, extensionDe, tamanoLegible } from '@/lib/documentos-
 const SE_VEN_EN_NAVEGADOR = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'txt'];
 
 export default async function DocumentosSolicitud({ pedidoId }: { pedidoId: string }) {
+  // El perfil usuario no ve los documentos adjuntos (ni los adjunta).
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
+  if (!perfil?.rol || perfil.rol === 'usuario') return null;
+
   const admin = createAdminClient();
   const { data: docs } = await admin
     .from('solicitud_documentos')
