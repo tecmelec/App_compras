@@ -1,3 +1,4 @@
+import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
@@ -77,6 +78,8 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
           <p className="text-grafito font-mono text-base">{formatoImporte(p.total_estimado)} €</p>
         </div>
       </div>
+
+      <DocumentosSolicitud pedidoId={params.id} />
 
       {pendiente ? (
         <RevisionAprobacion

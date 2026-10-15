@@ -1,3 +1,4 @@
+import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
@@ -91,6 +92,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
         )}
       </div>
 
+      <DocumentosSolicitud pedidoId={params.id} />
       <h2 className="font-medium text-grafito mb-3">Artículos solicitados</h2>
       <div className="bg-white border border-borde rounded-lg divide-y divide-borde mb-2">
         {p.pedido_items.map((item: any, idx: number) => (

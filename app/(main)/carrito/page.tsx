@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { crearPedido } from '@/app/actions/pedidos';
 import SolicitudModal from './SolicitudModal';
+import DocumentosCarrito from './DocumentosCarrito';
 import { fotosListasCarrito } from '@/app/actions/lista-foto';
 
 function validarCantidad(cantidad: number, multiplo: number): string | null {
@@ -18,7 +19,8 @@ function validarCantidad(cantidad: number, multiplo: number): string | null {
 }
 
 export default function CarritoPage() {
-  const { items, updateCantidad, removeItem, clear, listasFoto, removeListaFoto, rol } = useCart();
+  const { items, updateCantidad, removeItem, clear, listasFoto, removeListaFoto, documentos, rol } = useCart();
+  const puedeAdjuntar = !!rol && rol !== 'usuario';
   const [mostrarModal, setMostrarModal] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +50,11 @@ export default function CarritoPage() {
     setEnviando(true);
     setError(null);
 
-    const resultado = await crearPedido(items, { ...datos, lista_foto_ids: listasFoto });
+    const resultado = await crearPedido(items, {
+      ...datos,
+      lista_foto_ids: listasFoto,
+      documento_ids: puedeAdjuntar ? documentos : [],
+    });
 
     setEnviando(false);
 
@@ -112,6 +118,7 @@ export default function CarritoPage() {
             El carrito no tiene artículos de la tienda. Puedes enviar la solicitud solo con la lista de materiales: el
             responsable asignará los artículos (o rechazará las líneas) al aprobarla.
           </p>
+          {puedeAdjuntar && <DocumentosCarrito />}
           {error && (
             <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mt-4">{error}</p>
           )}
@@ -189,6 +196,8 @@ export default function CarritoPage() {
               );
             })}
           </div>
+
+          {puedeAdjuntar && <DocumentosCarrito />}
 
           {error && (
             <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mt-4">

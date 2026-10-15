@@ -22,6 +22,7 @@ type DatosSolicitud = {
   comprador_id?: string | null;
   seguir_pedido?: boolean;
   lista_foto_ids?: string[];
+  documento_ids?: string[];
   aprobador_id?: string | null;
 };
 
@@ -298,6 +299,17 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
       .eq('usuario_id', user.id)
       .is('pedido_id', null);
     if (errorListas) console.error('[crearPedido] No se pudo vincular la lista en foto:', errorListas);
+  }
+
+  // Documentos adjuntos en el carrito: se vinculan a la solicitud.
+  if (datos.documento_ids && datos.documento_ids.length > 0) {
+    const { error: errorDocs } = await createAdminClient()
+      .from('solicitud_documentos')
+      .update({ pedido_id: pedido.id })
+      .in('id', datos.documento_ids)
+      .eq('usuario_id', user.id)
+      .is('pedido_id', null);
+    if (errorDocs) console.error('[crearPedido] No se pudieron vincular los documentos:', errorDocs);
   }
 
   // 5. Obtener emails del comprador y responsable efectivos (ya considerando sustituto)

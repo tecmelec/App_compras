@@ -1,3 +1,4 @@
+import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
@@ -281,6 +282,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           />
         </div>
       </div>
+      <DocumentosSolicitud pedidoId={p.id} />
       <PresupuestosSolicitud
         pedidoId={p.id}
         nombresItems={Object.fromEntries((p.pedido_items as any[]).map((i) => [i.id, i.productos?.nombre || 'Producto']))}

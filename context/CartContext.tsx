@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { descartarListaFoto } from '@/app/actions/lista-foto';
+import { descartarDocumento } from '@/app/actions/documentos-solicitud';
 
 export type CartItem = {
   producto_id: string;
@@ -23,6 +24,10 @@ type CartContextType = {
   listasFoto: string[];
   addListaFoto: (id: string) => void;
   removeListaFoto: (id: string) => void;
+  // Documentos adjuntos (ya subidos) que acompañarán a la solicitud
+  documentos: string[];
+  addDocumento: (id: string) => void;
+  removeDocumento: (id: string) => void;
   rol: string | null;
 };
 
@@ -36,6 +41,10 @@ function storageKeyListas(userId: string) {
   return `tecmelec_carrito_listas_foto_${userId}`;
 }
 
+function storageKeyDocumentos(userId: string) {
+  return `tecmelec_carrito_documentos_${userId}`;
+}
+
 export function CartProvider({
   userId,
   rol = null,
@@ -46,6 +55,7 @@ export function CartProvider({
   children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [listasFoto, setListasFoto] = useState<string[]>([]);
+  const [documentos, setDocumentos] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   // Carga el carrito de ESTE usuario específico (nunca el de otro que haya usado el mismo navegador)
@@ -67,6 +77,12 @@ export function CartProvider({
     } catch {
       setListasFoto([]);
     }
+    try {
+      const rawDocs = window.localStorage.getItem(storageKeyDocumentos(userId));
+      setDocumentos(rawDocs ? JSON.parse(rawDocs) : []);
+    } catch {
+      setDocumentos([]);
+    }
     setLoaded(true);
   }, [userId]);
 
@@ -74,8 +90,9 @@ export function CartProvider({
     if (loaded) {
       window.localStorage.setItem(storageKey(userId), JSON.stringify(items));
       window.localStorage.setItem(storageKeyListas(userId), JSON.stringify(listasFoto));
+      window.localStorage.setItem(storageKeyDocumentos(userId), JSON.stringify(documentos));
     }
-  }, [items, listasFoto, loaded, userId]);
+  }, [items, listasFoto, documentos, loaded, userId]);
 
   function addItem(item: Omit<CartItem, 'cantidad'>, cantidad: number) {
     setItems((prev) => {
@@ -106,6 +123,17 @@ export function CartProvider({
   function clear() {
     setItems([]);
     setListasFoto([]);
+    setDocumentos([]);
+  }
+
+  function addDocumento(id: string) {
+    setDocumentos((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  // Quita el documento del carrito y lo borra (si aún no se ha enviado en una solicitud).
+  function removeDocumento(id: string) {
+    setDocumentos((prev) => prev.filter((x) => x !== id));
+    descartarDocumento(id).catch(() => {});
   }
 
   function addListaFoto(id: string) {
@@ -125,7 +153,7 @@ export function CartProvider({
   const totalItems = items.length;
 
   return (
-    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto, rol }}>
+    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto, documentos, addDocumento, removeDocumento, rol }}>
       {children}
     </CartContext.Provider>
   );

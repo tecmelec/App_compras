@@ -1,3 +1,4 @@
+import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
@@ -291,6 +292,8 @@ export default async function DetalleSolicitud({
           </div>
         )}
       </div>
+
+      <DocumentosSolicitud pedidoId={id} />
 
       {gruposOrdenados.map(([numeroTecmelec, itemsGrupo]) => {
         const esRechazadas = numeroTecmelec === '__rechazadas__';
