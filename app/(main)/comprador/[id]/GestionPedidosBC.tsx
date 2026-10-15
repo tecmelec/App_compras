@@ -17,6 +17,7 @@ type Fila = {
   puedeEnviarEmail: boolean;
   pdfEnviado: boolean;
   fotosAlbaran: FotoAlbaran[];
+  recordatorioEnviado?: string | null;
 };
 
 export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
@@ -38,6 +39,12 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
                 {p.proveedorNombre || 'Proveedor sin asignar'} · {p.lineas} {p.lineas === 1 ? 'línea' : 'líneas'} ·{' '}
                 {p.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
               </p>
+              {p.recordatorioEnviado && (
+                <p className="text-[11px] text-slate mt-0.5">
+                  Recordatorio de fecha enviado al proveedor el{' '}
+                  {new Date(p.recordatorioEnviado).toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' })}
+                </p>
+              )}
               {p.fotosAlbaran.length > 0 && (
                 <div className="mt-1.5">
                   <VerAlbaranBoton numeroTecmelec={p.numeroTecmelec} fotos={p.fotosAlbaran} />

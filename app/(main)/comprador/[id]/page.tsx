@@ -83,9 +83,19 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   }
   const numerosTecmelecLista = Array.from(gruposPorTecmelec.keys());
   const { data: emailsEnviados } = numerosTecmelecLista.length
-    ? await supabase.from('pedido_emails').select('numero_tecmelec, con_fotos').in('numero_tecmelec', numerosTecmelecLista)
-    : { data: [] as { numero_tecmelec: string; con_fotos: boolean }[] };
+    ? await supabase
+        .from('pedido_emails')
+        .select('numero_tecmelec, con_fotos, recordatorio_enviado_en')
+        .in('numero_tecmelec', numerosTecmelecLista)
+    : { data: [] as { numero_tecmelec: string; con_fotos: boolean; recordatorio_enviado_en: string | null }[] };
   const enviosPorGrupo = new Set((emailsEnviados || []).map((e: any) => `${e.numero_tecmelec}|${e.con_fotos}`));
+  // Recordatorio automático de fecha de entrega enviado al proveedor (el más reciente).
+  const recordatorioPorPedido = new Map<string, string>();
+  for (const e of (emailsEnviados || []) as any[]) {
+    if (!e.recordatorio_enviado_en) continue;
+    const actual = recordatorioPorPedido.get(e.numero_tecmelec);
+    if (!actual || e.recordatorio_enviado_en > actual) recordatorioPorPedido.set(e.numero_tecmelec, e.recordatorio_enviado_en);
+  }
 
   const { data: marcasPdfEnviado } = numerosTecmelecLista.length
     ? await supabase
@@ -108,6 +118,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     lineas: g.lineas,
     enviadoSinFotos: enviosPorGrupo.has(`${numeroTecmelec}|false`),
     enviadoConFotos: enviosPorGrupo.has(`${numeroTecmelec}|true`),
+    recordatorioEnviado: recordatorioPorPedido.get(numeroTecmelec) || null,
     pdfEnviado: pdfEnviadoPorGrupo.has(numeroTecmelec),
     // Si no hay un estado "Pedido lanzado" configurado, no bloqueamos nada (fail-open).
     puedeEnviarEmail: ordenLanzado === null || (g.ordenMinimo !== null && g.ordenMinimo >= ordenLanzado),

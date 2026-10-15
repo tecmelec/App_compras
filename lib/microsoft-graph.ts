@@ -182,12 +182,17 @@ export async function enviarEmailConAdjuntoGraph({
         toRecipients: desvio.to.map((email) => ({ emailAddress: { address: email } })),
         ccRecipients: desvio.cc.map((email) => ({ emailAddress: { address: email } })),
         attachments: [
-          {
-            '@odata.type': '#microsoft.graph.fileAttachment',
-            name: nombreArchivo,
-            contentType: 'application/pdf',
-            contentBytes: contenidoBase64,
-          },
+          // El PDF del pedido es opcional (p. ej. el recordatorio de fecha de entrega no lo lleva).
+          ...(contenidoBase64
+            ? [
+              {
+                '@odata.type': '#microsoft.graph.fileAttachment',
+                name: nombreArchivo,
+                contentType: 'application/pdf',
+                contentBytes: contenidoBase64,
+              },
+              ]
+            : []),
           ...adjuntosExtra.map((a) => ({
             '@odata.type': '#microsoft.graph.fileAttachment',
             name: a.nombre,
