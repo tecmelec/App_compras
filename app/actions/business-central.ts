@@ -648,25 +648,50 @@ async function registrarUltimaSincronizacionBC(por: string) {
   if (error) console.error('[sincronización BC] No se pudo guardar la fecha de la última sincronización:', error.message);
 }
 
+// Sincronización automática (cron): con muchas solicitudes abiertas no cabe entera en
+// los 60 s del servidor, así que cada ejecución procesa primero las que hace más tiempo
+// que no se sincronizan (pedidos.bc_sincronizado_en), de 3 en 3, y para a los ~40 s.
+// La siguiente ejecución (cada 30 min) sigue por donde se quedó.
+const PRESUPUESTO_MS_CRON = 40_000;
+
 export async function sincronizarPedidosAbiertosConBC() {
   const supabase = createAdminClient();
+  const inicio = Date.now();
 
-  const pedidos = await pedidosAbiertosDe(supabase);
+  const pedidos = (await pedidosAbiertosDe(supabase)) || [];
+
+  // Orden: primero las nunca sincronizadas por el cron y luego las más antiguas.
+  const ids = pedidos.map((p: any) => p.id);
+  const { data: marcas } = ids.length
+    ? await supabase.from('pedidos').select('id, bc_sincronizado_en').in('id', ids)
+    : { data: [] as any[] };
+  const ultima = new Map((marcas || []).map((m: any) => [m.id, m.bc_sincronizado_en || '']));
+  const ordenados = [...pedidos].sort((a: any, b: any) =>
+    String(ultima.get(a.id) || '').localeCompare(String(ultima.get(b.id) || ''))
+  );
 
   const resumen: { numeroApp: string; resultado: any }[] = [];
-
-  for (const pedido of pedidos || []) {
-    const resultado = await sincronizarPedidoConBCInterno(supabase, pedido.id, pedido.numero_app);
-    resumen.push({ numeroApp: pedido.numero_app, resultado });
+  let siguiente = 0;
+  async function trabajador() {
+    while (siguiente < ordenados.length && Date.now() - inicio < PRESUPUESTO_MS_CRON) {
+      const pedido: any = ordenados[siguiente++];
+      const resultado = await sincronizarPedidoConBCInterno(supabase, pedido.id, pedido.numero_app);
+      resumen.push({ numeroApp: pedido.numero_app, resultado });
+      await supabase.from('pedidos').update({ bc_sincronizado_en: new Date().toISOString() }).eq('id', pedido.id);
+    }
   }
+  await Promise.all([trabajador(), trabajador(), trabajador()]);
 
-  await registrarUltimaSincronizacionBC('automática');
+  const completa = resumen.length >= ordenados.length;
+  await registrarUltimaSincronizacionBC(
+    completa ? 'automática' : `automática, ${resumen.length} de ${ordenados.length}; sigue en la próxima`
+  );
   revalidatePath('/comprador');
   revalidatePath('/admin/pedidos');
   revalidatePath('/responsable');
 
   await despacharPushPendientes();
-  return { revisados: pedidos?.length || 0, resumen };
+  return { revisados: resumen.length, total: ordenados.length, completa, resumen };
 }
 
 // Botón "Sincronizar todas" en /comprador: repasa, con la sesión del propio
