@@ -2,7 +2,8 @@ import { textoUltimaSincronizacionBC } from '@/lib/ultima-sincronizacion';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import LineasComprasClient, { type LineaFila } from './LineasComprasClient';
-import { idsEfectivos, estadoLineaParaMostrar } from '@/lib/pedidos-utils';
+import { estadoLineaParaMostrar } from '@/lib/pedidos-utils';
+import { visibilidadLineas } from '@/lib/visibilidad-lineas';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 
 export default async function LineasCompraPage() {
@@ -19,20 +20,16 @@ export default async function LineasCompraPage() {
     .eq('id', user?.id)
     .single();
 
-  // Filtro según el rol (admin y comprador ven todo).
-  let idsResponsable: string[] = [];
-  if (perfil?.rol === 'responsable') idsResponsable = await idsEfectivos(supabase, user!.id);
-
-  // El perfil usuario ve sus líneas y las de todas las solicitudes de los proyectos que
-  // tiene habilitados (usuario_proyectos), las haya pedido quien las haya pedido. La RLS
-  // solo le deja leer las suyas, así que esta consulta se hace con el cliente admin y el
-  // filtro se aplica aquí.
-  let proyectosUsuario: string[] = [];
-  if (perfil?.rol === 'usuario') {
-    const { data: asignados } = await supabase.from('usuario_proyectos').select('proyecto_id').eq('usuario_id', user!.id);
-    proyectosUsuario = (asignados || []).map((a: any) => a.proyecto_id);
-  }
-  const db = perfil?.rol === 'usuario' ? createAdminClient() : supabase;
+  // Filtro según el rol (admin y comprador ven todo). Usuario: sus líneas y las de los
+  // proyectos que tiene habilitados; responsable: las de las solicitudes que aprueba (o
+  // de quien sustituye) y las suyas. A ambos el admin puede ampliarles la visibilidad a
+  // proyectos concretos o a todos (Administración → Usuarios; lib/visibilidad-lineas.ts).
+  // La RLS no les deja leer esas solicitudes, así que la consulta se hace con el cliente
+  // admin y el filtro se aplica aquí.
+  const rol = perfil?.rol;
+  const restringido = rol === 'usuario' || rol === 'responsable';
+  const visibilidad = restringido ? await visibilidadLineas(user!.id, rol) : null;
+  const db = restringido ? createAdminClient() : supabase;
 
   function consulta() {
     let q = db
@@ -41,12 +38,11 @@ export default async function LineasCompraPage() {
         'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre, precio), proveedores(bc_proveedor_no, nombre))'
       )
       .order('created_at', { ascending: false });
-    if (perfil?.rol === 'usuario') {
-      q = proyectosUsuario.length
-        ? q.or(`usuario_id.eq.${user!.id},proyecto_id.in.(${proyectosUsuario.join(',')})`)
-        : q.eq('usuario_id', user!.id);
-    } else if (perfil?.rol === 'responsable') {
-      q = q.or(`responsable_id.in.(${idsResponsable.join(',')}),usuario_id.eq.${user!.id}`);
+    if (visibilidad && !visibilidad.todos) {
+      const condiciones = [`usuario_id.eq.${user!.id}`];
+      if (visibilidad.proyectos.length) condiciones.push(`proyecto_id.in.(${visibilidad.proyectos.join(',')})`);
+      if (visibilidad.responsableIds.length) condiciones.push(`responsable_id.in.(${visibilidad.responsableIds.join(',')})`);
+      q = q.or(condiciones.join(','));
     }
     return q;
   }

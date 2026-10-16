@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import DetalleSolicitud from '@/components/DetalleSolicitud';
+import { visibilidadLineas, puedeVerSolicitud } from '@/lib/visibilidad-lineas';
 
 // Detalle de una solicitud abierto desde "Líns. compras" (vista de consulta para Compras).
 export default async function DetalleSolicitudLineasPage({ params }: { params: { id: string } }) {
@@ -11,31 +12,32 @@ export default async function DetalleSolicitudLineasPage({ params }: { params: {
   } = await supabase.auth.getUser();
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user?.id).single();
 
-  // Perfil usuario: puede consultar las solicitudes de los proyectos que tiene habilitados
-  // (aunque no sean suyas); la RLS no se las deja leer, así que el detalle se carga con el
-  // cliente admin tras comprobarlo aquí.
+  // Perfil usuario o responsable: puede consultar las solicitudes que le deja ver
+  // Líns. compras (sus proyectos, las que aprueba, los proyectos de consulta o todos;
+  // lib/visibilidad-lineas.ts). La RLS no le deja leer las ajenas, así que el detalle se
+  // carga con el cliente admin tras comprobarlo aquí.
   let accesoPorProyecto = false;
-  if (perfil?.rol === 'usuario') {
-    const { data: ped } = await createAdminClient().from('pedidos').select('usuario_id, proyecto_id').eq('id', params.id).maybeSingle();
+  let aprueba = false;
+  if (perfil?.rol === 'usuario' || perfil?.rol === 'responsable') {
+    const { data: ped } = await createAdminClient()
+      .from('pedidos')
+      .select('usuario_id, proyecto_id, responsable_id')
+      .eq('id', params.id)
+      .maybeSingle();
     if (!ped) notFound();
-    if (ped.usuario_id !== user?.id) {
-      const { data: asignado } = await supabase
-        .from('usuario_proyectos')
-        .select('proyecto_id')
-        .eq('usuario_id', user!.id)
-        .eq('proyecto_id', ped.proyecto_id)
-        .maybeSingle();
-      if (!asignado) notFound();
-      accesoPorProyecto = true;
-    }
+    const visibilidad = await visibilidadLineas(user!.id, perfil.rol);
+    if (!puedeVerSolicitud(visibilidad, user!.id, ped)) notFound();
+    aprueba = !!ped.responsable_id && visibilidad.responsableIds.includes(ped.responsable_id);
+    accesoPorProyecto = ped.usuario_id !== user!.id;
   }
 
+  // El enlace a la vista de aprobación solo si la solicitud es de las que aprueba.
   const enlaceGestion =
     perfil?.rol === 'comprador'
       ? `/comprador/${params.id}`
       : perfil?.rol === 'admin'
         ? `/admin/pedidos/${params.id}`
-        : perfil?.rol === 'responsable'
+        : perfil?.rol === 'responsable' && aprueba
           ? `/responsable/${params.id}`
           : undefined;
   const textoGestion = perfil?.rol === 'responsable' ? 'Ver aprobación' : 'Gestionar solicitud';

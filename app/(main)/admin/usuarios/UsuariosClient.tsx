@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/usuarios';
 import { useRouter } from 'next/navigation';
 import ExportarExcelBoton from '@/components/ExportarExcelBoton';
+import VisibilidadLineasCompras from './VisibilidadLineasCompras';
 
 type Usuario = {
   id: string;
@@ -157,6 +158,9 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                           router.refresh();
                         }}
                       />
+                      {(u.rol === 'usuario' || u.rol === 'responsable') && (
+                        <VisibilidadLineasCompras usuarioId={u.id} rol={u.rol} />
+                      )}
                     </td>
                   </tr>
                 )}
