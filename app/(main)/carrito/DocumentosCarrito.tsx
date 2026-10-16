@@ -2,14 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/context/CartContext';
-import { createClient } from '@/lib/supabase/client';
+import { subirDocumento } from '@/lib/subir-documento';
 import {
   documentosCarrito,
-  prepararSubidaDocumento,
   registrarDocumento,
   type DocumentoCarrito,
 } from '@/app/actions/documentos-solicitud';
-import { BUCKET_DOCUMENTOS, EXTENSIONES_DOCUMENTO, MAX_DOCUMENTO_BYTES, extensionDe, tamanoLegible } from '@/lib/documentos-solicitud';
+import { EXTENSIONES_DOCUMENTO, tamanoLegible } from '@/lib/documentos-solicitud';
 
 // Documentos que acompañan a la solicitud (planos, presupuestos, fichas técnicas...).
 // Solo para los perfiles distintos de "usuario". Se suben al momento y se vinculan a la
@@ -45,30 +44,14 @@ export default function DocumentosCarrito() {
     if (!archivos || archivos.length === 0) return;
     setError(null);
     const errores: string[] = [];
-    const supabase = createClient();
     for (const archivo of Array.from(archivos)) {
-      if (!EXTENSIONES_DOCUMENTO.includes(extensionDe(archivo.name))) {
-        errores.push(`"${archivo.name}": tipo de archivo no admitido.`);
-        continue;
-      }
-      if (archivo.size > MAX_DOCUMENTO_BYTES) {
-        errores.push(`"${archivo.name}" supera el máximo de 25 MB.`);
-        continue;
-      }
       setSubiendo(archivo.name);
-      const prep = await prepararSubidaDocumento(archivo.name, archivo.size);
-      if ('error' in prep && prep.error) {
-        errores.push(prep.error);
+      const subida = await subirDocumento(archivo);
+      if ('error' in subida) {
+        errores.push(subida.error);
         continue;
       }
-      const { ruta, token } = prep as { ruta: string; token: string };
-      const { error: errorSubida } = await supabase.storage
-        .from(BUCKET_DOCUMENTOS)
-        .uploadToSignedUrl(ruta, token, archivo, { contentType: archivo.type || 'application/octet-stream' });
-      if (errorSubida) {
-        errores.push(`"${archivo.name}": no se pudo subir (${errorSubida.message}).`);
-        continue;
-      }
+      const { ruta } = subida;
       const reg = await registrarDocumento({ ruta, nombre: archivo.name, tipo: archivo.type, tamano: archivo.size });
       if ('error' in reg && reg.error) {
         errores.push(reg.error);

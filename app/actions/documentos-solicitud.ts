@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { revalidatePath } from 'next/cache';
 import { BUCKET_DOCUMENTOS, EXTENSIONES_DOCUMENTO, MAX_DOCUMENTO_BYTES, extensionDe } from '@/lib/documentos-solicitud';
 
 // Documentos que acompañan a una solicitud. Se adjuntan en el carrito (todos los
@@ -115,3 +116,64 @@ export async function documentosCarrito(ids: string[]) {
 }
 
 export type DocumentoCarrito = { id: string; nombre: string; tamano: number | null; url: string | null };
+
+// Desde el detalle de la solicitud: el comprador o el admin adjuntan documentos
+// (ofertas de varios proveedores, comparativos...) directamente a la solicitud.
+async function compradorOAdmin() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: perfil } = await supabase.from('profiles').select('rol, activo').eq('id', user.id).single();
+  if (!perfil?.activo || !['comprador', 'admin'].includes(perfil.rol)) return null;
+  return user;
+}
+
+export async function registrarDocumentoEnSolicitud(
+  pedidoId: string,
+  datos: { ruta: string; nombre: string; tipo: string; tamano: number }
+) {
+  const user = await compradorOAdmin();
+  if (!user) return { error: 'Solo el comprador o el admin pueden adjuntar documentos aquí.' };
+  if (!datos.ruta.startsWith(`${user.id}/`)) return { error: 'Ruta no válida.' };
+  const admin = createAdminClient();
+  const { data: pedido } = await admin.from('pedidos').select('id').eq('id', pedidoId).maybeSingle();
+  if (!pedido) return { error: 'Solicitud no encontrada.' };
+  const { error } = await admin.from('solicitud_documentos').insert({
+    usuario_id: user.id,
+    pedido_id: pedidoId,
+    ruta: datos.ruta,
+    nombre: datos.nombre.slice(0, 200),
+    tipo: datos.tipo || null,
+    tamano: datos.tamano || null,
+  });
+  if (error) {
+    await admin.storage.from(BUCKET_DOCUMENTOS).remove([datos.ruta]);
+    return { error: 'No se pudo registrar el documento: ' + error.message };
+  }
+  revalidatePath(`/comprador/${pedidoId}`);
+  revalidatePath(`/admin/pedidos/${pedidoId}`);
+  return { success: true };
+}
+
+// El comprador o el admin pueden quitar de una solicitud los documentos que adjuntaron ellos.
+export async function eliminarDocumentoSolicitud(id: string) {
+  const user = await compradorOAdmin();
+  if (!user) return { error: 'No autorizado.' };
+  const admin = createAdminClient();
+  const { data: doc } = await admin
+    .from('solicitud_documentos')
+    .select('id, ruta, pedido_id')
+    .eq('id', id)
+    .eq('usuario_id', user.id)
+    .maybeSingle();
+  if (!doc) return { error: 'Solo puedes quitar los documentos que has adjuntado tú.' };
+  await admin.storage.from(BUCKET_DOCUMENTOS).remove([doc.ruta]);
+  await admin.from('solicitud_documentos').delete().eq('id', doc.id);
+  if (doc.pedido_id) {
+    revalidatePath(`/comprador/${doc.pedido_id}`);
+    revalidatePath(`/admin/pedidos/${doc.pedido_id}`);
+  }
+  return { success: true };
+}
