@@ -28,7 +28,7 @@ export async function construirPedidoCompraPdf(
 
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('cantidad, precio_unitario, proveedor_id, pedido_id, productos(nombre, bc_item_no, precio, unidad_medida, imagen_url)')
+    .select('cantidad, precio_unitario, proveedor_id, pedido_id, estado_id, estado_recepcion, productos(nombre, bc_item_no, precio, unidad_medida, imagen_url)')
     .eq('numero_tecmelec', numeroTecmelec);
 
   if (!items || items.length === 0) {
@@ -106,10 +106,18 @@ export async function construirPedidoCompraPdf(
         .join(', ')
     : '';
 
-  // Las líneas con cantidad 0 (p. ej. puestas a 0 en BC) no aparecen en el PDF.
+  // No aparecen en el PDF las líneas con cantidad 0 (p. ej. puestas a 0 en BC) ni las
+  // anuladas: estado "Anulado" o recepción "Anulado" (p. ej. borradas del pedido en BC).
+  const { data: estadoAnulado } = await supabase.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle();
+  const idEstadoAnulado: number | null = estadoAnulado?.id ?? null;
   const lineas: LineaPdf[] = await Promise.all(
     items
-      .filter((it: any) => Number(it.cantidad) > 0)
+      .filter(
+        (it: any) =>
+          Number(it.cantidad) > 0 &&
+          it.estado_recepcion !== 'Anulado' &&
+          (idEstadoAnulado == null || it.estado_id !== idEstadoAnulado)
+      )
       .map(async (it: any) => ({
       bcItemNo: it.productos?.bc_item_no || '',
       nombre: it.productos?.nombre || '',
