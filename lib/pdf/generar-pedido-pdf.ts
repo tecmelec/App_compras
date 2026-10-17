@@ -106,8 +106,11 @@ export async function construirPedidoCompraPdf(
         .join(', ')
     : '';
 
+  // Las líneas con cantidad 0 (p. ej. puestas a 0 en BC) no aparecen en el PDF.
   const lineas: LineaPdf[] = await Promise.all(
-    items.map(async (it: any) => ({
+    items
+      .filter((it: any) => Number(it.cantidad) > 0)
+      .map(async (it: any) => ({
       bcItemNo: it.productos?.bc_item_no || '',
       nombre: it.productos?.nombre || '',
       cantidad: it.cantidad,
