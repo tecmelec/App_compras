@@ -60,7 +60,7 @@ export default async function DetalleSolicitud({
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, aprobado_por, responsable_id, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, usuario_id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, aprobado_por, responsable_id, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -72,6 +72,19 @@ export default async function DetalleSolicitud({
     .select('numero_tecmelec, activo')
     .eq('pedido_id', params.id);
   const seguimientoPorGrupo = new Map((seguimientos || []).map((s: any) => [s.numero_tecmelec, s.activo]));
+
+  // "Seguir pedido": el solicitante usa su seguimiento de siempre; cualquier otro que
+  // pueda ver la solicitud sigue cada pedido Tecmelec por su cuenta (seguidores_pedido_tecmelec).
+  const esPropietario = !!user && (pedido as any).usuario_id === user.id;
+  const { data: misSeguidos } =
+    user && !esPropietario
+      ? await createAdminClient()
+          .from('seguidores_pedido_tecmelec')
+          .select('numero_tecmelec')
+          .eq('pedido_id', params.id)
+          .eq('usuario_id', user.id)
+      : { data: [] as { numero_tecmelec: string }[] };
+  const gruposQueSigo = new Set((misSeguidos || []).map((s: any) => s.numero_tecmelec as string));
 
   const { data: estados } = await supabase.from('estados_pedido').select('id, nombre, orden').order('orden');
 
@@ -354,11 +367,17 @@ export default async function DetalleSolicitud({
                     fotos={fotosPorPedido[numeroTecmelec.trim().toUpperCase()] || []}
                   />
                 )}
-                {!esRechazadas && esSolicitante && (
+                {!esRechazadas && user && (
                 <SeguirPedidoToggle
                   pedidoId={p.id}
                   numeroTecmelec={numeroTecmelec === '__sin_asignar__' ? '' : numeroTecmelec}
-                  valorInicial={seguimientoPorGrupo.has(numeroTecmelec) ? seguimientoPorGrupo.get(numeroTecmelec)! : p.seguir_pedido}
+                  valorInicial={
+                    esPropietario
+                      ? seguimientoPorGrupo.has(numeroTecmelec)
+                        ? seguimientoPorGrupo.get(numeroTecmelec)!
+                        : p.seguir_pedido
+                      : gruposQueSigo.has(numeroTecmelec)
+                  }
                 />
                 )}
                 <EstadoBadge estado={nombreEstadoGrupo} />
