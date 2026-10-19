@@ -28,10 +28,12 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
   const [lineas, setLineas] = useState<LineaLista[]>([]);
   const [decisiones, setDecisiones] = useState<Record<number, Decision>>({});
 
-  // Modo referencias: pegar con Ctrl+V una captura de pantalla la adjunta como foto
+  // Pegar con Ctrl+V una captura de pantalla. Modo referencias: la adjunta como foto
   // (también con el cursor en el cuadro de texto; si se pega solo texto, se pega normal).
+  // Modo foto: la analiza directamente, igual que al elegir una foto.
+  const analizarRef = useRef<(archivo: File | null) => void>(() => {});
   useEffect(() => {
-    if (modo !== 'ref' || fase !== 'inicio') return;
+    if ((modo !== 'ref' && modo !== 'foto') || fase !== 'inicio') return;
     function alPegar(e: ClipboardEvent) {
       const imagenesPegadas = Array.from(e.clipboardData?.items || [])
         .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
@@ -39,6 +41,12 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
         .filter(Boolean) as File[];
       if (imagenesPegadas.length === 0) return;
       e.preventDefault();
+      if (modo === 'foto') {
+        const file = imagenesPegadas[0];
+        const nombre = file.name && file.name !== 'image.png' ? file.name : `captura-${Date.now()}.png`;
+        analizarRef.current(new File([file], nombre, { type: file.type }));
+        return;
+      }
       setFotosRef((prev) => {
         const libres = MAX_FOTOS - prev.length;
         if (libres <= 0) {
@@ -59,6 +67,10 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
     window.addEventListener('paste', alPegar);
     return () => window.removeEventListener('paste', alPegar);
   }, [modo, fase]);
+
+  analizarRef.current = (archivo) => {
+    analizar(archivo);
+  };
 
   async function analizar(archivo: File | null) {
     const archivos = modo === 'ref' ? fotosRef.map((f) => f.file) : archivo ? [archivo] : [];
@@ -201,9 +213,12 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
       )}
 
       {fase === 'inicio' && modo === 'foto' && (
-        <button onClick={() => inputRef.current?.click()} className="btn-primary">
-          Hacer o elegir foto
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => inputRef.current?.click()} className="btn-primary">
+            Hacer o elegir foto
+          </button>
+          <span className="text-sm text-slate">o pega una captura de pantalla con Ctrl+V</span>
+        </div>
       )}
 
       {fase === 'inicio' && modo === 'ref' && (
