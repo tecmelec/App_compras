@@ -27,6 +27,12 @@ body {
 .badge-entregado { background-color: #E8F1EC; color: #3F7D58; border-color: #C4DECD; }
 .badge-cancelado { background-color: #F6E9E9; color: #B54A4A; border-color: #E7C7C7; }
 
+/* Estado de recepción de una línea (Líns. compras, detalle, vista del comprador) */
+.badge-rec-anulado { background-color: #FEE2E2; color: #B91C1C; border-color: #FEE2E2; }
+.badge-rec-pendiente { background-color: #DBEAFE; color: #1D4ED8; border-color: #DBEAFE; }
+.badge-rec-parcial { background-color: #FEF3C7; color: #92400E; border-color: #FEF3C7; }
+.badge-rec-recibido { background-color: #D1FAE5; color: #047857; border-color: #D1FAE5; }
+
 .input {
   width: 100%;
   border: 1px solid #DDE1E0;

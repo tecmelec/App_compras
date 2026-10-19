@@ -8,8 +8,18 @@ const estilos: Record<string, string> = {
   tramitado: 'badge-entregado',
 };
 
+// Colores propios de los estados de recepción de una línea (coincidencia exacta).
+const estilosRecepcion: Record<string, string> = {
+  anulado: 'badge-rec-anulado',
+  'pendiente de recibir': 'badge-rec-pendiente',
+  'recibido parcial': 'badge-rec-parcial',
+  recibido: 'badge-rec-recibido',
+};
+
 export function claseBadgeEstado(estado?: string): string {
   if (!estado) return 'badge-proceso';
+  const recepcion = estilosRecepcion[estado.trim().toLowerCase()];
+  if (recepcion) return recepcion;
   const clave = Object.keys(estilos).find((k) => estado.toLowerCase().includes(k));
   return clave ? estilos[clave] : 'badge-proceso';
 }
