@@ -7,6 +7,7 @@ import Link from 'next/link';
 import EstadoBadge from '@/components/EstadoBadge';
 import ObraCelda from '@/components/ObraCelda';
 import ExportarExcelBoton, { type ColumnaExcel } from '@/components/ExportarExcelBoton';
+import GraficoSolicitudesBoton from '@/components/GraficoSolicitudesBoton';
 import FiltrosRapidosSolicitudes, { type ConfigFiltrosRapidos, type ModoRapido } from '@/components/FiltrosRapidosSolicitudes';
 
 export type PedidoFila = {
@@ -266,8 +267,8 @@ export default function SolicitudesFiltrables({
           </button>
         )}
 
+        <GraficoSolicitudesBoton filas={filtrados} conComprador={!!mostrarComprador} />
         <ExportarExcelBoton
-          className="ml-auto"
           filas={filtrados}
           nombreArchivo="Solicitudes"
           nombreHoja="Solicitudes"
