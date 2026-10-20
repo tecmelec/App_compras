@@ -297,6 +297,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           .map((i) => `${i.id}:${i.precio_unitario ?? ''}:${i.proveedor_id ?? ''}:${i.precio_presupuesto_id ?? ''}`)
           .join(',')}
         pedidoId={p.id}
+        proyectoSolicitud={p.proyectos?.bc_job_no ?? null}
         items={p.pedido_items.map((item: any) => ({
           id: item.id,
           nombre: item.productos?.nombre || 'Producto no disponible',

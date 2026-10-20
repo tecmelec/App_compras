@@ -24,10 +24,13 @@ function fmt(n: number, dec = 5) {
 // una fila pone su precio unitario en la línea (hay que guardar después).
 export default function UltimasComprasBoton({
   bcItemNo,
+  proyectoSolicitud,
   onUsarPrecio,
   onUsarProveedor,
 }: {
   bcItemNo: string | null;
+  // Nº de proyecto (obra) de la solicitud: las compras de ese mismo proyecto se resaltan.
+  proyectoSolicitud?: string | null;
   onUsarPrecio: (precio: string) => void;
   onUsarProveedor?: (proveedorId: string) => void;
 }) {
@@ -120,6 +123,7 @@ export default function UltimasComprasBoton({
                   <tr className="text-left text-slate border-b border-borde">
                     <th className="py-1.5 pr-2 font-medium">Pedido</th>
                     <th className="py-1.5 pr-2 font-medium">Fecha</th>
+                    <th className="py-1.5 pr-2 font-medium">Proyecto</th>
                     <th className="py-1.5 pr-2 font-medium">Proveedor</th>
                     <th className="py-1.5 pr-2 font-medium text-right">Cantidad</th>
                     <th className="py-1.5 pr-2 font-medium">Descripción</th>
@@ -127,7 +131,10 @@ export default function UltimasComprasBoton({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-borde">
-                  {compras.map((c, i) => (
+                  {compras.map((c, i) => {
+                    const mismoProyecto =
+                      !!proyectoSolicitud && !!c.proyecto && c.proyecto.trim().toUpperCase() === proyectoSolicitud.trim().toUpperCase();
+                    return (
                     <tr
                       key={`${c.pedido}-${i}`}
                       onClick={() => {
@@ -135,12 +142,19 @@ export default function UltimasComprasBoton({
                         if (c.proveedorId && onUsarProveedor) onUsarProveedor(c.proveedorId);
                         setAbierto(false);
                       }}
-                      className="cursor-pointer hover:bg-fondo"
-                      title="Usar este precio y proveedor"
+                      className={`cursor-pointer ${mismoProyecto ? 'bg-[#D1FAE5] hover:bg-[#BBF2D6]' : 'hover:bg-fondo'}`}
+                      title={mismoProyecto ? 'Compra del mismo proyecto que la solicitud · usar este precio y proveedor' : 'Usar este precio y proveedor'}
                     >
                       <td className="py-1.5 pr-2 font-mono text-grafito whitespace-nowrap">{c.pedido}</td>
                       <td className="py-1.5 pr-2 font-mono text-slate whitespace-nowrap">
                         {c.fecha ? new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '—'}
+                      </td>
+                      <td className="py-1.5 pr-2 font-mono whitespace-nowrap">
+                        {c.proyecto ? (
+                          <span className={mismoProyecto ? 'font-semibold text-[#047857]' : 'text-grafito'}>{c.proyecto}</span>
+                        ) : (
+                          <span className="text-slate">—</span>
+                        )}
                       </td>
                       <td className="py-1.5 pr-2 text-grafito">
                         {c.proveedorNo ? (
@@ -159,7 +173,8 @@ export default function UltimasComprasBoton({
                       <td className="py-1.5 pr-2 text-grafito">{c.descripcion}</td>
                       <td className="py-1.5 font-mono text-right whitespace-nowrap">{fmt(c.precioUnitario)} €</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
               <p className="text-[11px] text-slate mt-2">

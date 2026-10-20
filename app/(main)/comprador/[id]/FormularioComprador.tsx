@@ -88,6 +88,7 @@ export default function FormularioComprador({
   fechaEstimada,
   estados,
   proveedores,
+  proyectoSolicitud,
 }: {
   pedidoId: string;
   items: ItemForm[];
@@ -96,6 +97,7 @@ export default function FormularioComprador({
   fechaEstimada: string;
   estados: Estado[];
   proveedores: Proveedor[];
+  proyectoSolicitud?: string | null;
 }) {
   const [numerosTecmelec, setNumerosTecmelec] = useState<Record<string, string>>(
     Object.fromEntries(items.map((i) => [i.id, i.numeroTecmelec]))
@@ -271,6 +273,7 @@ export default function FormularioComprador({
                         errorCantidad={errorCantidad(itemsPorId.get(id)!)}
                         estados={estados}
                         proveedores={proveedores}
+                        proyectoSolicitud={proyectoSolicitud}
                       />
                     ))}
                   </div>
@@ -300,6 +303,7 @@ export default function FormularioComprador({
                   errorCantidad={errorCantidad(itemsPorId.get(id)!)}
                   estados={estados}
                   proveedores={proveedores}
+                  proyectoSolicitud={proyectoSolicitud}
                 />
               </div>
             ));
@@ -393,6 +397,7 @@ function ItemFila({
   errorCantidad,
   estados,
   proveedores,
+  proyectoSolicitud,
 }: {
   item: ItemForm;
   mostrarPedido: boolean;
@@ -413,6 +418,7 @@ function ItemFila({
   errorCantidad: string | null;
   estados: Estado[];
   proveedores: Proveedor[];
+  proyectoSolicitud?: string | null;
 }) {
   const nombreEstado = estados.find((e) => e.id === estadoId)?.nombre || '';
   // En cuanto hay Nº pedido Tecmelec, la sincronización con BC es quien manda
@@ -568,7 +574,7 @@ function ItemFila({
               />
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate text-xs pointer-events-none">€</span>
             </div>
-            <UltimasComprasBoton bcItemNo={item.bcItemNo ?? null} onUsarPrecio={onPrecio} onUsarProveedor={onProveedorId} />
+            <UltimasComprasBoton bcItemNo={item.bcItemNo ?? null} proyectoSolicitud={proyectoSolicitud} onUsarPrecio={onPrecio} onUsarProveedor={onProveedorId} />
           </div>
           {item.precioDesdePresupuesto && (
             <span className="inline-block mt-1 text-[11px] font-medium text-[#2F6690] bg-[#EAF1F6] border border-[#C7DBE7] rounded px-1.5 py-0.5">
