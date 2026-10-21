@@ -250,12 +250,16 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   // antes hay que asignar o rechazar las líneas que no estaban en la tienda.
   // Solo si no hay nadie que pueda aprobarla (admin/responsable sin jefe de obra en la app) no se exige.
   const desdeFoto = (datos.lista_foto_ids || []).length > 0;
-  // Igual con los artículos añadidos desde "Crear desde artículos de BC" (no están en la
-  // tienda): siempre pasan por el aprobador, como las listas.
-  const desdeArticulosBC = items.some((i) => i.desde_bc);
-  if ((desdeFoto || desdeArticulosBC) && responsableBase) requiereAprobacion = true;
+  if (desdeFoto && responsableBase) requiereAprobacion = true;
   const responsableEfectivo =
     responsableBase === user.id ? user.id : await resolverSustituto(responsableBase);
+  // Artículos añadidos desde "Crear desde artículos de BC" (no están en la tienda):
+  // también pasan siempre por el aprobador, salvo que quien la envía sea quien tiene
+  // que aprobarla (el jefe de obra/aprobador o su sustituto): entonces se aprueba sola.
+  const desdeArticulosBC = items.some((i) => i.desde_bc);
+  if (desdeArticulosBC && responsableBase && responsableBase !== user.id && responsableEfectivo !== user.id) {
+    requiereAprobacion = true;
+  }
 
   // 3. Crear el pedido
   const { data: pedido, error: errorPedido } = await supabase
