@@ -12,6 +12,7 @@ import {
   obtenerPedidosCompraBC,
   obtenerLineasPedidoCompraBC,
   obtenerItemBC,
+  obtenerItemsBCPorNos,
   obtenerUltimasComprasArticuloBC,
   obtenerProveedorPedidosCompraBC,
   obtenerCrudoBC,
@@ -91,6 +92,49 @@ export async function sincronizarProductosBC() {
     }
   }
 
+  // Resto de productos de la app con código de BC (sin Nº producto común, p. ej. los
+  // creados al asignar artículos de una lista o desde el catálogo de BC): también se
+  // refrescan unidad de medida, nombre, precio, múltiplo, categoría y proveedor
+  // predeterminado. Solo se actualizan los que han cambiado.
+  let actualizadosOtros = 0;
+  try {
+    const comunesEnBC = new Set(items.map((i) => i.No));
+    const otros: any[] = [];
+    for (let desde = 0; ; desde += 1000) {
+      const { data: pagina, error: errorPagina } = await supabase
+        .from('productos')
+        .select('id, bc_item_no, nombre, unidad_medida, precio, multiplo_compra, categoria, proveedor_predeterminado_id')
+        .not('bc_item_no', 'is', null)
+        .order('id')
+        .range(desde, desde + 999);
+      if (errorPagina) throw new Error(errorPagina.message);
+      otros.push(...(pagina || []).filter((p) => p.bc_item_no && !comunesEnBC.has(p.bc_item_no)));
+      if (!pagina || pagina.length < 1000) break;
+    }
+    const itemsOtros = await obtenerItemsBCPorNos(Array.from(new Set(otros.map((p) => p.bc_item_no as string))));
+    const itemPorNo = new Map(itemsOtros.map((i) => [i.No, i]));
+    for (const prod of otros) {
+      const item = itemPorNo.get(prod.bc_item_no);
+      if (!item) continue;
+      const cambios: Record<string, any> = {};
+      const proveedorPredetId = item.Vendor_No ? proveedoresPorNo.get(item.Vendor_No) || null : null;
+      const multiplo = item.Multiplo_de && item.Multiplo_de > 1 ? Math.round(item.Multiplo_de) : 1;
+      const categoriaBC = (item.Item_Category_Code || '').trim();
+      if (item.Description && item.Description !== prod.nombre) cambios.nombre = item.Description;
+      if ((item.Base_Unit_of_Measure || null) !== (prod.unidad_medida || null)) cambios.unidad_medida = item.Base_Unit_of_Measure || null;
+      if (item.Unit_Price != null && Number(item.Unit_Price) !== Number(prod.precio)) cambios.precio = item.Unit_Price;
+      if (multiplo !== (prod.multiplo_compra || 1)) cambios.multiplo_compra = multiplo;
+      if (categoriaBC && categoriaBC !== prod.categoria) cambios.categoria = categoriaBC;
+      if (proveedorPredetId && proveedorPredetId !== prod.proveedor_predeterminado_id) cambios.proveedor_predeterminado_id = proveedorPredetId;
+      if (Object.keys(cambios).length === 0) continue;
+      const { error } = await supabase.from('productos').update(cambios).eq('id', prod.id);
+      if (error) errores.push(`${prod.bc_item_no}: ${error.message}`);
+      else actualizadosOtros++;
+    }
+  } catch (e: any) {
+    errores.push(`No se pudieron refrescar los productos sin Nº producto común: ${e.message || e}`);
+  }
+
   // Productos que ya no tienen Nº producto común en BC (se lo han quitado): se vacía
   // también en la app, para que el filtro refleje lo que hay en BC.
   const conComunEnBC = new Set(items.map((i) => i.No));
@@ -113,7 +157,7 @@ export async function sincronizarProductosBC() {
   revalidatePath('/admin/productos');
   revalidatePath('/tienda');
 
-  return { success: true, creados, actualizados, totalBC: items.length, errores };
+  return { success: true, creados, actualizados, actualizadosOtros, totalBC: items.length, errores };
 }
 
 export async function sincronizarProyectosBC() {

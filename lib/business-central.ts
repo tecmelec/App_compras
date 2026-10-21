@@ -271,6 +271,26 @@ export async function buscarArticulosBC(
 }
 
 // Un artículo de la ficha de productos de BC por su Nº (con o sin artículo común).
+// Artículos concretos de la ficha de productos de BC, por código, en tandas (para
+// refrescar los productos de la app que no tienen Nº producto común).
+export async function obtenerItemsBCPorNos(nos: string[], porTanda = 40, enParalelo = 4): Promise<ItemBC[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE!);
+  const tandas: string[][] = [];
+  for (let i = 0; i < nos.length; i += porTanda) tandas.push(nos.slice(i, i + porTanda));
+  const resultado: ItemBC[] = [];
+  for (let i = 0; i < tandas.length; i += enParalelo) {
+    const grupo = tandas.slice(i, i + enParalelo);
+    const respuestas = await Promise.all(
+      grupo.map((t) => {
+        const filtro = t.map((no) => `No eq '${no.replace(/'/g, "''")}'`).join(' or ');
+        return consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`) as Promise<ItemBC[]>;
+      })
+    );
+    for (const r of respuestas) resultado.push(...(r || []));
+  }
+  return resultado;
+}
+
 export async function obtenerItemBC(no: string): Promise<ItemBC | null> {
   const base = urlServicioBC(process.env.BC_ODATA_SERVICE!);
   const filtro = `No eq '${no.replace(/'/g, "''")}'`;

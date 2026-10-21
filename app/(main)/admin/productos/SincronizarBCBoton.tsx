@@ -26,7 +26,10 @@ export default function SincronizarBCBoton() {
       return;
     }
 
-    setResultado(`${r.creados} producto(s) nuevo(s), ${r.actualizados} actualizado(s) de ${r.totalBC} en Business Central.`);
+    setResultado(
+      `${r.creados} producto(s) nuevo(s), ${r.actualizados} actualizado(s) de ${r.totalBC} en Business Central` +
+        (r.actualizadosOtros ? ` y ${r.actualizadosOtros} producto(s) sin Nº producto común actualizado(s).` : '.')
+    );
     setAvisos(r.errores || []);
     router.refresh();
   }
