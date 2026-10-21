@@ -401,8 +401,9 @@ async function aplicarCambiosCantidadComprador(
     if (nueva === actual.cantidad) continue;
 
     const nombre = actual.productos?.nombre || 'artículo';
-    if (!pedido || pedido.aprobado === false || (pedido.requiere_aprobacion && pedido.aprobado !== true)) {
-      return `No se puede cambiar la cantidad de "${nombre}": la solicitud aún no está aprobada.`;
+    // También mientras está pendiente de aprobación; no si la solicitud se rechazó.
+    if (!pedido || pedido.aprobado === false) {
+      return `No se puede cambiar la cantidad de "${nombre}": la solicitud está rechazada.`;
     }
     if (actual.numero_tecmelec) {
       return `No se puede cambiar la cantidad de "${nombre}": ya tiene pedido en Business Central (${actual.numero_tecmelec}).`;

@@ -316,13 +316,9 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           rechazadaPor: quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre),
           unidad: item.productos?.unidad_medida || 'ud.',
           multiplo: item.productos?.multiplo_compra || 1,
-          // El comprador puede cambiar la cantidad solo antes de crear el pedido en BC
-          // y con la solicitud ya aprobada (o sin necesidad de aprobación).
-          cantidadEditable:
-            !item.numero_tecmelec &&
-            !item.rechazada_por_aprobador &&
-            p.aprobado !== false &&
-            (!p.requiere_aprobacion || p.aprobado === true),
+          // El comprador puede cambiar la cantidad mientras la línea no tenga pedido en
+          // BC, también si la solicitud aún está pendiente de aprobación (no si se rechazó).
+          cantidadEditable: !item.numero_tecmelec && !item.rechazada_por_aprobador && p.aprobado !== false,
           numeroTecmelec: item.numero_tecmelec || '',
           fechaEstimada: item.fecha_estimada_entrega || '',
           fechaConfirmadaEn: item.fecha_estimada_entrega_confirmada_en || null,
