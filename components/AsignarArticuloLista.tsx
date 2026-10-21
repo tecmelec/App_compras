@@ -6,6 +6,7 @@ import { buscarArticulosParaAlta } from '@/app/actions/alta-articulos';
 import { asignarArticuloLineaListaFoto, datosArticuloParaAsignar } from '@/app/actions/lista-foto';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import { ajustarAMultiplo } from '@/lib/lista-foto-tipos';
+import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
 
 type ArticuloBC = { No: string; Description: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -145,12 +146,12 @@ function Modal({
   }
 
   const multiplo = datos?.multiplo && datos.multiplo > 1 ? datos.multiplo : 1;
-  const cantidadNum = Number(cantidad);
+  const cantidadNum = leerCantidad(cantidad);
   const errorCantidad = !datos
     ? null
-    : !Number.isInteger(cantidadNum) || cantidadNum <= 0
-      ? 'Indica una cantidad entera.'
-      : cantidadNum % multiplo !== 0
+    : !esCantidadValida(cantidadNum)
+      ? 'Indica una cantidad válida (máx. 3 decimales).'
+      : !esMultiploDe(cantidadNum, multiplo)
         ? `Debe ser múltiplo de ${multiplo}.`
         : null;
   const errorPrecio =
@@ -245,7 +246,7 @@ function Modal({
                 <input
                   type="number"
                   min={multiplo}
-                  step={multiplo}
+                  step={pasoCantidad(multiplo)}
                   className="input w-full"
                   value={cantidad}
                   onChange={(e) => setCantidad(e.target.value)}

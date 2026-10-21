@@ -11,6 +11,7 @@ import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import UltimasComprasBoton from './UltimasComprasBoton';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
+import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad, formatoCantidad } from '@/lib/cantidad';
 
 type Estado = { id: number; nombre: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
@@ -150,14 +151,14 @@ export default function FormularioComprador({
 
   const itemsPorId = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
 
-  const cantidadDe = (i: ItemForm) => (i.cantidadEditable ? Number(cantidadesLinea[i.id]) || 0 : i.cantidad);
+  const cantidadDe = (i: ItemForm) => (i.cantidadEditable ? leerCantidad(cantidadesLinea[i.id]) || 0 : i.cantidad);
 
   function errorCantidad(i: ItemForm): string | null {
     if (!i.cantidadEditable) return null;
-    const n = Number(cantidadesLinea[i.id]);
-    if (!cantidadesLinea[i.id] || !Number.isInteger(n) || n <= 0) return 'Cantidad no válida';
+    const n = leerCantidad(cantidadesLinea[i.id]);
+    if (!cantidadesLinea[i.id] || !esCantidadValida(n)) return 'Cantidad no válida (máx. 3 decimales)';
     const m = Math.max(i.multiplo || 1, 1);
-    if (n % m !== 0) return `Debe ser múltiplo de ${m}`;
+    if (!esMultiploDe(n, m)) return `Debe ser múltiplo de ${m}`;
     return null;
   }
   const hayErroresCantidad = items.some((i) => errorCantidad(i));
@@ -190,7 +191,7 @@ export default function FormularioComprador({
           estado_recepcion: recepcionesLinea[i.id],
           proveedor_id: proveedoresLinea[i.id] || null,
           precio_unitario: Number(preciosLinea[i.id]) || 0,
-          ...(i.cantidadEditable ? { cantidad: Number(cantidadesLinea[i.id]) } : {}),
+          ...(i.cantidadEditable ? { cantidad: leerCantidad(cantidadesLinea[i.id]) } : {}),
         };
       })
     );
@@ -460,22 +461,22 @@ function ItemFila({
                   <input
                     type="number"
                     min={item.multiplo || 1}
-                    step={item.multiplo || 1}
+                    step={pasoCantidad(item.multiplo)}
                     value={cantidad}
                     onChange={(e) => onCantidad(e.target.value)}
                     title="Puedes cambiar la cantidad hasta crear el pedido en Business Central"
                     className={`input w-20 py-0.5 px-2 text-xs font-mono ${errorCantidad ? 'border-rojo' : ''} ${
-                      Number(cantidad) !== item.cantidad ? 'bg-[#FDF2E3]' : ''
+                      leerCantidad(cantidad) !== item.cantidad ? 'bg-[#FDF2E3]' : ''
                     }`}
                   />
                   <span className="font-sans">{item.unidad || 'ud.'}</span>
                 </span>
               ) : (
-                <span className={item.rechazadaPorAprobador ? 'line-through' : ''}>x{item.cantidad}</span>
+                <span className={item.rechazadaPorAprobador ? 'line-through' : ''}>x{formatoCantidad(item.cantidad)}</span>
               )}
             </div>
             {errorCantidad && <p className="text-[11px] text-rojo mt-0.5">{errorCantidad}</p>}
-            {item.cantidadEditable && !errorCantidad && Number(cantidad) !== item.cantidad && (
+            {item.cantidadEditable && !errorCantidad && leerCantidad(cantidad) !== item.cantidad && (
               <p className="text-[11px] text-[#8A5A15] mt-0.5">Cantidad cambiada · se guarda al pulsar Guardar</p>
             )}
             {item.rechazadaPorAprobador && (

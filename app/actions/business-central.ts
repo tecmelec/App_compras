@@ -268,9 +268,6 @@ async function incorporarLineaAnadidaEnBC(
   linea: { No: string; Quantity: number; Quantity_Received: number; Expected_Receipt_Date: string | null; Line_Amount: number },
   opciones: { proveedorId: string | null; estadoId: number | null }
 ): Promise<{ error?: string }> {
-  if (!Number.isInteger(linea.Quantity)) {
-    return { error: `La línea "${linea.No}" de ${documentNo} tiene cantidad con decimales (${linea.Quantity}): no se ha incorporado a la solicitud.` };
-  }
   const admin = createAdminClient();
   let { data: producto } = await admin.from('productos').select('id').eq('bc_item_no', linea.No).maybeSingle();
   if (!producto) {
@@ -453,17 +450,11 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
         if (lineaBC) {
           // Cantidad: una vez vinculada, BC manda. Se guarda la que había en la app
           // antes del primer cambio hecho en BC, para mostrar el historial.
-          if (lineaBC.Quantity !== item.cantidad) {
-            if (Number.isInteger(lineaBC.Quantity)) {
-              cambios.cantidad = lineaBC.Quantity;
-              if (item.cantidad_antes_bc == null) cambios.cantidad_antes_bc = item.cantidad;
-              if (item.cantidad_original == null) cambios.cantidad_original = item.cantidad;
-            } else {
-              avisar(
-                avisos,
-                `La cantidad de "${bcItemNo}" en ${pedidoBC.No} es ${lineaBC.Quantity} (con decimales): la app solo admite cantidades enteras y no se ha cambiado.`
-              );
-            }
+          if (Number(lineaBC.Quantity) !== Number(item.cantidad)) {
+            // Admite decimales (hasta 3, migración 20261020120000).
+            cambios.cantidad = Math.round(lineaBC.Quantity * 1000) / 1000;
+            if (item.cantidad_antes_bc == null) cambios.cantidad_antes_bc = item.cantidad;
+            if (item.cantidad_original == null) cambios.cantidad_original = item.cantidad;
           }
 
           const recepcionNueva = calcularEstadoRecepcion(lineaBC.Quantity, lineaBC.Quantity_Received);

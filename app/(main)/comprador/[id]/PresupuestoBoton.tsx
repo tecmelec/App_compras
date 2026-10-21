@@ -6,6 +6,7 @@ import { aplicarPreciosPresupuesto } from '@/app/actions/presupuesto';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import { reducirFoto } from '@/lib/reducir-foto';
 import type { LineaPresupuesto, ProveedorPresupuesto, PropuestaPrecio } from '@/lib/presupuesto';
+import { formatoCantidad } from '@/lib/cantidad';
 
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
 type Item = { id: string; nombre: string; bc_item_no: string | null; cantidad: number };
@@ -329,7 +330,7 @@ function Modal({
                       <div className="min-w-0">
                         <p className="text-sm text-grafito">{i.nombre}</p>
                         <p className="text-xs text-slate">
-                          x{i.cantidad} · precio actual {fmt(actual)} €
+                          x{formatoCantidad(i.cantidad)} · precio actual {fmt(actual)} €
                         </p>
                       </div>
                       <select

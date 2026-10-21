@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { aprobarSolicitudConCambios, responderAprobacion } from '@/app/actions/pedidos';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
+import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
 
 export type LineaRevision = {
   id: string;
@@ -41,9 +42,9 @@ export default function RevisionAprobacion({
   function errorCantidad(l: LineaRevision): string | null {
     const c = cambios[l.id];
     if (c.rechazada) return null;
-    const n = Number(c.cantidad);
-    if (!c.cantidad || !Number.isInteger(n) || n <= 0) return 'Cantidad no válida (para quitarla, recházala).';
-    if (l.multiplo > 1 && n % l.multiplo !== 0) return `Debe ser múltiplo de ${l.multiplo}.`;
+    const n = leerCantidad(c.cantidad);
+    if (!c.cantidad || !esCantidadValida(n)) return 'Cantidad no válida (máx. 3 decimales; para quitarla, recházala).';
+    if (!esMultiploDe(n, l.multiplo)) return `Debe ser múltiplo de ${l.multiplo}.`;
     return null;
   }
 
@@ -150,7 +151,7 @@ export default function RevisionAprobacion({
                     <input
                       type="number"
                       min={l.multiplo}
-                      step={l.multiplo}
+                      step={pasoCantidad(l.multiplo)}
                       value={c.cantidad}
                       onChange={(e) => actualizar(l.id, { cantidad: e.target.value })}
                       disabled={enviando}

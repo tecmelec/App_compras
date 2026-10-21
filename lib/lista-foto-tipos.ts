@@ -42,7 +42,9 @@ export type LineaLista = {
 
 export function ajustarAMultiplo(cantidad: number | null, multiplo: number): number | null {
   if (cantidad == null || !Number.isFinite(cantidad) || cantidad <= 0) return null;
-  const m = multiplo > 1 ? multiplo : 1;
+  // Sin múltiplo de compra se respeta la cantidad, también con decimales (hasta 3).
+  if (!(multiplo > 1)) return Math.round(cantidad * 1000) / 1000;
+  const m = multiplo;
   return Math.max(m, Math.ceil(cantidad / m - 1e-9) * m);
 }
 

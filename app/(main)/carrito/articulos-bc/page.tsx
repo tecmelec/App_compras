@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { articuloParaCarrito, buscarArticulosCatalogo } from '@/app/actions/catalogo-bc';
 import { ajustarAMultiplo } from '@/lib/lista-foto-tipos';
+import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
 
 type Articulo = {
   no: string;
@@ -217,12 +218,12 @@ function ModalCantidad({
   }, [articulo.no]);
 
   const m = preparado?.multiplo_compra && preparado.multiplo_compra > 1 ? preparado.multiplo_compra : 1;
-  const n = Number(cantidad);
+  const n = leerCantidad(cantidad);
   const errorCantidad = !preparado
     ? null
-    : !Number.isInteger(n) || n <= 0
-      ? 'Indica una cantidad entera.'
-      : n % m !== 0
+    : !esCantidadValida(n)
+      ? 'Indica una cantidad válida (máx. 3 decimales).'
+      : !esMultiploDe(n, m)
         ? `Debe ser múltiplo de ${m} (p. ej. ${ajustarAMultiplo(n, m)}).`
         : null;
 
@@ -263,7 +264,7 @@ function ModalCantidad({
                 ref={inputRef}
                 type="number"
                 min={m}
-                step={m}
+                step={pasoCantidad(m)}
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value)}
                 className="input w-32 text-center"

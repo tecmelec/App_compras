@@ -10,6 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerJefeObraProyectoBC } from '@/lib/business-central';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import { aprobadoresElegibles } from '@/app/actions/aprobadores-proyecto';
+import { esCantidadValida, esMultiploDe } from '@/lib/cantidad';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number };
 
@@ -202,7 +203,10 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   for (const item of items) {
     const info = multiplos.get(item.producto_id);
     const multiplo = info?.multiplo || 1;
-    if (multiplo > 1 && item.cantidad % multiplo !== 0) {
+    if (!esCantidadValida(Number(item.cantidad))) {
+      return { error: `Cantidad no válida para "${info?.nombre || item.nombre}" (máximo 3 decimales).` };
+    }
+    if (!esMultiploDe(Number(item.cantidad), multiplo)) {
       return {
         error: `La cantidad de "${info?.nombre || item.nombre}" debe ser múltiplo de ${multiplo} (has pedido ${item.cantidad}).`,
       };
@@ -412,8 +416,8 @@ async function aplicarCambiosCantidadComprador(
       return `No se puede cambiar la cantidad de "${nombre}": la línea fue rechazada por el aprobador.`;
     }
     const multiplo = Math.max(actual.productos?.multiplo_compra || 1, 1);
-    if (!Number.isInteger(nueva) || nueva <= 0) return `Cantidad no válida para "${nombre}".`;
-    if (nueva % multiplo !== 0) return `La cantidad de "${nombre}" debe ser múltiplo de ${multiplo}.`;
+    if (!esCantidadValida(nueva)) return `Cantidad no válida para "${nombre}" (máximo 3 decimales).`;
+    if (!esMultiploDe(nueva, multiplo)) return `La cantidad de "${nombre}" debe ser múltiplo de ${multiplo}.`;
 
     const original = actual.cantidad_original ?? actual.cantidad;
     const base = actual.cantidad_aprobador ?? original; // lo que había antes de que tocara Compras

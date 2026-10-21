@@ -7,6 +7,7 @@ import { useCart } from '@/context/CartContext';
 import { confirmarListaFoto, descartarListaFoto } from '@/app/actions/lista-foto';
 import { ajustarAMultiplo, type LineaLista } from '@/lib/lista-foto-tipos';
 import { reducirFoto } from '@/lib/reducir-foto';
+import { pasoCantidad } from '@/lib/cantidad';
 
 type Decision = { producto_id: string | null; cantidad: number | null };
 
@@ -380,8 +381,8 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
                         <div className="flex items-center gap-2 shrink-0">
                           <input
                             type="number"
-                            min={m}
-                            step={m}
+                            min={m > 1 ? m : 0}
+                            step={pasoCantidad(m)}
                             value={d.cantidad ?? ''}
                             onChange={(e) =>
                               setDecisiones((prev) => ({

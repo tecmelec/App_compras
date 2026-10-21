@@ -11,6 +11,7 @@ import AprobacionBotones from './AprobacionBotones';
 import RevisionAprobacion from './RevisionAprobacion';
 import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
+import { formatoCantidad } from '@/lib/cantidad';
 
 export default async function DetalleResponsablePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -141,7 +142,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
                   ) : (
                     <p className="font-mono text-grafito" title={modificada ? `Solicitado: ${item.cantidad_original}` : undefined}>
                       {modificada && <span className="text-slate line-through mr-1.5">x{item.cantidad_original}</span>}
-                      x{item.cantidad}
+                      x{formatoCantidad(item.cantidad)}
                     </p>
                   )}
                 </div>

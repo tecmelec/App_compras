@@ -16,6 +16,7 @@ import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import VerAlbaranBoton from '@/components/VerAlbaranBoton';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
+import { formatoCantidad } from '@/lib/cantidad';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
   return (
@@ -463,7 +464,7 @@ export default async function DetalleSolicitud({
                       />
                     )}
                     <span className={esRechazadas ? 'text-slate line-through' : ''}>
-                      {item.cantidad} {item.productos?.unidad_medida || 'ud.'}
+                      {formatoCantidad(item.cantidad)} {item.productos?.unidad_medida || 'ud.'}
                     </span>
                   </div>
                   {esRechazadas ? (

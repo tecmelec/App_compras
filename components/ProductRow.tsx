@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
+import { esCantidadValida, esMultiploDe, pasoCantidad, redondearCantidad } from '@/lib/cantidad';
 
 type Producto = {
   id: string;
@@ -21,8 +22,8 @@ function formatoPrecio(precio: number): string {
 }
 
 function validarCantidad(cantidad: number, multiplo: number): string | null {
-  if (!Number.isFinite(cantidad) || cantidad <= 0) return 'Indica una cantidad válida.';
-  if (multiplo > 1 && cantidad % multiplo !== 0) {
+  if (!esCantidadValida(cantidad)) return 'Indica una cantidad válida (máx. 3 decimales).';
+  if (!esMultiploDe(cantidad, multiplo)) {
     return `La cantidad debe ser múltiplo de ${multiplo}.`;
   }
   return null;
@@ -126,7 +127,7 @@ export default function ProductRow({
               type="button"
               onClick={() =>
                 setCantidad((c) => {
-                  const nueva = Math.max(multiplo, c - multiplo);
+                  const nueva = redondearCantidad(Math.max(multiplo, c - multiplo));
                   setError(null);
                   return nueva;
                 })
@@ -139,7 +140,7 @@ export default function ProductRow({
             <input
               type="number"
               min={multiplo}
-              step={multiplo}
+              step={pasoCantidad(multiplo)}
               value={cantidad}
               onChange={(e) => {
                 const valor = Number(e.target.value);
@@ -154,7 +155,7 @@ export default function ProductRow({
               onClick={() =>
                 setCantidad((c) => {
                   setError(null);
-                  return c + multiplo;
+                  return redondearCantidad(c + multiplo);
                 })
               }
               className="btn-stepper"

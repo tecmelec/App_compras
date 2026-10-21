@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import EstadoBadge from '@/components/EstadoBadge';
 import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
+import { formatoCantidad } from '@/lib/cantidad';
 
 export default async function DetalleAdminPedidoPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -115,7 +116,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
                 : 'Por definir'}
             </p>
             <p className="font-mono text-slate">{formatoPrecioUnitario(item.productos?.precio)} € c/u</p>
-            <p className="font-mono text-grafito">x{item.cantidad}</p>
+            <p className="font-mono text-grafito">x{formatoCantidad(item.cantidad)}</p>
           </div>
         ))}
       </div>

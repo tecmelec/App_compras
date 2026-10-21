@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { obtenerItemBC } from '@/lib/business-central';
 import { BUCKET_LISTAS_FOTO } from '@/lib/lista-foto';
 import { recalcularEstadoGeneral } from '@/lib/pedidos-utils';
+import { esCantidadValida, esMultiploDe } from '@/lib/cantidad';
 
 // Guarda lo que el usuario decidió al revisar la lista (producto y cantidad que
 // añade al carrito por cada línea), para el informe de la solicitud.
@@ -197,8 +198,8 @@ export async function asignarArticuloLineaListaFoto(datos: {
 
   const multiplo = producto.multiplo_compra > 1 ? producto.multiplo_compra : 1;
   const cantidad = Number(datos.cantidad);
-  if (!Number.isInteger(cantidad) || cantidad <= 0) return { error: 'Indica una cantidad entera mayor que cero.' };
-  if (cantidad % multiplo !== 0) return { error: `La cantidad debe ser múltiplo de ${multiplo}.` };
+  if (!esCantidadValida(cantidad)) return { error: 'Indica una cantidad mayor que cero (máximo 3 decimales).' };
+  if (!esMultiploDe(cantidad, multiplo)) return { error: `La cantidad debe ser múltiplo de ${multiplo}.` };
 
   // El precio es opcional: si no se indica queda a 0 € y Compras lo completa antes de
   // crear el pedido en BC (las líneas a 0 € no se cargan a un pedido de compra).

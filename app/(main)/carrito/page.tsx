@@ -9,6 +9,7 @@ import { crearPedido } from '@/app/actions/pedidos';
 import SolicitudModal from './SolicitudModal';
 import DocumentosCarrito from './DocumentosCarrito';
 import { fotosListasCarrito } from '@/app/actions/lista-foto';
+import { pasoCantidad, redondearCantidad } from '@/lib/cantidad';
 
 function validarCantidad(cantidad: number, multiplo: number): string | null {
   if (!Number.isFinite(cantidad) || cantidad <= 0) return 'Indica una cantidad válida.';
@@ -162,7 +163,7 @@ export default function CarritoPage() {
                   <div className="flex items-center shrink-0">
                     <button
                       type="button"
-                      onClick={() => updateCantidad(item.producto_id, Math.max(multiplo, item.cantidad - multiplo))}
+                      onClick={() => updateCantidad(item.producto_id, redondearCantidad(Math.max(multiplo, item.cantidad - multiplo)))}
                       className="btn-stepper"
                       aria-label="Restar"
                     >
@@ -171,7 +172,7 @@ export default function CarritoPage() {
                     <input
                       type="number"
                       min={multiplo}
-                      step={multiplo}
+                      step={pasoCantidad(multiplo)}
                       value={item.cantidad}
                       onChange={(e) => updateCantidad(item.producto_id, Number(e.target.value))}
                       onFocus={(e) => e.target.select()}
@@ -179,7 +180,7 @@ export default function CarritoPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => updateCantidad(item.producto_id, item.cantidad + multiplo)}
+                      onClick={() => updateCantidad(item.producto_id, redondearCantidad(item.cantidad + multiplo))}
                       className="btn-stepper"
                       aria-label="Sumar"
                     >
