@@ -3,6 +3,7 @@ import { quienRechazo } from '@/lib/rechazo';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
@@ -12,7 +13,7 @@ import PresupuestosSolicitud from './PresupuestosSolicitud';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import GestionPedidosBC from './GestionPedidosBC';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
-import { rangoFechasEstimadas, puedeCrearPedidoBC } from '@/lib/pedidos-utils';
+import { rangoFechasEstimadas, puedeCrearPedidoBC, MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
+      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, responsable_id, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
     )
     .eq('id', params.id)
     .single();
@@ -44,6 +45,14 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   if (!pedido) notFound();
 
   const p = pedido as any;
+  // Quién tiene que aprobar la solicitud (para el aviso del botón "Crear pedido en BC").
+  let pendienteDeAprobar: string | null = null;
+  if (p.requiere_aprobacion && p.aprobado == null) {
+    const { data: aprobador } = p.responsable_id
+      ? await createAdminClient().from('profiles').select('nombre_completo').eq('id', p.responsable_id).maybeSingle()
+      : { data: null };
+    pendienteDeAprobar = aprobador?.nombre_completo || 'el aprobador del proyecto';
+  }
   const datosEntrega = {
     nombre: p.nombre_contacto || '',
     telefono: p.telefono_contacto || '',
@@ -147,7 +156,9 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           motivoBloqueo={
             listaSinResolver.length > 0
               ? `Antes de crear el pedido en BC, asigna un artículo o rechaza las líneas pendientes de la lista de materiales (${listaSinResolver.length}).`
-              : null
+              : pendienteDeAprobar
+                ? `${MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO} Está pendiente de aprobación por ${pendienteDeAprobar}.`
+                : null
           }
         />
       </div>
