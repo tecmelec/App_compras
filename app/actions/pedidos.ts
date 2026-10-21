@@ -12,7 +12,7 @@ import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import { aprobadoresElegibles } from '@/app/actions/aprobadores-proyecto';
 import { esCantidadValida, esMultiploDe } from '@/lib/cantidad';
 
-type ItemInput = { producto_id: string; nombre: string; cantidad: number };
+type ItemInput = { producto_id: string; nombre: string; cantidad: number; desde_bc?: boolean };
 
 type DatosSolicitud = {
   proyecto_id: string;
@@ -250,7 +250,10 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   // antes hay que asignar o rechazar las líneas que no estaban en la tienda.
   // Solo si no hay nadie que pueda aprobarla (admin/responsable sin jefe de obra en la app) no se exige.
   const desdeFoto = (datos.lista_foto_ids || []).length > 0;
-  if (desdeFoto && responsableBase) requiereAprobacion = true;
+  // Igual con los artículos añadidos desde "Crear desde artículos de BC" (no están en la
+  // tienda): siempre pasan por el aprobador, como las listas.
+  const desdeArticulosBC = items.some((i) => i.desde_bc);
+  if ((desdeFoto || desdeArticulosBC) && responsableBase) requiereAprobacion = true;
   const responsableEfectivo =
     responsableBase === user.id ? user.id : await resolverSustituto(responsableBase);
 

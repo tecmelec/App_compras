@@ -236,6 +236,7 @@ function ModalCantidad({
         imagen_url: preparado.imagen_url,
         multiplo_compra: preparado.multiplo_compra,
         unidad_medida: preparado.unidad_medida,
+        desde_bc: true,
       },
       n
     );

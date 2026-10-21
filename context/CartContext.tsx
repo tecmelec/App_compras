@@ -11,6 +11,8 @@ export type CartItem = {
   cantidad: number;
   multiplo_compra?: number | null;
   unidad_medida?: string | null;
+  // Añadido con "Crear desde artículos de BC": la solicitud requiere aprobación siempre.
+  desde_bc?: boolean;
 };
 
 type CartContextType = {
