@@ -31,16 +31,10 @@ type Tarjeta = {
 };
 
 function generarCuerpo(lineas: LineaPeticion[], itemIds: string[], ctx: ContextoPeticion) {
+  // Cantidad y descripción del artículo (sin nuestro código de BC ni datos de la obra).
   const filas = lineas
     .filter((l) => itemIds.includes(l.itemId))
-    .map((l) => `- ${l.bcItemNo ? l.bcItemNo + ' · ' : ''}${l.articulo} — ${formatoCantidad(l.cantidad)} ${l.unidad}`)
-    .join('\n');
-  const datos = [
-    ctx.proyecto && `Obra: ${ctx.proyecto}`,
-    ctx.direccion && `Lugar de entrega: ${ctx.direccion}`,
-    ctx.fechaRequerida && `Fecha requerida: ${new Date(ctx.fechaRequerida + 'T00:00:00').toLocaleDateString('es-ES')}`,
-  ]
-    .filter(Boolean)
+    .map((l) => `- ${formatoCantidad(l.cantidad)} ${l.unidad} — ${l.articulo}`)
     .join('\n');
   return `Buenos días,
 
@@ -48,7 +42,7 @@ Les solicitamos su mejor oferta para el siguiente material:
 
 ${filas}
 
-${datos ? datos + '\n\n' : ''}Por favor, indiquen precio neto unitario (con descuentos), plazo de entrega y si incluye portes. Rogamos que en su respuesta hagan referencia a ${ctx.numeroApp}.
+Por favor, indiquen precio neto unitario (con descuentos), plazo de entrega y si incluye portes. Rogamos que en su respuesta hagan referencia a ${ctx.numeroApp}.
 
 Un saludo,
 ${ctx.firma ? ctx.firma + '\n' : ''}Tecmelec Electricidad S.L.`;
