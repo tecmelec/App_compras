@@ -263,25 +263,30 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   }
 
   // 3. Crear el pedido
-  const { data: pedido, error: errorPedido } = await supabase
-    .from('pedidos')
-    .insert({
-      usuario_id: user.id,
-      proyecto_id: datos.proyecto_id,
-      comprador_id: compradorEfectivo,
-      responsable_id: responsableEfectivo,
-      nombre_contacto: datos.nombre_contacto,
-      telefono_contacto: datos.telefono_contacto,
-      direccion_entrega_id: direccionEntregaId,
-      fecha_requerida: datos.fecha_requerida,
-      total_estimado: totalEstimado,
-      requiere_aprobacion: requiereAprobacion,
-      aprobado: requiereAprobacion ? null : true,
-      seguir_pedido: datos.seguir_pedido ?? false,
-      comentarios_comprador: (datos.comentarios_comprador || '').trim().slice(0, 2000) || null,
-    })
-    .select('id, numero_app')
-    .single();
+  const comentarios = (datos.comentarios_comprador || '').trim().slice(0, 2000) || null;
+  const filaPedido: Record<string, any> = {
+    usuario_id: user.id,
+    proyecto_id: datos.proyecto_id,
+    comprador_id: compradorEfectivo,
+    responsable_id: responsableEfectivo,
+    nombre_contacto: datos.nombre_contacto,
+    telefono_contacto: datos.telefono_contacto,
+    direccion_entrega_id: direccionEntregaId,
+    fecha_requerida: datos.fecha_requerida,
+    total_estimado: totalEstimado,
+    requiere_aprobacion: requiereAprobacion,
+    aprobado: requiereAprobacion ? null : true,
+    seguir_pedido: datos.seguir_pedido ?? false,
+  };
+  if (comentarios) filaPedido.comentarios_comprador = comentarios;
+  let { data: pedido, error: errorPedido } = await supabase.from('pedidos').insert(filaPedido).select('id, numero_app').single();
+  // Si la base de datos aún no tiene la columna (migración 20261022120000 sin aplicar),
+  // se crea la solicitud igualmente, sin los comentarios.
+  if (errorPedido && comentarios && /comentarios_comprador/.test(errorPedido.message || '')) {
+    console.error('[crearPedido] Falta la columna comentarios_comprador; se crea sin comentarios.');
+    delete filaPedido.comentarios_comprador;
+    ({ data: pedido, error: errorPedido } = await supabase.from('pedidos').insert(filaPedido).select('id, numero_app').single());
+  }
 
   if (errorPedido || !pedido) {
     return { error: 'No se pudo crear el pedido. Intenta nuevamente.' };
