@@ -29,6 +29,7 @@ type ItemForm = {
   eliminadaEnBC?: boolean;
   bcItemNo?: string | null;
   precioDesdePresupuesto?: boolean;
+  precioDesdePropuesta?: boolean;
   rechazadaPorAprobador?: boolean;
   rechazadaPor?: string;
   unidad?: string;
@@ -580,6 +581,11 @@ function ItemFila({
           {item.precioDesdePresupuesto && (
             <span className="inline-block mt-1 text-[11px] font-medium text-[#2F6690] bg-[#EAF1F6] border border-[#C7DBE7] rounded px-1.5 py-0.5">
               Precios desde presupuesto
+            </span>
+          )}
+          {item.precioDesdePropuesta && (
+            <span className="inline-block mt-1 ml-1 text-[11px] font-medium text-[#5B3FA0] bg-[#F1ECFA] border border-[#D9CCF0] rounded px-1.5 py-0.5">
+              Propuesta automática
             </span>
           )}
         </div>

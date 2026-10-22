@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import PresupuestoBoton from './PresupuestoBoton';
+import PropuestaCompraBoton from './PropuestaCompraBoton';
 import EditarEntregaBoton from './EditarEntregaBoton';
 import PresupuestosSolicitud from './PresupuestosSolicitud';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
@@ -46,6 +47,15 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   if (!pedido) notFound();
 
   const p = pedido as any;
+  // Líneas con proveedor/precio aplicados desde "Proponer compra" (si la migración
+  // 20261022140000 no está aplicada, la consulta falla y no se marca nada).
+  const { data: conPropuesta } = await createAdminClient()
+    .from('pedido_items')
+    .select('id, propuesta_compra_id')
+    .eq('pedido_id', p.id)
+    .not('propuesta_compra_id', 'is', null);
+  const propuestaPorItem = new Map<string, string>((conPropuesta || []).map((x: any) => [x.id, x.propuesta_compra_id]));
+
   // Quién tiene que aprobar la solicitud (para el aviso del botón "Crear pedido en BC").
   let pendienteDeAprobar: string | null = null;
   if (p.requiere_aprobacion && p.aprobado == null) {
@@ -302,6 +312,9 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       <div className="flex flex-wrap items-start gap-3">
         <SincronizarPedidoBCBoton pedidoId={p.id} />
         <div className="mb-4">
+          <PropuestaCompraBoton pedidoId={p.id} proveedores={(proveedores as any[]) || []} />
+        </div>
+        <div className="mb-4">
           <PresupuestoBoton
             pedidoId={p.id}
             proveedores={(proveedores as any[]) || []}
@@ -325,7 +338,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         // Si se añade una línea (p. ej. al asignar un artículo de la lista en foto), el
         // formulario se vuelve a montar para incluirla en su estado.
         key={(p.pedido_items as any[])
-          .map((i) => `${i.id}:${i.precio_unitario ?? ''}:${i.proveedor_id ?? ''}:${i.precio_presupuesto_id ?? ''}`)
+          .map((i) => `${i.id}:${i.precio_unitario ?? ''}:${i.proveedor_id ?? ''}:${i.precio_presupuesto_id ?? ''}:${propuestaPorItem.get(i.id) ?? ''}`)
           .join(',')}
         pedidoId={p.id}
         proyectoSolicitud={p.proyectos?.bc_job_no ?? null}
@@ -343,6 +356,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           eliminadaEnBC: !!item.eliminada_en_bc,
           bcItemNo: item.productos?.bc_item_no ?? null,
           precioDesdePresupuesto: !!item.precio_presupuesto_id,
+          precioDesdePropuesta: !!propuestaPorItem.get(item.id),
           rechazadaPorAprobador: !!item.rechazada_por_aprobador,
           rechazadaPor: quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre),
           unidad: item.productos?.unidad_medida || 'ud.',

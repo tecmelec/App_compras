@@ -508,6 +508,10 @@ export async function actualizarLineasTecmelec(
     if (error) {
       return { error: 'No se pudo guardar los datos de una de las líneas.' };
     }
+    // Ídem con la "Propuesta automática" (aparte: si la columna aún no existe, se ignora).
+    if (Number(precioActualPorId.get(item.id) ?? NaN) !== Number(item.precio_unitario)) {
+      await supabase.from('pedido_items').update({ propuesta_compra_id: null }).eq('id', item.id);
+    }
   }
 
   // El "Estado" general se recalcula solo a partir del estado de cada línea

@@ -108,3 +108,28 @@ export async function actualizarLimiteAprobacion(valor: number) {
   revalidatePath('/admin/configuracion');
   return { success: true };
 }
+
+// Parámetros de "Proponer compra" (Comprador IA — Fase 1).
+export async function actualizarParametrosPropuesta(v: {
+  diasPresupuesto: number;
+  mesesCompras: number;
+  pctAgrupar: number;
+  pctVariacion: number;
+}) {
+  await requireAdmin();
+  const valores = [v.diasPresupuesto, v.mesesCompras, v.pctAgrupar, v.pctVariacion];
+  if (valores.some((n) => !Number.isFinite(n) || n < 0)) return { error: 'Revisa los valores: deben ser números positivos.' };
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('configuracion')
+    .update({
+      propuesta_dias_presupuesto: Math.round(v.diasPresupuesto),
+      propuesta_meses_compras: Math.round(v.mesesCompras),
+      propuesta_pct_agrupar: v.pctAgrupar,
+      propuesta_pct_variacion: v.pctVariacion,
+    })
+    .eq('id', 1);
+  if (error) return { error: 'No se pudieron guardar los parámetros: ' + error.message };
+  revalidatePath('/admin/configuracion');
+  return { success: true };
+}
