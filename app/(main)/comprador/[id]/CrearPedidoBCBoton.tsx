@@ -83,14 +83,22 @@ export default function CrearPedidoBCBoton({
 
   return (
     <>
-      <button
-        onClick={puedeCrear ? handleAbrir : undefined}
-        disabled={!puedeCrear}
-        title={puedeCrear ? undefined : motivoBloqueo || MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO}
-        className="btn-primary whitespace-nowrap"
-      >
-        + Crear pedido en BC
-      </button>
+      <div className="flex flex-col items-end gap-1">
+        <button
+          onClick={puedeCrear ? handleAbrir : undefined}
+          disabled={!puedeCrear}
+          title={puedeCrear ? undefined : motivoBloqueo || MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO}
+          className="btn-primary whitespace-nowrap"
+        >
+          + Crear pedido en BC
+        </button>
+        {/* En el móvil no hay "pasar el ratón": el motivo se muestra como texto. */}
+        {!puedeCrear && (
+          <p className="sm:hidden text-xs text-slate text-right max-w-[16rem] leading-snug">
+            {motivoBloqueo || MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO}
+          </p>
+        )}
+      </div>
 
       {abierto && (
         <div className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4" onClick={() => setAbierto(false)}>
