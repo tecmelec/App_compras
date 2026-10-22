@@ -655,15 +655,17 @@ export default function LineasComprasClient({
             ) : (
               ordenadas.map((f, idx) => (
                 <tr key={idx} className="hover:bg-fondo">
-                  <td className="px-4 py-3 font-mono text-marca whitespace-nowrap">
-                    {f.comentario_cabecera && (
-                      <ComentarioPunto titulo={`Comentario del pedido ${f.numero_tecmelec || ''}`} texto={f.comentario_cabecera} />
-                    )}
+                  <td className="px-4 py-3 font-mono text-marca">
                     <Link href={f.pedido_href} className="hover:underline underline-offset-2">
                       {f.numero_app}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-mono text-grafito">{f.numero_tecmelec || '—'}</td>
+                  <td className="px-4 py-3 font-mono text-grafito whitespace-nowrap">
+                    {f.comentario_cabecera && (
+                      <ComentarioPunto titulo={`Comentario del pedido ${f.numero_tecmelec || ''}`} texto={f.comentario_cabecera} />
+                    )}
+                    {f.numero_tecmelec || '—'}
+                  </td>
                   <td className="px-4 py-3 font-mono text-grafito">
                     <ObraCelda numero={f.nro_proveedor} nombre={f.nombre_proveedor} textoVacio="Sin nombre de proveedor" />
                   </td>
