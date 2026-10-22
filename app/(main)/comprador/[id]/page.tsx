@@ -10,6 +10,7 @@ import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import PresupuestoBoton from './PresupuestoBoton';
 import PropuestaCompraBoton from './PropuestaCompraBoton';
+import PeticionesOfertaSolicitud from './PeticionesOfertaSolicitud';
 import EditarEntregaBoton from './EditarEntregaBoton';
 import PresupuestosSolicitud from './PresupuestosSolicitud';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
@@ -327,6 +328,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       </div>
       <ComentariosSolicitud pedidoId={p.id} />
       <DocumentosSolicitud pedidoId={p.id} />
+      <PeticionesOfertaSolicitud pedidoId={p.id} />
       <PresupuestosSolicitud
         pedidoId={p.id}
         nombresItems={Object.fromEntries((p.pedido_items as any[]).map((i) => [i.id, i.productos?.nombre || 'Producto']))}

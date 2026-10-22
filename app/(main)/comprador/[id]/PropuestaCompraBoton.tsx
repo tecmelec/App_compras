@@ -7,6 +7,7 @@ import { aplicarPropuestaCompra, notasIAPropuestaCompra, proponerCompra } from '
 import type { NotasIA } from '@/lib/propuesta-compra-ia';
 import type { LineaPropuesta, Confianza } from '@/lib/propuesta-compra';
 import { formatoCantidad } from '@/lib/cantidad';
+import PeticionOfertaModal from './PeticionOfertaModal';
 
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
 
@@ -49,6 +50,7 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
   const [filas, setFilas] = useState<Record<string, Fila>>({});
   const [aplicando, setAplicando] = useState(false);
   const [ia, setIa] = useState<NotasIA | null>(null);
+  const [pidiendoOfertas, setPidiendoOfertas] = useState(false);
   const [iaEstado, setIaEstado] = useState<'cargando' | 'lista' | 'desactivada' | 'error' | null>(null);
   const [iaError, setIaError] = useState<string | null>(null);
 
@@ -101,10 +103,10 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
   }, [pedidoId]);
 
   useEffect(() => {
-    const alPulsar = (e: KeyboardEvent) => e.key === 'Escape' && !aplicando && onCerrar();
+    const alPulsar = (e: KeyboardEvent) => e.key === 'Escape' && !aplicando && !pidiendoOfertas && onCerrar();
     window.addEventListener('keydown', alPulsar);
     return () => window.removeEventListener('keydown', alPulsar);
-  }, [aplicando, onCerrar]);
+  }, [aplicando, pidiendoOfertas, onCerrar]);
 
   const seleccionadas = useMemo(() => lineas.filter((l) => filas[l.itemId]?.sel), [lineas, filas]);
   const totalSel = seleccionadas.reduce((s, l) => s + (Number((filas[l.itemId]?.precio || '').replace(',', '.')) || 0) * l.cantidad, 0);
@@ -297,9 +299,17 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
             <p className="text-sm text-slate">
               {seleccionadas.length} de {lineas.length} líneas seleccionadas · {fmt(Number(totalSel.toFixed(2)))} €
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button onClick={onCerrar} disabled={aplicando} className="btn-secondary">
                 Cancelar
+              </button>
+              <button
+                onClick={() => setPidiendoOfertas(true)}
+                disabled={aplicando}
+                className="btn-secondary"
+                title="Enviar peticiones de oferta a proveedores (un email por proveedor)"
+              >
+                Pedir ofertas…
               </button>
               <button
                 onClick={aplicar}
@@ -312,6 +322,25 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
           </div>
         )}
       </div>
+      {pidiendoOfertas && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PeticionOfertaModal
+            pedidoId={pedidoId}
+            propuestaId={propuestaId}
+            lineasPanel={lineas.map((l) => ({
+              itemId: l.itemId,
+              articulo: l.articulo,
+              bcItemNo: l.bcItemNo,
+              cantidad: l.cantidad,
+              unidad: l.unidad,
+              pedirOferta: l.propuesta.origen === 'pedir_oferta',
+            }))}
+            preseleccion={lineas.filter((l) => l.propuesta.origen === 'pedir_oferta').map((l) => l.itemId)}
+            proveedores={proveedores}
+            onCerrar={() => setPidiendoOfertas(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
