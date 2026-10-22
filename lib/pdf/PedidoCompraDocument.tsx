@@ -35,6 +35,8 @@ const styles = StyleSheet.create({
   foto: { width: 26, height: 26, objectFit: 'contain' },
   colNo: { width: '13%' },
   colDesc: { width: '39%' },
+  comentarioEncabezado: { fontFamily: 'Helvetica-Oblique', fontSize: 9, color: '#444', marginTop: -8, marginBottom: 14, paddingHorizontal: 4 },
+  comentarioLinea: { fontFamily: 'Helvetica-Oblique', fontSize: 8.5, color: '#555', marginTop: 2 },
   colCant: { width: '12%', textAlign: 'right' },
   colUd: { width: '8%', textAlign: 'left', paddingLeft: 4 },
   colPrecio: { width: '10%', textAlign: 'right' },
@@ -88,6 +90,7 @@ export type LineaPdf = {
   unidadMedida: string;
   precio: number;
   imagenUrl?: string;
+  comentario?: string;
 };
 
 export type PedidoCompraPdfProps = {
@@ -102,6 +105,7 @@ export type PedidoCompraPdfProps = {
   formaPago?: string;
   ibanEnmascarado?: string;
   conFotos?: boolean;
+  comentarioEncabezado?: string;
 };
 
 export default function PedidoCompraDocument({
@@ -116,6 +120,7 @@ export default function PedidoCompraDocument({
   formaPago,
   ibanEnmascarado,
   conFotos,
+  comentarioEncabezado,
 }: PedidoCompraPdfProps) {
   const base = lineas.reduce((s, l) => s + l.cantidad * l.precio, 0);
   const iva = base * (EMPRESA.ivaPorcentaje / 100);
@@ -151,6 +156,8 @@ export default function PedidoCompraDocument({
           </View>
         </View>
 
+        {comentarioEncabezado ? <Text style={styles.comentarioEncabezado}>{comentarioEncabezado}</Text> : null}
+
         <View style={styles.tabla}>
           <View style={styles.filaCabecera}>
             {conFotos ? <Text style={[styles.colFoto, styles.cabeceraTexto]}></Text> : null}
@@ -170,7 +177,14 @@ export default function PedidoCompraDocument({
                 </View>
               ) : null}
               <Text style={styles.colNo}>{l.bcItemNo}</Text>
-              <Text style={colDescEstilo}>{l.nombre}</Text>
+              {l.comentario ? (
+                <View style={colDescEstilo}>
+                  <Text>{l.nombre}</Text>
+                  <Text style={styles.comentarioLinea}>{l.comentario}</Text>
+                </View>
+              ) : (
+                <Text style={colDescEstilo}>{l.nombre}</Text>
+              )}
               <Text style={styles.colCant}>{euros(l.cantidad)}</Text>
               <Text style={styles.colUd}>{l.unidadMedida}</Text>
               <Text style={styles.colPrecio}>{precioUnitario(l.precio)}</Text>

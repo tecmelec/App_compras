@@ -1,6 +1,7 @@
 import { renderToBuffer } from '@react-pdf/renderer';
 import sharp from 'sharp';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   obtenerProveedorPorNumeroBC,
   obtenerPedidoCompraPorDocumentNoBC,
@@ -28,7 +29,7 @@ export async function construirPedidoCompraPdf(
 
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('cantidad, precio_unitario, proveedor_id, pedido_id, estado_id, estado_recepcion, productos(nombre, bc_item_no, precio, unidad_medida, imagen_url)')
+    .select('id, cantidad, precio_unitario, proveedor_id, pedido_id, estado_id, estado_recepcion, productos(nombre, bc_item_no, precio, unidad_medida, imagen_url)')
     .eq('numero_tecmelec', numeroTecmelec);
 
   if (!items || items.length === 0) {
@@ -106,6 +107,19 @@ export async function construirPedidoCompraPdf(
         .join(', ')
     : '';
 
+  // Comentarios para el PDF (migración 20261022130000). Se leen aparte y con el cliente
+  // admin: si la migración aún no está aplicada, el PDF se genera igual, sin comentarios.
+  const admin = createAdminClient();
+  const { data: comentariosLineas } = await admin
+    .from('pedido_items')
+    .select('id, comentario_pdf')
+    .eq('numero_tecmelec', numeroTecmelec);
+  const comentarioPorLinea = new Map<string, string>(
+    (comentariosLineas || [])
+      .filter((c: any) => (c.comentario_pdf || '').trim())
+      .map((c: any) => [c.id as string, (c.comentario_pdf as string).trim()])
+  );
+
   // No aparecen en el PDF las líneas con cantidad 0 (p. ej. puestas a 0 en BC) ni las
   // anuladas: estado "Anulado" o recepción "Anulado" (p. ej. borradas del pedido en BC).
   const { data: estadoAnulado } = await supabase.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle();
@@ -124,12 +138,20 @@ export async function construirPedidoCompraPdf(
       cantidad: it.cantidad,
       unidadMedida: it.productos?.unidad_medida || '',
       precio: it.precio_unitario ?? it.productos?.precio ?? 0,
+      comentario: comentarioPorLinea.get(it.id),
       imagenUrl:
         conFotos && it.productos?.imagen_url
           ? await prepararImagenParaPdf(it.productos.imagen_url)
           : undefined,
     }))
   );
+
+  // Comentario de encabezado del pedido Tecmelec (si la tabla aún no existe, se ignora).
+  const { data: comentarioCab } = await admin
+    .from('pedido_tecmelec_comentarios')
+    .select('comentario')
+    .eq('numero_tecmelec', numeroTecmelec)
+    .maybeSingle();
 
   const buffer = await renderToBuffer(
     PedidoCompraDocument({
@@ -146,6 +168,7 @@ export async function construirPedidoCompraPdf(
       formaPago,
       ibanEnmascarado,
       conFotos,
+      comentarioEncabezado: (comentarioCab?.comentario || '').trim() || undefined,
     })
   );
 

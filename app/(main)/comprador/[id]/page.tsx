@@ -130,6 +130,23 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   // Fotos de albaranes (Alb. Tecmelec) de cada Pedido Tecmelec.
   const fotosPorPedido = await obtenerFotosAlbaranes(numerosTecmelecLista);
 
+  // Pedidos Tecmelec con comentarios para el PDF (punto naranja en "Comentarios PDF").
+  // Si la migración 20261022130000 no está aplicada, las consultas fallan y no se marca nada.
+  const numerosTecmelec = Array.from(gruposPorTecmelec.keys());
+  const conComentariosPdf = new Set<string>();
+  if (numerosTecmelec.length > 0) {
+    const adminCom = createAdminClient();
+    const [{ data: cabs }, { data: lins }] = await Promise.all([
+      adminCom.from('pedido_tecmelec_comentarios').select('numero_tecmelec').in('numero_tecmelec', numerosTecmelec),
+      adminCom
+        .from('pedido_items')
+        .select('numero_tecmelec')
+        .in('numero_tecmelec', numerosTecmelec)
+        .not('comentario_pdf', 'is', null),
+    ]);
+    for (const c of [...(cabs || []), ...(lins || [])]) conComentariosPdf.add((c as any).numero_tecmelec);
+  }
+
   const pedidosBC = Array.from(gruposPorTecmelec.entries()).map(([numeroTecmelec, g]) => ({
     numeroTecmelec,
     fotosAlbaran: fotosPorPedido[numeroTecmelec.trim().toUpperCase()] || [],
@@ -140,6 +157,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     enviadoConFotos: enviosPorGrupo.has(`${numeroTecmelec}|true`),
     recordatorioEnviado: recordatorioPorPedido.get(numeroTecmelec) || null,
     pdfEnviado: pdfEnviadoPorGrupo.has(numeroTecmelec),
+    tieneComentariosPdf: conComentariosPdf.has(numeroTecmelec),
     // Si no hay un estado "Pedido lanzado" configurado, no bloqueamos nada (fail-open).
     puedeEnviarEmail: ordenLanzado === null || (g.ordenMinimo !== null && g.ordenMinimo >= ordenLanzado),
   }));

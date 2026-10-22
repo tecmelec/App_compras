@@ -4,6 +4,7 @@ import EnviarEmailPedidoBoton from './EnviarEmailPedidoBoton';
 import VerConversacionBoton from './VerConversacionBoton';
 import CopiarEnlaceProveedorBoton from './CopiarEnlaceProveedorBoton';
 import PdfEnviadoCheck from './PdfEnviadoCheck';
+import ComentariosPdfBoton from './ComentariosPdfBoton';
 import VerAlbaranBoton from '@/components/VerAlbaranBoton';
 import type { FotoAlbaran } from '@/lib/fotos-albaranes';
 
@@ -18,6 +19,7 @@ type Fila = {
   pdfEnviado: boolean;
   fotosAlbaran: FotoAlbaran[];
   recordatorioEnviado?: string | null;
+  tieneComentariosPdf?: boolean;
 };
 
 export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
@@ -53,6 +55,7 @@ export default function GestionPedidosBC({ pedidos }: { pedidos: Fila[] }) {
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:justify-end">
               <PdfEnviadoCheck numeroTecmelec={p.numeroTecmelec} pdfEnviado={p.pdfEnviado} />
+              <ComentariosPdfBoton numeroTecmelec={p.numeroTecmelec} tieneComentarios={p.tieneComentariosPdf} />
               <div className="flex items-center gap-1.5">
                 <a
                   href={`/api/pedidos/${encodeURIComponent(p.numeroTecmelec)}/pdf`}
