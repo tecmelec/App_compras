@@ -109,14 +109,15 @@ export default function ComentariosPdfBoton({ numeroTecmelec, tieneComentarios }
                             </span>
                             {!l.enPdf && <span className="text-xs text-slate ml-2">(no sale en el PDF: cantidad 0 o anulada)</span>}
                           </p>
-                          <input
+                          <textarea
                             value={l.comentario}
                             onChange={(e) =>
                               setLineas((prev) => prev.map((x, k) => (k === i ? { ...x, comentario: e.target.value } : x)))
                             }
                             maxLength={500}
-                            className="input w-full mt-1 text-sm"
-                            placeholder="Comentario para este artículo (opcional)"
+                            rows={Math.min(6, Math.max(2, l.comentario.split('\n').length))}
+                            className="input w-full mt-1 text-sm resize-y"
+                            placeholder="Comentario para este artículo (opcional; Intro para una nueva línea)"
                           />
                         </li>
                       ))}
