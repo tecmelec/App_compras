@@ -1,3 +1,4 @@
+import ComentariosSolicitud from '@/components/ComentariosSolicitud';
 import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
@@ -323,6 +324,7 @@ export default async function DetalleSolicitud({
         )}
       </div>
 
+      <ComentariosSolicitud pedidoId={id} />
       <DocumentosSolicitud pedidoId={id} />
 
       {gruposOrdenados.map(([numeroTecmelec, itemsGrupo]) => {

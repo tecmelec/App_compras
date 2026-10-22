@@ -1,3 +1,4 @@
+import ComentariosSolicitud from '@/components/ComentariosSolicitud';
 import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
@@ -293,6 +294,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           />
         </div>
       </div>
+      <ComentariosSolicitud pedidoId={p.id} />
       <DocumentosSolicitud pedidoId={p.id} />
       <PresupuestosSolicitud
         pedidoId={p.id}

@@ -24,6 +24,7 @@ type DatosSolicitud = {
   seguir_pedido?: boolean;
   lista_foto_ids?: string[];
   documento_ids?: string[];
+  comentarios_comprador?: string | null;
   aprobador_id?: string | null;
 };
 
@@ -277,6 +278,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
       requiere_aprobacion: requiereAprobacion,
       aprobado: requiereAprobacion ? null : true,
       seguir_pedido: datos.seguir_pedido ?? false,
+      comentarios_comprador: (datos.comentarios_comprador || '').trim().slice(0, 2000) || null,
     })
     .select('id, numero_app')
     .single();

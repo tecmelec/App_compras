@@ -1,3 +1,4 @@
+import ComentariosSolicitud from '@/components/ComentariosSolicitud';
 import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
@@ -80,6 +81,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
         </div>
       </div>
 
+      <ComentariosSolicitud pedidoId={params.id} />
       <DocumentosSolicitud pedidoId={params.id} />
 
       {pendiente ? (

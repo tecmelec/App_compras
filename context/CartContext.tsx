@@ -30,6 +30,9 @@ type CartContextType = {
   documentos: string[];
   addDocumento: (id: string) => void;
   removeDocumento: (id: string) => void;
+  // Comentarios u observaciones para el comprador
+  comentarios: string;
+  setComentarios: (texto: string) => void;
   rol: string | null;
 };
 
@@ -47,6 +50,10 @@ function storageKeyDocumentos(userId: string) {
   return `tecmelec_carrito_documentos_${userId}`;
 }
 
+function storageKeyComentarios(userId: string) {
+  return `tecmelec_carrito_comentarios_${userId}`;
+}
+
 export function CartProvider({
   userId,
   rol = null,
@@ -58,6 +65,7 @@ export function CartProvider({
   const [items, setItems] = useState<CartItem[]>([]);
   const [listasFoto, setListasFoto] = useState<string[]>([]);
   const [documentos, setDocumentos] = useState<string[]>([]);
+  const [comentarios, setComentarios] = useState('');
   const [loaded, setLoaded] = useState(false);
 
   // Carga el carrito de ESTE usuario específico (nunca el de otro que haya usado el mismo navegador)
@@ -85,6 +93,11 @@ export function CartProvider({
     } catch {
       setDocumentos([]);
     }
+    try {
+      setComentarios(window.localStorage.getItem(storageKeyComentarios(userId)) || '');
+    } catch {
+      setComentarios('');
+    }
     setLoaded(true);
   }, [userId]);
 
@@ -93,8 +106,9 @@ export function CartProvider({
       window.localStorage.setItem(storageKey(userId), JSON.stringify(items));
       window.localStorage.setItem(storageKeyListas(userId), JSON.stringify(listasFoto));
       window.localStorage.setItem(storageKeyDocumentos(userId), JSON.stringify(documentos));
+      window.localStorage.setItem(storageKeyComentarios(userId), comentarios);
     }
-  }, [items, listasFoto, documentos, loaded, userId]);
+  }, [items, listasFoto, documentos, comentarios, loaded, userId]);
 
   function addItem(item: Omit<CartItem, 'cantidad'>, cantidad: number) {
     setItems((prev) => {
@@ -126,6 +140,7 @@ export function CartProvider({
     setItems([]);
     setListasFoto([]);
     setDocumentos([]);
+    setComentarios('');
   }
 
   function addDocumento(id: string) {
@@ -155,7 +170,7 @@ export function CartProvider({
   const totalItems = items.length;
 
   return (
-    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto, documentos, addDocumento, removeDocumento, rol }}>
+    <CartContext.Provider value={{ items, addItem, updateCantidad, removeItem, clear, totalItems, listasFoto, addListaFoto, removeListaFoto, documentos, addDocumento, removeDocumento, comentarios, setComentarios, rol }}>
       {children}
     </CartContext.Provider>
   );
