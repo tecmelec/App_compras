@@ -5,6 +5,7 @@ import { useFiltrosEnSesion } from '@/lib/filtros-sesion';
 import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
 import ObraCelda from '@/components/ObraCelda';
+import ComentarioPunto from '@/components/ComentarioPunto';
 import EstadoBadge from '@/components/EstadoBadge';
 import VerAlbaranBoton from '@/components/VerAlbaranBoton';
 import type { FotoAlbaran } from '@/lib/fotos-albaranes';
@@ -33,6 +34,8 @@ export type LineaFila = {
   fecha_estimada_entrega: string | null;
   fecha_confirmada_en: string | null; // el proveedor confirmó la fecha estimada (null si no)
   estado_recepcion: string | null;
+  comentario_cabecera?: string | null; // comentario de encabezado del PDF del pedido Tecmelec
+  comentario_linea?: string | null; // comentario del artículo en el PDF
 };
 
 type Filtros = {
@@ -652,7 +655,10 @@ export default function LineasComprasClient({
             ) : (
               ordenadas.map((f, idx) => (
                 <tr key={idx} className="hover:bg-fondo">
-                  <td className="px-4 py-3 font-mono text-marca">
+                  <td className="px-4 py-3 font-mono text-marca whitespace-nowrap">
+                    {f.comentario_cabecera && (
+                      <ComentarioPunto titulo={`Comentario del pedido ${f.numero_tecmelec || ''}`} texto={f.comentario_cabecera} />
+                    )}
                     <Link href={f.pedido_href} className="hover:underline underline-offset-2">
                       {f.numero_app}
                     </Link>
@@ -661,7 +667,10 @@ export default function LineasComprasClient({
                   <td className="px-4 py-3 font-mono text-grafito">
                     <ObraCelda numero={f.nro_proveedor} nombre={f.nombre_proveedor} textoVacio="Sin nombre de proveedor" />
                   </td>
-                  <td className="px-4 py-3 text-grafito">{f.articulo}</td>
+                  <td className="px-4 py-3 text-grafito">
+                    {f.comentario_linea && <ComentarioPunto titulo={`Comentario de ${f.articulo}`} texto={f.comentario_linea} />}
+                    {f.articulo}
+                  </td>
                   <td className="px-4 py-3 font-mono text-grafito">{f.cantidad}</td>
                   {mostrarPrecios && (
                     <td className="px-4 py-3 font-mono text-grafito text-right whitespace-nowrap">

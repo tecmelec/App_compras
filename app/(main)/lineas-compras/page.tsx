@@ -35,7 +35,7 @@ export default async function LineasCompraPage() {
     let q = db
       .from('pedidos')
       .select(
-        'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre, precio), proveedores(bc_proveedor_no, nombre))'
+        'id, numero_app, usuario_id, fecha_requerida, created_at, estado_general, aprobado, proyectos(bc_job_no, descripcion), pedido_items(id, cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, estado_id, rechazada_por_aprobador, productos(nombre, precio), proveedores(bc_proveedor_no, nombre))'
       )
       .order('created_at', { ascending: false });
     if (visibilidad && !visibilidad.todos) {
@@ -67,12 +67,29 @@ export default async function LineasCompraPage() {
   };
   const base = rutaDetalle[perfil?.rol || 'usuario'] || '/mis-pedidos';
 
+  // Comentarios del PDF (encabezado por pedido Tecmelec y por artículo): punto naranja en
+  // la tabla. Se leen aparte con el cliente admin; si la migración 20261022130000 no
+  // está aplicada, simplemente no hay comentarios.
+  const comentariosCabecera = new Map<string, string>();
+  const comentariosLinea = new Map<string, string>();
+  {
+    const adminCom = createAdminClient();
+    const [{ data: cabs }, { data: lins }] = await Promise.all([
+      adminCom.from('pedido_tecmelec_comentarios').select('numero_tecmelec, comentario'),
+      adminCom.from('pedido_items').select('id, comentario_pdf').not('comentario_pdf', 'is', null).limit(5000),
+    ]);
+    for (const c of cabs || []) if ((c.comentario || '').trim()) comentariosCabecera.set(c.numero_tecmelec, c.comentario.trim());
+    for (const l of lins || []) if (((l as any).comentario_pdf || '').trim()) comentariosLinea.set((l as any).id, (l as any).comentario_pdf.trim());
+  }
+
   const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
       // Las solicitudes propias se abren en "Mis solicitudes" (vista completa del solicitante).
       pedido_href: p.usuario_id === user!.id ? `/mis-pedidos/${p.id}` : `${base}/${p.id}`,
       numero_tecmelec: item.numero_tecmelec,
+      comentario_cabecera: (item.numero_tecmelec && comentariosCabecera.get(item.numero_tecmelec)) || null,
+      comentario_linea: comentariosLinea.get(item.id) || null,
       nro_proveedor: item.proveedores?.bc_proveedor_no || '',
       nombre_proveedor: item.proveedores?.nombre || '',
       articulo: item.productos?.nombre || '—',
