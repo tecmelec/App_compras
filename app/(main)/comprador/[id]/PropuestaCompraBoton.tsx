@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
-import { aplicarPropuestaCompra, proponerCompra } from '@/app/actions/propuesta-compra';
+import { aplicarPropuestaCompra, notasIAPropuestaCompra, proponerCompra } from '@/app/actions/propuesta-compra';
+import type { NotasIA } from '@/lib/propuesta-compra-ia';
 import type { LineaPropuesta, Confianza } from '@/lib/propuesta-compra';
 import { formatoCantidad } from '@/lib/cantidad';
 
@@ -47,6 +48,9 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
   const [lineas, setLineas] = useState<LineaPropuesta[]>([]);
   const [filas, setFilas] = useState<Record<string, Fila>>({});
   const [aplicando, setAplicando] = useState(false);
+  const [ia, setIa] = useState<NotasIA | null>(null);
+  const [iaEstado, setIaEstado] = useState<'cargando' | 'lista' | 'desactivada' | 'error' | null>(null);
+  const [iaError, setIaError] = useState<string | null>(null);
 
   useEffect(() => {
     let vigente = true;
@@ -57,8 +61,24 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
         setError(r.error);
         return;
       }
-      const d = r as { propuestaId: string; lineas: LineaPropuesta[]; avisos: string[] };
+      const d = r as { propuestaId: string; lineas: LineaPropuesta[]; avisos: string[]; iaActiva?: boolean };
       setPropuestaId(d.propuestaId);
+      // Paso 2: notas de la IA (en segundo plano; la propuesta ya se puede usar).
+      if (d.iaActiva === false) setIaEstado('desactivada');
+      else {
+        setIaEstado('cargando');
+        notasIAPropuestaCompra(d.propuestaId).then((n) => {
+          if (!vigente) return;
+          if ('desactivada' in n && n.desactivada) setIaEstado('desactivada');
+          else if ('error' in n && n.error) {
+            setIaEstado('error');
+            setIaError(n.error);
+          } else if ('ia' in n && n.ia) {
+            setIa(n.ia);
+            setIaEstado('lista');
+          }
+        });
+      }
       setLineas(d.lineas);
       setAvisos(d.avisos || []);
       setFilas(
@@ -147,6 +167,15 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
           </p>
         ))}
 
+        {!cargando && lineas.length > 0 && iaEstado && iaEstado !== 'desactivada' && (
+          <div className="mb-3 rounded-lg border border-[#D9CCF0] bg-[#F7F3FD] px-3 py-2">
+            <p className="text-xs font-semibold text-[#5B3FA0] mb-0.5">Revisión de la IA</p>
+            {iaEstado === 'cargando' && <p className="text-xs text-[#5B3FA0]/80">Revisando la propuesta… (puedes ir aplicando mientras tanto)</p>}
+            {iaEstado === 'error' && <p className="text-xs text-slate">{iaError}</p>}
+            {iaEstado === 'lista' && ia && <p className="text-sm text-grafito">{ia.resumen || 'Sin comentarios: la propuesta no tiene nada destacable.'}</p>}
+          </div>
+        )}
+
         {!cargando && lineas.length > 0 && (
           <div className="overflow-x-auto border border-borde rounded-lg">
             <table className="w-full text-sm">
@@ -172,7 +201,7 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
                   <th className="px-2 py-2 text-left font-medium">Artículo</th>
                   <th className="px-2 py-2 text-left font-medium">Ahora</th>
                   <th className="px-2 py-2 text-left font-medium">Proveedor propuesto</th>
-                  <th className="px-2 py-2 text-right font-medium">Precio ud.</th>
+                  <th className="px-2 py-2 text-right font-medium whitespace-nowrap min-w-[9.5rem]">Precio ud. (€)</th>
                   <th className="px-2 py-2 text-left font-medium">Origen</th>
                 </tr>
               </thead>
@@ -197,6 +226,14 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
                         <p className="text-xs text-slate">
                           <span className="font-mono">{l.bcItemNo || 'sin código BC'}</span> · {formatoCantidad(l.cantidad)} {l.unidad}
                         </p>
+                        {(() => {
+                          const n = ia?.lineas.find((x) => x.itemId === l.itemId);
+                          return n ? (
+                            <p className={`mt-1 text-xs ${n.revisar ? 'text-[#B91C1C] font-medium' : 'text-[#5B3FA0]'}`}>
+                              {n.revisar ? '⚠ ' : ''}IA: {n.nota}
+                            </p>
+                          ) : null;
+                        })()}
                         {l.notas.length > 0 && (
                           <ul className="mt-1 space-y-0.5">
                             {l.notas.map((n, i) => (
@@ -231,7 +268,7 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
                           min="0"
                           value={f?.precio ?? ''}
                           onChange={(e) => cambiar(l.itemId, { precio: e.target.value, sel: true })}
-                          className={`input w-28 text-right font-mono ${err ? 'border-rojo' : ''}`}
+                          className={`input w-36 min-w-[8.5rem] text-right font-mono ${err ? 'border-rojo' : ''}`}
                         />
                         {err && <p className="text-xs text-rojo mt-0.5">{err}</p>}
                       </td>

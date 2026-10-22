@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { actualizarParametrosPropuesta } from '@/app/actions/catalogo';
 
-type Params = { diasPresupuesto: number; mesesCompras: number; pctAgrupar: number; pctVariacion: number };
+type Params = { diasPresupuesto: number; mesesCompras: number; pctAgrupar: number; pctVariacion: number; iaActiva: boolean };
 
 // Parámetros de "Proponer compra" (vista del comprador).
 export default function ParametrosPropuestaCompra({ inicial }: { inicial: Params }) {
@@ -13,6 +13,7 @@ export default function ParametrosPropuestaCompra({ inicial }: { inicial: Params
     pctAgrupar: String(inicial.pctAgrupar),
     pctVariacion: String(inicial.pctVariacion),
   });
+  const [iaActiva, setIaActiva] = useState(inicial.iaActiva);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function ParametrosPropuestaCompra({ inicial }: { inicial: Params
       mesesCompras: Number(v.mesesCompras),
       pctAgrupar: Number(v.pctAgrupar.replace(',', '.')),
       pctVariacion: Number(v.pctVariacion.replace(',', '.')),
+      iaActiva,
     });
     setGuardando(false);
     if (r.error) setError(r.error);
@@ -65,6 +67,23 @@ export default function ParametrosPropuestaCompra({ inicial }: { inicial: Params
           </div>
         ))}
       </div>
+      <label className="flex items-start gap-2 mt-4 cursor-pointer">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={iaActiva}
+          onChange={(e) => {
+            setGuardado(false);
+            setIaActiva(e.target.checked);
+          }}
+        />
+        <span>
+          <span className="block text-sm font-medium text-grafito">Revisión de la IA activada</span>
+          <span className="block text-xs text-slate">
+            Interruptor general: si lo desactivas, la propuesta funciona solo con las reglas y no se hace ninguna llamada a la IA.
+          </span>
+        </span>
+      </label>
       <button onClick={guardar} disabled={guardando} className="btn-primary mt-4">
         {guardando ? 'Guardando…' : guardado ? 'Guardado ✓' : 'Guardar'}
       </button>

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calcularPropuestaCompra, leerParametrosPropuesta, type LineaPropuesta } from '@/lib/propuesta-compra';
+import { notasIAPropuesta } from '@/lib/propuesta-compra-ia';
 
 // Comprador IA — Fase 1, paso 1: "Proponer compra" (reglas, sin IA). Solo comprador/admin.
 
@@ -37,7 +38,7 @@ export async function proponerCompra(pedidoId: string) {
           : 'No se pudo guardar la propuesta: ' + (error?.message || ''),
       };
     }
-    return { propuestaId: guardada.id as string, lineas, avisos: avisos || [], parametros: params };
+    return { propuestaId: guardada.id as string, lineas, avisos: avisos || [], parametros: params, iaActiva: params.iaActiva };
   } catch (e: any) {
     return { error: 'No se pudo calcular la propuesta: ' + (e?.message || e) };
   }
@@ -117,4 +118,25 @@ export async function aplicarPropuestaCompra(
 
   revalidatePath(`/comprador/${propuesta.pedido_id}`);
   return { success: true, aplicadas };
+}
+
+// Paso 2: la IA revisa la propuesta ya calculada (una llamada por propuesta) y deja
+// notas. Se puede apagar en Administración → Configuración. Si falla, el panel sigue
+// funcionando con lo de las reglas.
+export async function notasIAPropuestaCompra(propuestaId: string) {
+  const user = await compradorOAdmin();
+  if (!user) return { error: 'No autorizado.' };
+  const params = await leerParametrosPropuesta();
+  if (!params.iaActiva) return { desactivada: true as const };
+  const admin = createAdminClient();
+  const { data: propuesta } = await admin.from('propuestas_compra').select('id, pedido_id, lineas').eq('id', propuestaId).single();
+  if (!propuesta) return { error: 'No se encontró la propuesta.' };
+  const { data: pedido } = await admin.from('pedidos').select('*').eq('id', propuesta.pedido_id).maybeSingle();
+  try {
+    const ia = await notasIAPropuesta((propuesta.lineas || []) as LineaPropuesta[], (pedido as any)?.comentarios_comprador || null);
+    await admin.from('propuestas_compra').update({ ia }).eq('id', propuesta.id);
+    return { ia };
+  } catch (e: any) {
+    return { error: 'Notas de la IA no disponibles: ' + (e?.message || e) };
+  }
 }

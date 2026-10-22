@@ -115,6 +115,7 @@ export async function actualizarParametrosPropuesta(v: {
   mesesCompras: number;
   pctAgrupar: number;
   pctVariacion: number;
+  iaActiva: boolean;
 }) {
   await requireAdmin();
   const valores = [v.diasPresupuesto, v.mesesCompras, v.pctAgrupar, v.pctVariacion];
@@ -127,6 +128,7 @@ export async function actualizarParametrosPropuesta(v: {
       propuesta_meses_compras: Math.round(v.mesesCompras),
       propuesta_pct_agrupar: v.pctAgrupar,
       propuesta_pct_variacion: v.pctVariacion,
+      propuesta_ia_activa: !!v.iaActiva,
     })
     .eq('id', 1);
   if (error) return { error: 'No se pudieron guardar los parámetros: ' + error.message };

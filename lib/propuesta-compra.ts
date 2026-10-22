@@ -21,6 +21,7 @@ export type ParametrosPropuesta = {
   mesesCompras: number;
   pctAgrupar: number;
   pctVariacion: number;
+  iaActiva: boolean;
 };
 
 export type Confianza = 'alta' | 'media' | 'baja';
@@ -76,7 +77,7 @@ const pct = (a: number, b: number) => (b > 0 ? ((a - b) / b) * 100 : 0);
 export async function leerParametrosPropuesta(): Promise<ParametrosPropuesta> {
   const { data } = await createAdminClient()
     .from('configuracion')
-    .select('propuesta_dias_presupuesto, propuesta_meses_compras, propuesta_pct_agrupar, propuesta_pct_variacion')
+    .select('*')
     .eq('id', 1)
     .maybeSingle();
   return {
@@ -84,6 +85,7 @@ export async function leerParametrosPropuesta(): Promise<ParametrosPropuesta> {
     mesesCompras: Number(data?.propuesta_meses_compras ?? 6),
     pctAgrupar: Number(data?.propuesta_pct_agrupar ?? 5),
     pctVariacion: Number(data?.propuesta_pct_variacion ?? 10),
+    iaActiva: data?.propuesta_ia_activa !== false,
   };
 }
 
