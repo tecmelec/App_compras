@@ -34,13 +34,19 @@ export async function obtenerComentariosPdf(numeroTecmelec: string) {
     admin.from('pedido_tecmelec_comentarios').select('comentario').eq('numero_tecmelec', numeroTecmelec).maybeSingle(),
     admin
       .from('pedido_items')
-      .select('id, cantidad, estado_id, estado_recepcion, comentario_pdf, created_at, productos(nombre, bc_item_no, unidad_medida)')
+      .select('id, cantidad, estado_id, estado_recepcion, comentario_pdf, productos(nombre, bc_item_no, unidad_medida)')
       .eq('numero_tecmelec', numeroTecmelec)
-      .order('created_at'),
+      .order('id'),
     admin.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle(),
   ]);
-  if (errorCab || errorItems) {
-    return { error: 'Falta aplicar la migración de comentarios del PDF (20261022130000) en la base de datos.' };
+  const errorConsulta = errorCab || errorItems;
+  if (errorConsulta) {
+    const falta = /pedido_tecmelec_comentarios|comentario_pdf/.test(errorConsulta.message || '');
+    return {
+      error: falta
+        ? 'Falta aplicar la migración de comentarios del PDF (20261022130000) en la base de datos.'
+        : 'No se pudieron cargar los comentarios: ' + errorConsulta.message,
+    };
   }
   const lineas: LineaComentarioPdf[] = (items || []).map((it: any) => ({
     id: it.id,
