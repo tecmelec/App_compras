@@ -339,3 +339,42 @@ export async function mensajesConversacionGraph(
     }))
     .sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 }
+
+type MensajeBuzon = { id: string; de: string; deNombre: string; fecha: string; asunto: string; resumen: string; conAdjuntos: boolean; conversacion: string | null };
+const mapMensaje = (m: any): MensajeBuzon => ({
+  id: m.id,
+  de: m.from?.emailAddress?.address || '',
+  deNombre: m.from?.emailAddress?.name || m.from?.emailAddress?.address || '',
+  fecha: m.receivedDateTime || m.sentDateTime,
+  asunto: m.subject || '',
+  resumen: m.bodyPreview || '',
+  conAdjuntos: !!m.hasAttachments,
+  conversacion: m.conversationId || null,
+});
+const SELECCION_BUZON = 'id,subject,from,receivedDateTime,sentDateTime,bodyPreview,hasAttachments,conversationId,isDraft';
+
+// Mensajes del buzón que contienen un texto (asunto o cuerpo), p. ej. "APP-2600056".
+// $search no se puede combinar con $filter: la fecha y el remitente se filtran después.
+export async function buscarMensajesGraph(buzon: string, texto: string): Promise<MensajeBuzon[]> {
+  const token = await obtenerTokenGraph();
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages?$search=${encodeURIComponent(
+    `"${texto.replace(/"/g, '')}"`
+  )}&$select=${SELECCION_BUZON}&$top=50`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`No se pudo buscar en el buzón (${r.status}).`);
+  const data = await r.json();
+  return (data.value || []).filter((m: any) => !m.isDraft).map(mapMensaje);
+}
+
+// Mensajes con adjuntos recibidos desde una fecha (sin $orderby, ver buscarMensajeEnviado).
+export async function mensajesConAdjuntosDesdeGraph(buzon: string, desdeIso: string): Promise<MensajeBuzon[]> {
+  const token = await obtenerTokenGraph();
+  const filtro = `receivedDateTime ge ${desdeIso} and hasAttachments eq true`;
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages?$filter=${encodeURIComponent(
+    filtro
+  )}&$select=${SELECCION_BUZON}&$top=100`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`No se pudo leer el buzón (${r.status}).`);
+  const data = await r.json();
+  return (data.value || []).filter((m: any) => !m.isDraft).map(mapMensaje);
+}

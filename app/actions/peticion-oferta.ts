@@ -6,7 +6,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
 import {
   buscarMensajeEnviadoPorAsunto,
+  buscarMensajesGraph,
   descargarAdjuntoGraph,
+  mensajesConAdjuntosDesdeGraph,
   enviarEmailConAdjuntoGraph,
   listarAdjuntosMensajeGraph,
   mensajesConversacionGraph,
@@ -190,22 +192,58 @@ export type RespuestaOferta = {
   deNombre: string;
   resumen: string;
   adjuntos: { id: string; nombre: string; tipo: string; tamano: number }[];
+  // 'hilo' = respuesta al email; 'numero' = email nuevo que menciona el Nº de solicitud;
+  // 'adjunto' = email nuevo cuyo adjunto (PDF) contiene el Nº de solicitud.
+  origen: 'hilo' | 'numero' | 'adjunto';
 };
+
+const DOMINIOS_PUBLICOS = /^(gmail|googlemail|hotmail|outlook|live|msn|yahoo|ymail|icloud|me|aol|gmx|protonmail|telefonica)\./i;
+const dominio = (email: string) => (email.split('@')[1] || '').toLowerCase();
+
+// Texto de un PDF (capa de texto) para buscar el Nº de solicitud.
+async function textoPDF(base64: string): Promise<string> {
+  try {
+    const { getDocumentProxy } = await import('unpdf');
+    const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(base64, 'base64')));
+    const partes: string[] = [];
+    for (let k = 1; k <= Math.min(pdf.numPages, 10); k++) {
+      const c = await (await pdf.getPage(k)).getTextContent();
+      partes.push((c.items as any[]).map((it) => (typeof it.str === 'string' ? it.str : '')).join(' '));
+    }
+    return partes.join(' ');
+  } catch {
+    return '';
+  }
+}
+const contieneNumero = (texto: string, numeroApp: string) =>
+  texto.replace(/\s+/g, '').toUpperCase().includes(numeroApp.replace(/\s+/g, '').toUpperCase());
 
 export async function obtenerRespuestasOferta(pedidoId: string) {
   if (!(await compradorOAdmin())) return { error: 'No autorizado.' };
   const admin = createAdminClient();
-  const { data: peticiones, error } = await admin
-    .from('peticiones_oferta')
-    .select('*, profiles!peticiones_oferta_enviado_por_fkey(email)')
-    .eq('pedido_id', pedidoId);
+  const [{ data: peticiones, error }, { data: ped }] = await Promise.all([
+    admin.from('peticiones_oferta').select('*, profiles!peticiones_oferta_enviado_por_fkey(email)').eq('pedido_id', pedidoId),
+    admin.from('pedidos').select('numero_app').eq('id', pedidoId).maybeSingle(),
+  ]);
   if (error) return { error: error.message };
+  const numeroApp: string = (ped as any)?.numero_app || '';
   const resultado: Record<string, { respuestas: RespuestaOferta[]; error?: string }> = {};
+  const otras: RespuestaOferta[] = []; // mencionan el Nº pero no son de ningún proveedor consultado
+  const vistos = new Set<string>(); // mensajes ya asignados
+  const conBuzon = (peticiones || []).map((p: any) => ({ ...p, _buzon: (p.buzon || p.profiles?.email || null) as string | null }));
+
+  const adjuntosDe = async (buzon: string, messageId: string) =>
+    (await listarAdjuntosMensajeGraph(buzon, messageId).catch(() => []))
+      .filter((a) => !a.enLinea)
+      .map(({ id, nombre, tipo, tamano }) => ({ id, nombre, tipo, tamano }));
+
+  // 1. Respuestas en el mismo hilo
   await Promise.all(
-    (peticiones || []).map(async (p: any) => {
-      const buzon: string | null = p.buzon || p.profiles?.email || null;
+    conBuzon.map(async (p: any) => {
+      const buzon = p._buzon;
+      resultado[p.id] = { respuestas: [] };
       if (!buzon) {
-        resultado[p.id] = { respuestas: [], error: 'No se sabe desde qué buzón se envió.' };
+        resultado[p.id].error = 'No se sabe desde qué buzón se envió.';
         return;
       }
       try {
@@ -217,34 +255,109 @@ export async function obtenerRespuestasOferta(pedidoId: string) {
             await admin.from('peticiones_oferta').update({ conversation_id: conversacion, message_id: encontrado.messageId }).eq('id', p.id);
           }
         }
-        if (!conversacion) {
-          resultado[p.id] = { respuestas: [] };
-          return;
-        }
+        if (!conversacion) return;
         const mensajes = await mensajesConversacionGraph(buzon, conversacion);
-        const respuestas = mensajes.filter((m) => !m.esBorrador && m.de && m.de.toLowerCase() !== buzon.toLowerCase());
-        resultado[p.id] = {
-          respuestas: await Promise.all(
-            respuestas.map(async (m) => ({
-              messageId: m.id,
-              fecha: m.fecha,
-              de: m.de,
-              deNombre: m.deNombre,
-              resumen: m.resumen,
-              adjuntos: m.conAdjuntos
-                ? (await listarAdjuntosMensajeGraph(buzon, m.id).catch(() => []))
-                    .filter((a) => !a.enLinea)
-                    .map(({ id, nombre, tipo, tamano }) => ({ id, nombre, tipo, tamano }))
-                : [],
-            }))
-          ),
-        };
+        const resp = mensajes.filter((m) => !m.esBorrador && m.de && m.de.toLowerCase() !== buzon.toLowerCase());
+        for (const m of resp) vistos.add(m.id);
+        resultado[p.id].respuestas = await Promise.all(
+          resp.map(async (m) => ({
+            messageId: m.id,
+            fecha: m.fecha,
+            de: m.de,
+            deNombre: m.deNombre,
+            resumen: m.resumen,
+            adjuntos: m.conAdjuntos ? await adjuntosDe(buzon, m.id) : [],
+            origen: 'hilo' as const,
+          }))
+        );
       } catch (e: any) {
-        resultado[p.id] = { respuestas: [], error: e?.message || String(e) };
+        resultado[p.id].error = e?.message || String(e);
       }
     })
   );
-  return { respuestas: resultado };
+
+  // 2. Emails nuevos (fuera del hilo), por buzón: solo se muestran si mencionan el Nº de
+  //    solicitud en el asunto o el texto, o si un PDF adjunto lo contiene.
+  if (numeroApp) {
+    const porBuzon = new Map<string, any[]>();
+    for (const p of conBuzon) if (p._buzon) porBuzon.set(p._buzon, [...(porBuzon.get(p._buzon) || []), p]);
+    for (const [buzon, lista] of Array.from(porBuzon.entries())) {
+      try {
+        const desdeMs = Math.min(...lista.map((p) => new Date(p.enviado_en).getTime()));
+        const desde = new Date(desdeMs).toISOString();
+        const yo = buzon.toLowerCase();
+        // ¿A qué petición pertenece un remitente? Por dirección exacta o, si no es un
+        // dominio público (gmail…), por dominio del proveedor.
+        const peticionDe = (email: string) => {
+          const e = email.toLowerCase();
+          const d = dominio(e);
+          return (
+            lista.find((p) => (p.destinatarios || []).some((x: string) => x.toLowerCase() === e)) ||
+            (!DOMINIOS_PUBLICOS.test(d) ? lista.find((p) => (p.destinatarios || []).some((x: string) => dominio(x) === d)) : undefined)
+          );
+        };
+        const anadir = async (m: any, origen: 'numero' | 'adjunto') => {
+          vistos.add(m.id);
+          const r: RespuestaOferta = {
+            messageId: m.id,
+            fecha: m.fecha,
+            de: m.de,
+            deNombre: m.deNombre,
+            resumen: m.resumen,
+            adjuntos: m.conAdjuntos ? await adjuntosDe(buzon, m.id) : [],
+            origen,
+          };
+          const p = peticionDe(m.de);
+          if (p) resultado[p.id].respuestas.push(r);
+          else otras.push({ ...r, _peticion: lista[0].id } as any);
+        };
+
+        // 2a. Mencionan el Nº de solicitud
+        const conNumero = (await buscarMensajesGraph(buzon, numeroApp)).filter(
+          (m) => !vistos.has(m.id) && m.de && m.de.toLowerCase() !== yo && new Date(m.fecha).getTime() >= desdeMs && contieneNumero(`${m.asunto} ${m.resumen}`, numeroApp)
+        );
+        for (const m of conNumero) await anadir(m, 'numero');
+
+        // 2b. De los proveedores consultados, con PDF adjunto que contiene el Nº
+        const candidatos = (await mensajesConAdjuntosDesdeGraph(buzon, desde))
+          .filter((m) => !vistos.has(m.id) && m.de && m.de.toLowerCase() !== yo && peticionDe(m.de))
+          .slice(0, 20);
+        for (const m of candidatos) {
+          const adj = await adjuntosDe(buzon, m.id);
+          let coincide = false;
+          for (const a of adj.filter((x) => x.tipo === 'application/pdf' || /\.pdf$/i.test(x.nombre)).slice(0, 3)) {
+            if (a.tamano > 10 * 1024 * 1024) continue;
+            const { data: cache } = await admin
+              .from('ofertas_escaneadas')
+              .select('coincide')
+              .eq('message_id', m.id)
+              .eq('attachment_id', a.id)
+              .eq('numero_app', numeroApp)
+              .maybeSingle();
+            let si: boolean;
+            if (cache) si = !!cache.coincide;
+            else {
+              const d = await descargarAdjuntoGraph(buzon, m.id, a.id).catch(() => null);
+              si = !!d && contieneNumero(await textoPDF(d.base64), numeroApp);
+              await admin
+                .from('ofertas_escaneadas')
+                .upsert({ message_id: m.id, attachment_id: a.id, numero_app: numeroApp, coincide: si }, { onConflict: 'message_id,attachment_id,numero_app' });
+            }
+            if (si) {
+              coincide = true;
+              break;
+            }
+          }
+          if (coincide) await anadir(m, 'adjunto');
+        }
+      } catch (e: any) {
+        console.error('[obtenerRespuestasOferta] búsqueda de emails nuevos:', e?.message || e);
+      }
+    }
+  }
+
+  for (const k of Object.keys(resultado)) resultado[k].respuestas.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  return { respuestas: resultado, otras };
 }
 
 const MAX_ADJUNTO_BYTES = 15 * 1024 * 1024;

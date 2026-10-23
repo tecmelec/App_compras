@@ -41,6 +41,7 @@ export default function PeticionesOfertaCliente({
   preciosActuales: { id: string; precio: number }[];
 }) {
   const [respuestas, setRespuestas] = useState<Record<string, { respuestas: RespuestaOferta[]; error?: string }> | null>(null);
+  const [otras, setOtras] = useState<(RespuestaOferta & { _peticion: string })[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -52,7 +53,10 @@ export default function PeticionesOfertaCliente({
     const r = await obtenerRespuestasOferta(pedidoId);
     setCargando(false);
     if ('error' in r && r.error) setError(r.error);
-    else setRespuestas((r as any).respuestas);
+    else {
+      setRespuestas((r as any).respuestas);
+      setOtras((r as any).otras || []);
+    }
   }, [pedidoId]);
 
   useEffect(() => {
@@ -119,6 +123,11 @@ export default function PeticionesOfertaCliente({
                 <div key={m.messageId} className="mt-2 ml-3 pl-3 border-l-2 border-[#A7E3C4]">
                   <p className="text-xs text-[#047857] font-medium">
                     Respondió {m.deNombre} · {fecha(m.fecha)}
+                    {m.origen !== 'hilo' && (
+                      <span className="ml-2 font-normal text-[#92400E] bg-[#FEF3C7] rounded px-1.5 py-0.5">
+                        Email nuevo · {m.origen === 'numero' ? 'menciona' : 'el adjunto menciona'} la solicitud
+                      </span>
+                    )}
                   </p>
                   {m.resumen && <p className="text-xs text-grafito mt-0.5 line-clamp-3">{m.resumen}</p>}
                   {m.adjuntos.length === 0 ? (
@@ -154,6 +163,41 @@ export default function PeticionesOfertaCliente({
           );
         })}
       </ul>
+      {otras.length > 0 && (
+        <div className="mt-3 border-t border-borde pt-2">
+          <p className="text-xs font-medium text-grafito mb-1">Otros emails que mencionan esta solicitud</p>
+          {otras.map((m) => (
+            <div key={m.messageId} className="mt-1 ml-3 pl-3 border-l-2 border-[#F5B971]">
+              <p className="text-xs text-grafito">
+                {m.deNombre} &lt;{m.de}&gt; · {fecha(m.fecha)}
+              </p>
+              {m.resumen && <p className="text-xs text-slate line-clamp-2">{m.resumen}</p>}
+              <ul className="mt-1 space-y-1">
+                {m.adjuntos.map((a) => (
+                  <li key={a.id} className="flex flex-wrap items-center gap-x-3 text-xs">
+                    <span className="text-grafito">📎 {a.nombre}</span>
+                    <button onClick={() => ver(m._peticion, m.messageId, a.id)} disabled={!!ocupado} className="text-marca hover:underline">
+                      {ocupado === a.id ? 'Descargando…' : 'Ver'}
+                    </button>
+                    {(a.tipo === 'application/pdf' || a.tipo.startsWith('image/')) && (
+                      <button
+                        onClick={async () => {
+                          const f = await descargar(m._peticion, m.messageId, a.id);
+                          if (f) setPresupuesto({ archivo: f, proveedorId: null });
+                        }}
+                        disabled={!!ocupado}
+                        className="text-marca font-medium hover:underline"
+                      >
+                        Usar como presupuesto
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
       {presupuesto && (
         <PresupuestoModal
           pedidoId={pedidoId}
