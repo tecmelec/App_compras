@@ -32,6 +32,7 @@ body {
 .badge-rec-pendiente { background-color: #DBEAFE; color: #1D4ED8; border-color: #DBEAFE; }
 .badge-rec-parcial { background-color: #FEF3C7; color: #92400E; border-color: #FEF3C7; }
 .badge-rec-recibido { background-color: #D1FAE5; color: #047857; border-color: #D1FAE5; }
+.badge-tramitado-parcial { background-color: #DBEAFE; color: #1D4ED8; border-color: #BFDBFE; }
 
 .input {
   width: 100%;

@@ -14,6 +14,8 @@ const estilosRecepcion: Record<string, string> = {
   'pendiente de recibir': 'badge-rec-pendiente',
   'recibido parcial': 'badge-rec-parcial',
   recibido: 'badge-rec-recibido',
+  // Estado general de la solicitud
+  'tramitado parcial': 'badge-tramitado-parcial',
 };
 
 export function claseBadgeEstado(estado?: string): string {
