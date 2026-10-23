@@ -605,14 +605,21 @@ export async function enviarAprobacionPedidoCompraBC(
   return { estado, enNombreDe: false };
 }
 
-// Tipo de proyecto ("Obra" / "Estudio") en el registro de BC. El nombre del campo en el
-// servicio OData depende de cómo esté publicado; se puede fijar con la variable
-// BC_CAMPO_TIPO_PROYECTO o, si no, se busca el campo cuyo valor sea "Obra" o "Estudio".
+// Tipo de proyecto ("Obra" / "Estudio") en el registro de BC: campo "AITP Type" de la
+// extensión Aitana Project (AITP_Type en OData). Se puede fijar otro nombre con la
+// variable BC_CAMPO_TIPO_PROYECTO; si no aparece, se busca el campo cuyo valor sea
+// "Obra" o "Estudio".
 export function tipoProyectoBC(registro: Record<string, any>): { tipo: string | null; campo: string | null } {
   const forzado = (process.env.BC_CAMPO_TIPO_PROYECTO || '').trim();
   if (forzado) {
     const v = registro[forzado];
     return { tipo: typeof v === 'string' && v.trim() ? v.trim() : null, campo: forzado };
+  }
+  // Campo "AITP Type" (extensión Aitana Project): en OData suele llamarse AITP_Type.
+  const aitp = Object.keys(registro).find((k) => /^AITP_?Type$/i.test(k));
+  if (aitp) {
+    const v = registro[aitp];
+    return { tipo: typeof v === 'string' && v.trim() ? v.trim() : null, campo: aitp };
   }
   for (const [k, v] of Object.entries(registro)) {
     if (typeof v === 'string' && /^(obra|estudio)$/i.test(v.trim())) {
