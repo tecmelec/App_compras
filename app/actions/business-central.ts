@@ -8,6 +8,8 @@ import { requireAdmin } from '@/lib/auth-guard';
 import {
   obtenerItemsComunesBC,
   obtenerJefeObraProyectoBC,
+  obtenerProyectoBCCrudo,
+  tipoProyectoBC,
   obtenerProveedoresBC,
   obtenerPedidosCompraBC,
   obtenerLineasPedidoCompraBC,
@@ -1273,7 +1275,9 @@ export async function diagnosticoJefeObraProyecto(jobNo: string) {
         .limit(1);
       perfil = data?.[0] || null;
     }
-    return { success: true, ...jefe, perfil };
+    const crudo = await obtenerProyectoBCCrudo(codigo).catch(() => null);
+    const tipo = crudo ? tipoProyectoBC(crudo) : { tipo: null, campo: null };
+    return { success: true, ...jefe, perfil, tipo: tipo.tipo, campoTipo: tipo.campo };
   } catch (e: any) {
     return { error: e.message || 'No se pudo consultar Business Central.' };
   }

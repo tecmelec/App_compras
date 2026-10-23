@@ -215,19 +215,22 @@ export default function SolicitudModal({
         .order('nombre');
       setContactos(contactosGuardados || []);
 
+      // Solo proyectos de tipo Obra (los de tipo Estudio u otros no admiten solicitudes).
+      // Se pide "*" para no fallar si la columna "tipo" aún no existe.
+      const esDeObra = (p: any) => !p?.tipo || p.tipo === 'Obra';
       if (perfil?.rol === 'usuario') {
         const { data: asignados } = await supabase
           .from('usuario_proyectos')
-          .select('proyectos(id, bc_job_no, descripcion, direccion, codigo_postal, ciudad, provincia)')
+          .select('proyectos(*)')
           .eq('usuario_id', user.id);
-        setProyectos(((asignados || []) as any).map((a: any) => a.proyectos).filter(Boolean));
+        setProyectos(((asignados || []) as any).map((a: any) => a.proyectos).filter((p: any) => p && esDeObra(p)));
       } else {
         const { data: abiertos } = await supabase
           .from('proyectos')
-          .select('id, bc_job_no, descripcion, direccion, codigo_postal, ciudad, provincia')
+          .select('*')
           .eq('estado', 'Open')
           .order('bc_job_no');
-        setProyectos(abiertos || []);
+        setProyectos((abiertos || []).filter(esDeObra));
       }
 
       setCargando(false);

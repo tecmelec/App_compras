@@ -10,14 +10,14 @@ export default async function ProyectosAdminPage() {
   const supabase = createClient();
 
   // Supabase devuelve como máximo 1.000 filas por consulta: se piden por tandas.
-  const proyectos: { id: string; bc_job_no: string; descripcion: string | null; estado: string | null }[] = [];
+  const proyectos: { id: string; bc_job_no: string; descripcion: string | null; estado: string | null; tipo?: string | null }[] = [];
   for (let desde = 0; ; desde += 1000) {
     const { data } = await supabase
       .from('proyectos')
-      .select('id, bc_job_no, descripcion, estado')
+      .select('*')
       .order('bc_job_no')
       .range(desde, desde + 999);
-    proyectos.push(...(data || []));
+    proyectos.push(...((data || []) as any[]));
     if (!data || data.length < 1000) break;
   }
 
@@ -55,8 +55,8 @@ export default async function ProyectosAdminPage() {
           <ExportarExcelSimple
             nombreArchivo="Proyectos"
             nombreHoja="Proyectos"
-            cabeceras={[{ titulo: 'Nº', ancho: 14 }, { titulo: 'Descripción', ancho: 50 }, { titulo: 'Estado', ancho: 12 }]}
-            filas={proyectos.map((p) => [p.bc_job_no, p.descripcion, p.estado])}
+            cabeceras={[{ titulo: 'Nº', ancho: 14 }, { titulo: 'Descripción', ancho: 50 }, { titulo: 'Tipo', ancho: 10 }, { titulo: 'Estado', ancho: 12 }]}
+            filas={proyectos.map((p) => [p.bc_job_no, p.descripcion, p.tipo || '', p.estado])}
           />
         </div>
         <div className="bg-white border border-borde rounded-lg overflow-hidden">
@@ -65,6 +65,7 @@ export default async function ProyectosAdminPage() {
               <tr>
                 <th className="px-4 py-3 font-medium">Nº</th>
                 <th className="px-4 py-3 font-medium">Descripción</th>
+                <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
               </tr>
             </thead>
@@ -73,6 +74,15 @@ export default async function ProyectosAdminPage() {
                 <tr key={p.id} className="hover:bg-fondo">
                   <td className="px-4 py-3 font-mono text-grafito">{p.bc_job_no}</td>
                   <td className="px-4 py-3 text-grafito">{p.descripcion}</td>
+                  <td className="px-4 py-3">
+                    {p.tipo ? (
+                      <span className={p.tipo === 'Obra' ? 'text-grafito' : 'text-slate italic'} title={p.tipo === 'Obra' ? undefined : 'No se puede usar para solicitar material'}>
+                        {p.tipo}
+                      </span>
+                    ) : (
+                      <span className="text-slate">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`badge ${p.estado === 'Open' ? 'badge-entregado' : 'badge-cancelado'}`}>
                       {p.estado}

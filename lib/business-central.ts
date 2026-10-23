@@ -604,3 +604,29 @@ export async function enviarAprobacionPedidoCompraBC(
   const estado = await llamarAccionAprobacionBC('EnviarAprobacion', { documentNo });
   return { estado, enNombreDe: false };
 }
+
+// Tipo de proyecto ("Obra" / "Estudio") en el registro de BC. El nombre del campo en el
+// servicio OData depende de cómo esté publicado; se puede fijar con la variable
+// BC_CAMPO_TIPO_PROYECTO o, si no, se busca el campo cuyo valor sea "Obra" o "Estudio".
+export function tipoProyectoBC(registro: Record<string, any>): { tipo: string | null; campo: string | null } {
+  const forzado = (process.env.BC_CAMPO_TIPO_PROYECTO || '').trim();
+  if (forzado) {
+    const v = registro[forzado];
+    return { tipo: typeof v === 'string' && v.trim() ? v.trim() : null, campo: forzado };
+  }
+  for (const [k, v] of Object.entries(registro)) {
+    if (typeof v === 'string' && /^(obra|estudio)$/i.test(v.trim())) {
+      const t = v.trim();
+      return { tipo: t.charAt(0).toUpperCase() + t.slice(1).toLowerCase(), campo: k };
+    }
+  }
+  return { tipo: null, campo: null };
+}
+
+// Registro completo de un proyecto en BC (para diagnóstico).
+export async function obtenerProyectoBCCrudo(jobNo: string): Promise<Record<string, any> | null> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_PROYECTOS!);
+  const filtro = `No eq '${jobNo.replace(/'/g, "''")}'`;
+  const r: Record<string, any>[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
+  return r?.[0] || null;
+}

@@ -38,6 +38,11 @@ export default function DiagnosticoJefeObra() {
       {r?.error && <p className="text-rojo mt-2">{r.error}</p>}
       {r?.success && (
         <div className="mt-2 space-y-1 text-slate">
+          <p>
+            Tipo de proyecto (BC): <b>{r.tipo || 'no detectado'}</b>
+            {r.campoTipo && <span className="text-xs"> (campo {r.campoTipo})</span>}
+            {r.tipo && r.tipo !== 'Obra' && <span className="text-rojo"> · no se puede usar para solicitar material</span>}
+          </p>
           <p>Jefe de obra (BC): <b>{r.userName || '— sin asignar —'}</b></p>
           <p>Id. de seguridad: <span className="font-mono">{r.userSecurityId || '—'}</span></p>
           <p>

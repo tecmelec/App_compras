@@ -262,6 +262,15 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     requiereAprobacion = true;
   }
 
+  // Solo proyectos de tipo Obra (si el tipo es conocido).
+  {
+    const { data: proy } = await createAdminClient().from('proyectos').select('*').eq('id', datos.proyecto_id).maybeSingle();
+    const tipo = (proy as any)?.tipo;
+    if (tipo && tipo !== 'Obra') {
+      return { error: `El proyecto ${(proy as any).bc_job_no} es de tipo "${tipo}": solo se puede solicitar material para proyectos de tipo Obra.` };
+    }
+  }
+
   // 3. Crear el pedido
   const comentarios = (datos.comentarios_comprador || '').trim().slice(0, 2000) || null;
   const filaPedido: Record<string, any> = {

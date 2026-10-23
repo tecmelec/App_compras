@@ -1,6 +1,6 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { obtenerProyectosBC } from '@/lib/business-central';
+import { obtenerProyectosBC, tipoProyectoBC } from '@/lib/business-central';
 
 // Sincronización de proyectos sin comprobación de usuario: la usan el botón de
 // Admin → Proyectos (arriba) y la sincronización automática (/api/cron/sincronizar-proyectos-bc,
@@ -28,6 +28,12 @@ export async function sincronizarProyectosNucleo(por: string | null) {
   let creados = 0;
   let actualizados = 0;
   const errores: string[] = [];
+  // Si la columna "tipo" aún no existe (migración 20261023180000), se sigue sin ella.
+  let conTipo = true;
+  const sinTipo = (d: Record<string, any>) => {
+    const { tipo: _t, ...resto } = d;
+    return resto;
+  };
 
   for (const proyecto of proyectos) {
     const idExistente = existentesPorNo.get(proyecto.No);
@@ -38,16 +44,21 @@ export async function sincronizarProyectosNucleo(por: string | null) {
       codigo_postal: proyecto.Sell_to_Post_Code,
       ciudad: proyecto.Sell_to_City,
       provincia: proyecto.Sell_to_County,
-    };
-    if (idExistente) {
-      const { error } = await supabase.from('proyectos').update(datos).eq('id', idExistente);
-      if (error) errores.push(`${proyecto.No}: ${error.message}`);
-      else actualizados++;
-    } else {
-      const { error } = await supabase.from('proyectos').insert({ bc_job_no: proyecto.No, ...datos });
-      if (error) errores.push(`${proyecto.No}: ${error.message}`);
-      else creados++;
+    } as Record<string, any>;
+    const { tipo } = tipoProyectoBC(proyecto as any);
+    if (tipo && conTipo) datos.tipo = tipo;
+    const guardar = async (d: Record<string, any>) =>
+      idExistente
+        ? (await supabase.from('proyectos').update(d).eq('id', idExistente)).error
+        : (await supabase.from('proyectos').insert({ bc_job_no: proyecto.No, ...d })).error;
+    let error = await guardar(datos);
+    if (error && 'tipo' in datos && /tipo/.test(error.message || '')) {
+      conTipo = false;
+      error = await guardar(sinTipo(datos));
     }
+    if (error) errores.push(`${proyecto.No}: ${error.message}`);
+    else if (idExistente) actualizados++;
+    else creados++;
   }
 
   revalidatePath('/admin/proyectos');
