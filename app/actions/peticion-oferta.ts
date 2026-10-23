@@ -116,6 +116,14 @@ export async function enviarPeticionOferta(datos: {
     .in('id', datos.itemIds);
   if (!items || items.length !== datos.itemIds.length) return { error: 'Alguna línea no pertenece a esta solicitud.' };
 
+  // El mensaje se escribe como texto; se envía en HTML para poner en negrita el Nº de
+  // solicitud (p. ej. APP-2600056) allí donde aparezca.
+  const { data: ped } = await admin.from('pedidos').select('numero_app').eq('id', datos.pedidoId).maybeSingle();
+  const escapar = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let html = escapar(datos.cuerpo);
+  if (ped?.numero_app) html = html.split(escapar(ped.numero_app)).join(`<strong>${escapar(ped.numero_app)}</strong>`);
+  html = `<div style="font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #1C2126;">${html.replace(/\r?\n/g, '<br/>')}</div>`;
+
   let envio: { messageId: string; conversationId: string | null };
   try {
     envio = await enviarEmailConAdjuntoGraph({
@@ -123,7 +131,8 @@ export async function enviarPeticionOferta(datos: {
       destinatarios,
       cc,
       asunto: datos.asunto.trim(),
-      cuerpo: datos.cuerpo,
+      cuerpo: html,
+      cuerpoEsHtml: true,
       nombreArchivo: '',
       contenidoBase64: '',
     });

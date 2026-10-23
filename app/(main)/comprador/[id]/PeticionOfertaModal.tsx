@@ -42,7 +42,7 @@ Les solicitamos su mejor oferta para el siguiente material:
 
 ${filas}
 
-Por favor, indiquen precio neto unitario (con descuentos), plazo de entrega y si incluye portes. Rogamos que en su respuesta hagan referencia a ${ctx.numeroApp}.
+Por favor, indique precio y plazo de entrega. Rogamos que en su respuesta hagan referencia a ${ctx.numeroApp}.
 
 Un saludo,
 ${ctx.firma ? ctx.firma + '\n' : ''}Tecmelec Electricidad S.L.`;
@@ -308,7 +308,7 @@ export default function PeticionOfertaModal({
                         <input className="input w-full text-sm mt-0.5" value={t.asunto} onChange={(e) => cambiarTarjeta(k, { asunto: e.target.value })} />
                       </label>
                       <label className="text-xs text-slate sm:col-span-2">
-                        Mensaje
+                        Mensaje <span className="text-slate/80">(el Nº de solicitud {contexto?.numeroApp} se enviará en negrita)</span>
                         <textarea
                           className="input w-full text-sm mt-0.5 font-sans"
                           rows={10}
