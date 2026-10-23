@@ -328,7 +328,14 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       </div>
       <ComentariosSolicitud pedidoId={p.id} />
       <DocumentosSolicitud pedidoId={p.id} />
-      <PeticionesOfertaSolicitud pedidoId={p.id} />
+      <PeticionesOfertaSolicitud
+        pedidoId={p.id}
+        proveedores={(proveedores as any[]) || []}
+        preciosActuales={(p.pedido_items as any[]).map((i) => ({
+          id: i.id,
+          precio: Number(i.precio_unitario ?? i.productos?.precio ?? 0),
+        }))}
+      />
       <PresupuestosSolicitud
         pedidoId={p.id}
         nombresItems={Object.fromEntries((p.pedido_items as any[]).map((i) => [i.id, i.productos?.nombre || 'Producto']))}

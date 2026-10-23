@@ -323,11 +323,35 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
     let mejor: Candidato | null = null;
     for (const o of PRIORIDAD) {
       const delOrigen = cs.filter((c) => c.origen === o);
-      if (delOrigen.length) {
+      if (!delOrigen.length) continue;
+      if (o === 'presupuesto' || o === 'presupuesto_otra') {
+        // Varias ofertas (de distintos proveedores): la última de cada proveedor y, de
+        // ellas, la más barata. Las demás se indican en una nota para comparar.
+        const porProveedor = new Map<string, Candidato>();
+        for (const c of delOrigen) {
+          const k = c.proveedorId || c.proveedorNo || c.proveedorNombre || '?';
+          if (!porProveedor.has(k)) porProveedor.set(k, c); // los presupuestos vienen del más reciente al más antiguo
+        }
+        const ofertas = Array.from(porProveedor.values()).sort((a, b) => a.precio - b.precio);
+        mejor = ofertas[0];
+        if (ofertas.length > 1) {
+          nota(
+            it.id,
+            `${ofertas.length} ofertas: ` +
+              ofertas
+                .map((c, k) =>
+                  k === 0
+                    ? `${c.proveedorNombre || c.proveedorNo} ${fmtEur(c.precio)} € (la más barata)`
+                    : `${c.proveedorNombre || c.proveedorNo} ${fmtEur(c.precio)} € (+${Math.round(pct(c.precio, ofertas[0].precio))} %)`
+                )
+                .join(' · ')
+          );
+        }
+      } else {
         // el primero añadido de ese origen es el preferido (más reciente / mismo proyecto)
         mejor = delOrigen[0];
-        break;
       }
+      break;
     }
     elegido.set(it.id, mejor);
   }

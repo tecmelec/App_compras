@@ -279,3 +279,63 @@ export async function obtenerConversacionGraph(
     }))
     .sort((a: MensajeConversacionGraph, b: MensajeConversacionGraph) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 }
+
+// Adjuntos de un mensaje (sin el contenido), para las respuestas a peticiones de oferta.
+export async function listarAdjuntosMensajeGraph(
+  buzon: string,
+  messageId: string
+): Promise<{ id: string; nombre: string; tipo: string; tamano: number; enLinea: boolean }[]> {
+  const token = await obtenerTokenGraph();
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages/${encodeURIComponent(
+    messageId
+  )}/attachments?$select=id,name,contentType,size,isInline`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`No se pudieron leer los adjuntos en Microsoft Graph (${r.status}).`);
+  const data = await r.json();
+  return (data.value || [])
+    .filter((a: any) => (a['@odata.type'] || '').includes('fileAttachment'))
+    .map((a: any) => ({ id: a.id, nombre: a.name || 'adjunto', tipo: a.contentType || 'application/octet-stream', tamano: a.size || 0, enLinea: !!a.isInline }));
+}
+
+// Contenido (base64) de un adjunto.
+export async function descargarAdjuntoGraph(
+  buzon: string,
+  messageId: string,
+  attachmentId: string
+): Promise<{ nombre: string; tipo: string; base64: string }> {
+  const token = await obtenerTokenGraph();
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages/${encodeURIComponent(
+    messageId
+  )}/attachments/${encodeURIComponent(attachmentId)}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`No se pudo descargar el adjunto (${r.status}).`);
+  const a = await r.json();
+  return { nombre: a.name || 'adjunto', tipo: a.contentType || 'application/octet-stream', base64: a.contentBytes || '' };
+}
+
+// Mensajes de una conversación indicando si traen adjuntos.
+export async function mensajesConversacionGraph(
+  buzon: string,
+  conversationId: string
+): Promise<(MensajeConversacionGraph & { conAdjuntos: boolean })[]> {
+  const token = await obtenerTokenGraph();
+  const filtro = `conversationId eq '${conversationId.replace(/'/g, "''")}'`;
+  const url = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(buzon)}/messages?$filter=${encodeURIComponent(
+    filtro
+  )}&$select=id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isDraft,hasAttachments&$top=50`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`No se pudo leer la conversación en Microsoft Graph (${r.status}).`);
+  const data = await r.json();
+  return (data.value || [])
+    .map((m: any) => ({
+      id: m.id,
+      de: m.from?.emailAddress?.address || '',
+      deNombre: m.from?.emailAddress?.name || m.from?.emailAddress?.address || '',
+      fecha: m.receivedDateTime || m.sentDateTime,
+      asunto: m.subject || '',
+      resumen: m.bodyPreview || '',
+      esBorrador: !!m.isDraft,
+      conAdjuntos: !!m.hasAttachments,
+    }))
+    .sort((a: any, b: any) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+}

@@ -48,20 +48,39 @@ export default function PresupuestoBoton({
   );
 }
 
+// También se abre desde "Peticiones de oferta enviadas" con el adjunto de la respuesta
+// del proveedor ya cargado (archivosIniciales) y su proveedor preseleccionado.
+export function PresupuestoModal(props: {
+  pedidoId: string;
+  proveedores: Proveedor[];
+  preciosActuales: ItemActual[];
+  onCerrar: () => void;
+  archivosIniciales?: File[];
+  proveedorIdInicial?: string | null;
+}) {
+  return <Modal {...props} />;
+}
+
 function Modal({
   pedidoId,
   proveedores,
   preciosActuales,
   onCerrar,
+  archivosIniciales,
+  proveedorIdInicial,
 }: {
   pedidoId: string;
   proveedores: Proveedor[];
   preciosActuales: ItemActual[];
   onCerrar: () => void;
+  archivosIniciales?: File[];
+  proveedorIdInicial?: string | null;
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [archivos, setArchivos] = useState<{ file: File; url: string }[]>([]);
+  const [archivos, setArchivos] = useState<{ file: File; url: string }[]>(() =>
+    (archivosIniciales || []).slice(0, MAX_ARCHIVOS).map((file) => ({ file, url: URL.createObjectURL(file) }))
+  );
   const [fase, setFase] = useState<'inicio' | 'analizando' | 'revision' | 'aplicando'>('inicio');
   const [error, setError] = useState<string | null>(null);
   const [presupuestoId, setPresupuestoId] = useState<string | null>(null);
@@ -140,8 +159,8 @@ function Modal({
       setLineas(datos.lineas || []);
       setItems(datos.items || []);
       setProveedorDetectado(datos.proveedor || null);
-      setProveedorId(datos.proveedor?.proveedor_id || '');
-      setAsignarProveedor(!!datos.proveedor?.proveedor_id);
+      setProveedorId(datos.proveedor?.proveedor_id || proveedorIdInicial || '');
+      setAsignarProveedor(!!(datos.proveedor?.proveedor_id || proveedorIdInicial));
       setEleccion(Object.fromEntries((datos.propuestas || []).map((p: PropuestaPrecio) => [p.item_id, p.linea_idx])));
       setPorQue(Object.fromEntries((datos.propuestas || []).map((p: PropuestaPrecio) => [p.item_id, p.por])));
       setFase('revision');

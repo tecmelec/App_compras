@@ -4,7 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerFichaProveedorPorNumeroBC } from '@/lib/business-central';
-import { enviarEmailConAdjuntoGraph } from '@/lib/microsoft-graph';
+import {
+  buscarMensajeEnviadoPorAsunto,
+  descargarAdjuntoGraph,
+  enviarEmailConAdjuntoGraph,
+  listarAdjuntosMensajeGraph,
+  mensajesConversacionGraph,
+} from '@/lib/microsoft-graph';
 import { sugerirProveedoresOferta, type GrupoPeticion, type LineaPeticion } from '@/lib/peticion-oferta';
 
 // Comprador IA — Fase 1, paso 3: peticiones de oferta. Un email por proveedor, desde el
@@ -140,7 +146,7 @@ export async function enviarPeticionOferta(datos: {
     return { error: 'No se pudo enviar: ' + (e?.message || e) };
   }
 
-  const { error } = await admin.from('peticiones_oferta').insert({
+  const fila: Record<string, any> = {
     pedido_id: datos.pedidoId,
     propuesta_compra_id: datos.propuestaId,
     proveedor_id: datos.proveedorId,
@@ -161,10 +167,102 @@ export async function enviarPeticionOferta(datos: {
     enviado_por: quien.user.id,
     message_id: envio.messageId || null,
     conversation_id: envio.conversationId,
-  });
+    buzon: quien.user.email,
+  };
+  let { error } = await admin.from('peticiones_oferta').insert(fila);
+  if (error && /buzon/.test(error.message || '')) {
+    delete fila.buzon; // migración 20261023140000 aún sin aplicar
+    ({ error } = await admin.from('peticiones_oferta').insert(fila));
+  }
   if (error) {
     return { success: true, aviso: 'Enviado, pero no se pudo registrar en la solicitud: ' + error.message };
   }
   revalidatePath(`/comprador/${datos.pedidoId}`);
   return { success: true };
+}
+
+// ---- Respuestas de los proveedores (lee el hilo de cada petición en el buzón) ----
+
+export type RespuestaOferta = {
+  messageId: string;
+  fecha: string;
+  de: string;
+  deNombre: string;
+  resumen: string;
+  adjuntos: { id: string; nombre: string; tipo: string; tamano: number }[];
+};
+
+export async function obtenerRespuestasOferta(pedidoId: string) {
+  if (!(await compradorOAdmin())) return { error: 'No autorizado.' };
+  const admin = createAdminClient();
+  const { data: peticiones, error } = await admin
+    .from('peticiones_oferta')
+    .select('*, profiles!peticiones_oferta_enviado_por_fkey(email)')
+    .eq('pedido_id', pedidoId);
+  if (error) return { error: error.message };
+  const resultado: Record<string, { respuestas: RespuestaOferta[]; error?: string }> = {};
+  await Promise.all(
+    (peticiones || []).map(async (p: any) => {
+      const buzon: string | null = p.buzon || p.profiles?.email || null;
+      if (!buzon) {
+        resultado[p.id] = { respuestas: [], error: 'No se sabe desde qué buzón se envió.' };
+        return;
+      }
+      try {
+        let conversacion = p.conversation_id as string | null;
+        if (!conversacion) {
+          const encontrado = await buscarMensajeEnviadoPorAsunto(buzon, p.asunto).catch(() => null);
+          if (encontrado?.conversationId) {
+            conversacion = encontrado.conversationId;
+            await admin.from('peticiones_oferta').update({ conversation_id: conversacion, message_id: encontrado.messageId }).eq('id', p.id);
+          }
+        }
+        if (!conversacion) {
+          resultado[p.id] = { respuestas: [] };
+          return;
+        }
+        const mensajes = await mensajesConversacionGraph(buzon, conversacion);
+        const respuestas = mensajes.filter((m) => !m.esBorrador && m.de && m.de.toLowerCase() !== buzon.toLowerCase());
+        resultado[p.id] = {
+          respuestas: await Promise.all(
+            respuestas.map(async (m) => ({
+              messageId: m.id,
+              fecha: m.fecha,
+              de: m.de,
+              deNombre: m.deNombre,
+              resumen: m.resumen,
+              adjuntos: m.conAdjuntos
+                ? (await listarAdjuntosMensajeGraph(buzon, m.id).catch(() => []))
+                    .filter((a) => !a.enLinea)
+                    .map(({ id, nombre, tipo, tamano }) => ({ id, nombre, tipo, tamano }))
+                : [],
+            }))
+          ),
+        };
+      } catch (e: any) {
+        resultado[p.id] = { respuestas: [], error: e?.message || String(e) };
+      }
+    })
+  );
+  return { respuestas: resultado };
+}
+
+const MAX_ADJUNTO_BYTES = 15 * 1024 * 1024;
+
+export async function descargarAdjuntoOferta(peticionId: string, messageId: string, attachmentId: string) {
+  if (!(await compradorOAdmin())) return { error: 'No autorizado.' };
+  const { data: p } = await createAdminClient()
+    .from('peticiones_oferta')
+    .select('*, profiles!peticiones_oferta_enviado_por_fkey(email)')
+    .eq('id', peticionId)
+    .maybeSingle();
+  const buzon: string | null = (p as any)?.buzon || (p as any)?.profiles?.email || null;
+  if (!p || !buzon) return { error: 'Petición no encontrada.' };
+  try {
+    const a = await descargarAdjuntoGraph(buzon, messageId, attachmentId);
+    if (a.base64.length * 0.75 > MAX_ADJUNTO_BYTES) return { error: 'El adjunto es demasiado grande (máx. 15 MB).' };
+    return a;
+  } catch (e: any) {
+    return { error: e?.message || String(e) };
+  }
 }
