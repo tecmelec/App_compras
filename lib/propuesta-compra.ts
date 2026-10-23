@@ -63,6 +63,7 @@ export type LineaPropuesta = {
     fecha: string | null;
     confianza: Confianza | null;
     presupuestoId: string | null;
+    precioNeto?: number | null; // con pronto pago y rappel de Condiciones comerciales (si las hay)
   };
   notas: string[];
 };
@@ -315,6 +316,28 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
     });
   }
 
+  // ---- Condiciones comerciales (pronto pago y rappel por proveedor) ----
+  // Las ofertas se comparan en NETO; el precio que se propone y se aplica es el bruto
+  // (el que va al pedido de BC). Si la tabla no existe aún, factor 1.
+  const idsCand = Array.from(new Set(Array.from(candidatos.values()).flat().map((c) => c.proveedorId).filter(Boolean))) as string[];
+  const factorPorProv = new Map<string, number>();
+  if (idsCand.length) {
+    const { data: conds } = await admin
+      .from('condiciones_proveedor')
+      .select('proveedor_id, pronto_pago_pct, rappel_pct')
+      .in('proveedor_id', idsCand);
+    for (const c of conds || []) {
+      factorPorProv.set(
+        (c as any).proveedor_id,
+        (1 - Number((c as any).pronto_pago_pct || 0) / 100) * (1 - Number((c as any).rappel_pct || 0) / 100)
+      );
+    }
+  }
+  const factor = (c: Candidato) => (c.proveedorId && factorPorProv.get(c.proveedorId)) || 1;
+  const neto = (c: Candidato) => c.precio * factor(c);
+  const txtPrecio = (c: Candidato) =>
+    factor(c) !== 1 ? `${fmtEur(c.precio)} € (neto ${fmtEur(Number(neto(c).toFixed(4)))} €)` : `${fmtEur(c.precio)} €`;
+
   // ---- Elección por prioridad ----
   const PRIORIDAD: OrigenPropuesta[] = ['presupuesto', 'presupuesto_otra', 'compra_reciente', 'compra_antigua', 'catalogo'];
   const elegido = new Map<string, Candidato | null>();
@@ -332,17 +355,17 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
           const k = c.proveedorId || c.proveedorNo || c.proveedorNombre || '?';
           if (!porProveedor.has(k)) porProveedor.set(k, c); // los presupuestos vienen del más reciente al más antiguo
         }
-        const ofertas = Array.from(porProveedor.values()).sort((a, b) => a.precio - b.precio);
+        const ofertas = Array.from(porProveedor.values()).sort((a, b) => neto(a) - neto(b));
         mejor = ofertas[0];
         if (ofertas.length > 1) {
           nota(
             it.id,
-            `${ofertas.length} ofertas: ` +
+            `${ofertas.length} ofertas (comparadas en neto): ` +
               ofertas
                 .map((c, k) =>
                   k === 0
-                    ? `${c.proveedorNombre || c.proveedorNo} ${fmtEur(c.precio)} € (la más barata)`
-                    : `${c.proveedorNombre || c.proveedorNo} ${fmtEur(c.precio)} € (+${Math.round(pct(c.precio, ofertas[0].precio))} %)`
+                    ? `${c.proveedorNombre || c.proveedorNo} ${txtPrecio(c)} (la más barata)`
+                    : `${c.proveedorNombre || c.proveedorNo} ${txtPrecio(c)} (+${Math.round(pct(neto(c), neto(ofertas[0])))} %)`
                 )
                 .join(' · ')
           );
@@ -367,16 +390,16 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
       if (!actual || actual.proveedorId === provPrincipal) continue;
       const alt = (candidatos.get(it.id) || [])
         .filter((c) => c.proveedorId === provPrincipal)
-        .sort((a, b) => a.precio - b.precio)[0];
+        .sort((a, b) => neto(a) - neto(b))[0];
       if (!alt) continue;
-      const dif = pct(alt.precio, actual.precio);
+      const dif = pct(neto(alt), neto(actual));
       if (dif <= params.pctAgrupar) {
-        const extra = (alt.precio - actual.precio) * Number(it.cantidad);
+        const extra = (neto(alt) - neto(actual)) * Number(it.cantidad);
         nota(
           it.id,
           `Agrupado con ${alt.proveedorNombre || alt.proveedorNo} para hacer un pedido menos (${extra >= 0 ? '+' : ''}${fmtEur(
             Number(extra.toFixed(2))
-          )} € frente a ${actual.proveedorNombre || actual.proveedorNo}).`
+          )} € netos frente a ${actual.proveedorNombre || actual.proveedorNo}).`
         );
         elegido.set(it.id, {
           ...alt,
@@ -415,6 +438,7 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
             fecha: c.fecha,
             confianza: c.confianza,
             presupuestoId: c.presupuestoId || null,
+            precioNeto: factor(c) !== 1 ? Number(neto(c).toFixed(5)) : null,
           }
         : {
             proveedorId: null,
@@ -426,6 +450,7 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
             fecha: null,
             confianza: null,
             presupuestoId: null,
+            precioNeto: null,
           },
       notas,
     };

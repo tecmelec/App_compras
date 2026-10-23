@@ -272,6 +272,11 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
                           onChange={(e) => cambiar(l.itemId, { precio: e.target.value, sel: true })}
                           className={`input w-36 min-w-[8.5rem] text-right font-mono ${err ? 'border-rojo' : ''}`}
                         />
+                        {l.propuesta.precioNeto != null && (
+                          <p className="text-[11px] text-slate mt-0.5" title="Con el pronto pago y el rappel de Condiciones comerciales">
+                            neto {fmt(l.propuesta.precioNeto)} €
+                          </p>
+                        )}
                         {err && <p className="text-xs text-rojo mt-0.5">{err}</p>}
                       </td>
                       <td className="px-2 py-2 min-w-[200px]">

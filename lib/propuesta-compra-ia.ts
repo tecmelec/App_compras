@@ -40,6 +40,7 @@ export async function notasIAPropuesta(lineas: LineaPropuesta[], comentariosSoli
       propuesta: {
         proveedor: l.propuesta.proveedorNombre || l.propuesta.proveedorNo,
         precio: l.propuesta.precio,
+        precio_neto_con_pronto_pago_y_rappel: l.propuesta.precioNeto ?? null,
         origen: l.propuesta.origenTexto,
         confianza: l.propuesta.confianza || 'pedir oferta',
       },
