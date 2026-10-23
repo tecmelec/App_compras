@@ -1,6 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
+    // Las imágenes de productos se sirven tal cual desde Supabase Storage, sin pasar por
+    // la optimización de imágenes de Vercel: en el plan Hobby tiene un cupo mensual y,
+    // al agotarse, las imágenes que no estaban ya en caché (p. ej. los tamaños que pide
+    // el móvil) dejan de cargarse.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
