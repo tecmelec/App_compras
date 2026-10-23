@@ -185,7 +185,7 @@ export default function PeticionOfertaModal({
   const tarjetaInvalida = (t: Tarjeta) => !t.destinatarios.trim() || t.itemIds.length === 0 || !t.asunto.trim() || !t.cuerpo.trim();
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center p-4 overflow-y-auto" onClick={() => !enviando && onCerrar()}>
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-xl w-full max-w-4xl my-6 p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>

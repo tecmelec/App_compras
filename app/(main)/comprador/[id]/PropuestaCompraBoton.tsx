@@ -146,7 +146,7 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto" onClick={() => !aplicando && onCerrar()}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-xl w-full max-w-6xl my-6 p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
