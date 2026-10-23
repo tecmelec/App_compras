@@ -288,9 +288,13 @@ export async function obtenerRespuestasOferta(pedidoId: string) {
         const yo = buzon.toLowerCase();
         // ¿A qué petición pertenece un remitente? Por dirección exacta o, si no es un
         // dominio público (gmail…), por dominio del proveedor.
+        // En PRUEBAS las peticiones se desvían a EMAIL_DESVIO_PRUEBAS: las respuestas de
+        // prueba llegan desde esa dirección y cuentan como del proveedor de la petición.
+        const desvio = process.env.VERCEL_ENV !== 'production' ? (process.env.EMAIL_DESVIO_PRUEBAS || '').trim().toLowerCase() : '';
         const peticionDe = (email: string) => {
           const e = email.toLowerCase();
           const d = dominio(e);
+          if (desvio && e === desvio && lista.length === 1) return lista[0];
           return (
             lista.find((p) => (p.destinatarios || []).some((x: string) => x.toLowerCase() === e)) ||
             (!DOMINIOS_PUBLICOS.test(d) ? lista.find((p) => (p.destinatarios || []).some((x: string) => dominio(x) === d)) : undefined)
@@ -320,7 +324,7 @@ export async function obtenerRespuestasOferta(pedidoId: string) {
 
         // 2b. De los proveedores consultados, con PDF adjunto que contiene el Nº
         const candidatos = (await mensajesConAdjuntosDesdeGraph(buzon, desde))
-          .filter((m) => !vistos.has(m.id) && m.de && m.de.toLowerCase() !== yo && peticionDe(m.de))
+          .filter((m) => !vistos.has(m.id) && m.de && m.de.toLowerCase() !== yo && (peticionDe(m.de) || (desvio && m.de.toLowerCase() === desvio)))
           .slice(0, 20);
         for (const m of candidatos) {
           const adj = await adjuntosDe(buzon, m.id);
