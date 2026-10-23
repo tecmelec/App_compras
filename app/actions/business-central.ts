@@ -1,12 +1,12 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { sincronizarProyectosNucleo } from '@/lib/sincronizar-proyectos';
 import { puedeCrearPedidoBC, MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO } from '@/lib/pedidos-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guard';
 import {
   obtenerItemsComunesBC,
-  obtenerProyectosBC,
   obtenerJefeObraProyectoBC,
   obtenerProveedoresBC,
   obtenerPedidosCompraBC,
@@ -162,76 +162,12 @@ export async function sincronizarProductosBC() {
 
 export async function sincronizarProyectosBC() {
   await requireAdmin();
-  const supabase = createClient();
-
-  let proyectos;
-  try {
-    proyectos = await obtenerProyectosBC();
-  } catch (e: any) {
-    return { error: e.message || 'No se pudo conectar con Business Central.' };
-  }
-
-  const { data: existentes } = await supabase.from('proyectos').select('id, bc_job_no');
-  const existentesPorNo = new Map((existentes || []).map((p) => [p.bc_job_no, p.id]));
-
-  let creados = 0;
-  let actualizados = 0;
-  const errores: string[] = [];
-
-  for (const proyecto of proyectos) {
-    const idExistente = existentesPorNo.get(proyecto.No);
-
-    if (idExistente) {
-      const { error } = await supabase
-        .from('proyectos')
-        .update({
-          descripcion: proyecto.Description,
-          estado: proyecto.Status,
-          direccion: proyecto.Sell_to_Address,
-          codigo_postal: proyecto.Sell_to_Post_Code,
-          ciudad: proyecto.Sell_to_City,
-          provincia: proyecto.Sell_to_County,
-        })
-        .eq('id', idExistente);
-
-      if (error) errores.push(`${proyecto.No}: ${error.message}`);
-      else actualizados++;
-    } else {
-      const { error } = await supabase.from('proyectos').insert({
-        bc_job_no: proyecto.No,
-        descripcion: proyecto.Description,
-        estado: proyecto.Status,
-        direccion: proyecto.Sell_to_Address,
-        codigo_postal: proyecto.Sell_to_Post_Code,
-        ciudad: proyecto.Sell_to_City,
-        provincia: proyecto.Sell_to_County,
-      });
-
-      if (error) errores.push(`${proyecto.No}: ${error.message}`);
-      else creados++;
-    }
-  }
-
-  revalidatePath('/admin/proyectos');
-  revalidatePath('/proyectos-equipo');
-
-  // Fecha y hora de esta sincronización (se muestra junto al botón en Admin → Proyectos)
-  {
-    const sup = createClient();
-    const {
-      data: { user },
-    } = await sup.auth.getUser();
-    const { data: yo } = user
-      ? await sup.from('profiles').select('nombre_completo').eq('id', user.id).single()
-      : { data: null };
-    const { error: errorFecha } = await createAdminClient()
-      .from('configuracion')
-      .update({ ultima_sincronizacion_proyectos: new Date().toISOString(), ultima_sincronizacion_proyectos_por: yo?.nombre_completo || null })
-      .eq('id', 1);
-    if (errorFecha) console.error('[proyectos] No se pudo guardar la fecha de la última sincronización:', errorFecha.message);
-  }
-
-  return { success: true, creados, actualizados, totalBC: proyectos.length, errores };
+  const sup = createClient();
+  const {
+    data: { user },
+  } = await sup.auth.getUser();
+  const { data: yo } = user ? await sup.from('profiles').select('nombre_completo').eq('id', user.id).single() : { data: null };
+  return sincronizarProyectosNucleo(yo?.nombre_completo || null);
 }
 
 export async function sincronizarProveedoresBC() {
