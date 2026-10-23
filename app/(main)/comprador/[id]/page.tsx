@@ -10,6 +10,7 @@ import FormularioComprador from './FormularioComprador';
 import SincronizarPedidoBCBoton from './SincronizarPedidoBCBoton';
 import PresupuestoBoton from './PresupuestoBoton';
 import PropuestaCompraBoton from './PropuestaCompraBoton';
+import ComparativoBoton from './ComparativoBoton';
 import PeticionesOfertaSolicitud from './PeticionesOfertaSolicitud';
 import EditarEntregaBoton from './EditarEntregaBoton';
 import PresupuestosSolicitud from './PresupuestosSolicitud';
@@ -314,6 +315,9 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         <SincronizarPedidoBCBoton pedidoId={p.id} />
         <div className="mb-4">
           <PropuestaCompraBoton pedidoId={p.id} proveedores={(proveedores as any[]) || []} />
+        </div>
+        <div className="mb-4">
+          <ComparativoBoton pedidoId={p.id} />
         </div>
         <div className="mb-4">
           <PresupuestoBoton

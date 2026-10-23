@@ -9,6 +9,7 @@ const secciones = [
   { href: '/proyectos-equipo', titulo: 'Proyectos de equipo', desc: 'Asignar proyectos a cada usuario.' },
   { href: '/admin/estados', titulo: 'Estados de pedido', desc: 'Definir los estados por los que pasa una solicitud.' },
   { href: '/admin/configuracion', titulo: 'Configuración', desc: 'Límite de aprobación automática y otros ajustes.' },
+  { href: '/admin/condiciones-comerciales', titulo: 'Condiciones comerciales', desc: 'Pronto pago y rappel por proveedor para los comparativos.' },
   { href: '/admin/propuesta-compra', titulo: 'Métricas de la propuesta de compra', desc: 'Cuánto acierta "Proponer compra" y peticiones de oferta enviadas.' },
 ];
 
