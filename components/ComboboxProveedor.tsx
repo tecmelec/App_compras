@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
 
@@ -28,21 +29,53 @@ export default function ComboboxProveedor({
   const [resaltado, setResaltado] = useState(0);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
+  // La lista se pinta en el <body> con posición fija, para que no la recorte ninguna
+  // tarjeta con overflow (p. ej. en el móvil, dentro de las líneas de la solicitud).
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number; width: number; maxHeight: number } | null>(null);
 
   function etiqueta(p: Proveedor) {
     return `${p.bc_proveedor_no} — ${p.nombre || ''}`;
   }
 
   useEffect(() => {
-    function handleClickFuera(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+    function handleClickFuera(e: MouseEvent | TouchEvent) {
+      const t = e.target as Node;
+      if (wrapperRef.current && !wrapperRef.current.contains(t) && !(listaRef.current && listaRef.current.contains(t))) {
         setAbierto(false);
         setTexto('');
       }
     }
     document.addEventListener('mousedown', handleClickFuera);
-    return () => document.removeEventListener('mousedown', handleClickFuera);
+    document.addEventListener('touchstart', handleClickFuera);
+    return () => {
+      document.removeEventListener('mousedown', handleClickFuera);
+      document.removeEventListener('touchstart', handleClickFuera);
+    };
   }, []);
+
+  // Posición de la lista: debajo del campo o, si no cabe, encima.
+  useLayoutEffect(() => {
+    if (!abierto) return;
+    function calcular() {
+      const el = wrapperRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const ancho = Math.min(Math.max(r.width, 256), window.innerWidth - 16);
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - ancho - 8));
+      const abajo = window.innerHeight - r.bottom - 8;
+      const arriba = r.top - 8;
+      if (abajo >= 200 || abajo >= arriba) setPos({ left, top: r.bottom + 4, width: ancho, maxHeight: Math.min(256, abajo - 4) });
+      else setPos({ left, bottom: window.innerHeight - r.top + 4, width: ancho, maxHeight: Math.min(256, arriba - 4) });
+    }
+    calcular();
+    window.addEventListener('resize', calcular);
+    window.addEventListener('scroll', calcular, true);
+    return () => {
+      window.removeEventListener('resize', calcular);
+      window.removeEventListener('scroll', calcular, true);
+    };
+  }, [abierto]);
 
   const filtrados = useMemo(() => {
     const q = texto.trim().toLowerCase();
@@ -135,8 +168,15 @@ export default function ComboboxProveedor({
         </button>
       )}
 
-      {abierto && (
-        <div className="absolute left-0 top-full mt-1 w-full min-w-[16rem] bg-white border border-borde rounded-lg shadow-lg z-40 max-h-64 overflow-y-auto">
+      {abierto &&
+        pos &&
+        typeof document !== 'undefined' &&
+        createPortal(
+        <div
+          ref={listaRef}
+          style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: pos.width, maxHeight: Math.max(120, pos.maxHeight) }}
+          className="bg-white border border-borde rounded-lg shadow-lg z-[100] overflow-y-auto"
+        >
           <button
             type="button"
             onClick={() => elegir('')}
@@ -165,8 +205,9 @@ export default function ComboboxProveedor({
               </button>
             ))
           )}
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
     </div>
   );
 }
