@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { VISITAS, type Visita } from '@/lib/asistente/visitas';
 
@@ -43,6 +43,17 @@ export default function VisitaGuiada({ rol }: { rol: string }) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [buscando, setBuscando] = useState(false);
+  // La tarjeta se puede arrastrar (por su cabecera) si tapa algo; se recoloca en cada paso.
+  const [desplazamiento, setDesplazamiento] = useState({ x: 0, y: 0 });
+  const arrastre = useRef<{ x: number; y: number; dx: number; dy: number } | null>(null);
+  const tarjetaRef = useRef<HTMLDivElement>(null);
+  const [altoTarjeta, setAltoTarjeta] = useState(200);
+  useEffect(() => {
+    setDesplazamiento({ x: 0, y: 0 });
+  }, [estado?.id, estado?.paso]);
+  useEffect(() => {
+    if (tarjetaRef.current) setAltoTarjeta(tarjetaRef.current.offsetHeight);
+  });
 
   useEffect(() => {
     setEstado(leer());
@@ -149,17 +160,45 @@ export default function VisitaGuiada({ rol }: { rol: string }) {
     ? { top: rect.top - margen, left: rect.left - margen, width: rect.width + margen * 2, height: rect.height + margen * 2 }
     : null;
 
-  // Tarjeta: debajo del elemento si cabe; si no, encima; sin elemento, centrada.
-  const anchoTarjeta = Math.min(340, (typeof window !== 'undefined' ? window.innerWidth : 360) - 24);
-  let estiloTarjeta: React.CSSProperties = { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: anchoTarjeta };
-  if (hueco && typeof window !== 'undefined') {
-    const left = Math.max(12, Math.min(hueco.left, window.innerWidth - anchoTarjeta - 12));
-    const abajo = window.innerHeight - (hueco.top + hueco.height);
-    estiloTarjeta =
-      abajo > 230
-        ? { left, top: hueco.top + hueco.height + 10, width: anchoTarjeta }
-        : { left, top: Math.max(12, hueco.top - 10), transform: 'translateY(-100%)', width: anchoTarjeta };
+  // Tarjeta: donde no tape el elemento (debajo, encima o al lado, según el hueco libre);
+  // sin elemento, centrada. Después se suma lo que la haya arrastrado el usuario.
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 360;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 640;
+  const anchoTarjeta = Math.min(340, vw - 24);
+  let pos = { left: (vw - anchoTarjeta) / 2, top: Math.max(12, (vh - altoTarjeta) / 2) };
+  if (hueco) {
+    const leftAlineado = Math.max(12, Math.min(hueco.left, vw - anchoTarjeta - 12));
+    const abajo = vh - (hueco.top + hueco.height) - 10;
+    const arriba = hueco.top - 10;
+    const derecha = vw - (hueco.left + hueco.width) - 10;
+    const izquierda = hueco.left - 10;
+    if (abajo >= altoTarjeta + 12) pos = { left: leftAlineado, top: hueco.top + hueco.height + 10 };
+    else if (arriba >= altoTarjeta + 12) pos = { left: leftAlineado, top: hueco.top - 10 - altoTarjeta };
+    else if (derecha >= anchoTarjeta + 12)
+      pos = { left: hueco.left + hueco.width + 10, top: Math.max(12, Math.min(hueco.top, vh - altoTarjeta - 12)) };
+    else if (izquierda >= anchoTarjeta + 12)
+      pos = { left: hueco.left - 10 - anchoTarjeta, top: Math.max(12, Math.min(hueco.top, vh - altoTarjeta - 12)) };
+    else pos = { left: leftAlineado, top: abajo >= arriba ? vh - altoTarjeta - 12 : 12 };
   }
+  const estiloTarjeta: React.CSSProperties = {
+    left: Math.max(4, Math.min(pos.left + desplazamiento.x, vw - 60)),
+    top: Math.max(4, Math.min(pos.top + desplazamiento.y, vh - 48)),
+    width: anchoTarjeta,
+  };
+
+  const empezarArrastre = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    arrastre.current = { x: e.clientX, y: e.clientY, dx: desplazamiento.x, dy: desplazamiento.y };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+  const moverArrastre = (e: React.PointerEvent) => {
+    const a = arrastre.current;
+    if (!a) return;
+    setDesplazamiento({ x: a.dx + e.clientX - a.x, y: a.dy + e.clientY - a.y });
+  };
+  const soltarArrastre = () => {
+    arrastre.current = null;
+  };
 
   return (
     <div className="print:hidden">
@@ -171,8 +210,15 @@ export default function VisitaGuiada({ rol }: { rol: string }) {
       ) : (
         !buscando && <div className="fixed inset-0 z-[90] bg-[rgba(15,23,20,0.55)] pointer-events-none" />
       )}
-      <div className="fixed z-[95] bg-white rounded-xl shadow-2xl border border-borde p-4 asistente-aparecer" style={estiloTarjeta}>
-        <div className="flex items-start gap-3">
+      <div ref={tarjetaRef} className="fixed z-[95] bg-white rounded-xl shadow-2xl border border-borde p-4 asistente-aparecer" style={estiloTarjeta}>
+        <div
+          className="flex items-start gap-3 cursor-move select-none touch-none"
+          onPointerDown={empezarArrastre}
+          onPointerMove={moverArrastre}
+          onPointerUp={soltarArrastre}
+          onPointerCancel={soltarArrastre}
+          title="Arrastra para mover el recuadro"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/asistente/mascota-96.png" alt="" width={40} height={40} className="rounded-full bg-white shrink-0" />
           <div className="min-w-0 flex-1">
@@ -181,6 +227,9 @@ export default function VisitaGuiada({ rol }: { rol: string }) {
             </p>
             <p className="text-sm font-semibold text-grafito">{paso.titulo}</p>
           </div>
+          <span className="text-slate/60 text-xs mt-0.5" aria-hidden title="Arrastra para mover">
+            ⠿
+          </span>
           <button type="button" onClick={() => ir(null)} className="text-slate hover:text-grafito text-lg leading-none" aria-label="Salir de la visita">
             ×
           </button>
