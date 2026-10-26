@@ -112,6 +112,7 @@ export default function ExportarExcelBoton<T>({
 
   return (
     <button
+      data-tour="exportar"
       type="button"
       onClick={exportar}
       disabled={exportando || filas.length === 0}

@@ -128,6 +128,7 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
             <Link
               key={l.href}
               href={l.href}
+              data-tour={`menu-${l.href}`}
               onClick={() => {
                 // Cambiar de sección desde el menú borra los filtros guardados de las tablas
                 setAbierto(false);

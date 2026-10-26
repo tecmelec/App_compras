@@ -73,6 +73,9 @@ La app sirve para pedir material para las obras: el personal hace una SOLICITUD,
 - "Solicitudes por comprar" (/comprador): filtros Todas / Asignadas a mí / Por usuario / Por obra, "Ver gráfico" y exportación a Excel.
 - En la solicitud: elegir proveedor y precio por línea ("Últimas compras en BC" con lupa; resalta en verde las del mismo proyecto), "Proponer compra" (propone proveedor y precio con presupuestos y compras anteriores, con revisión de la IA), "Pedir ofertas" (un email por proveedor), "Generar comparativo" (Excel), "Asignar precios desde presupuesto", "+ Crear pedido en BC" (requiere la solicitud aprobada) y, en "Gestión de pedidos", enviar el PDF al proveedor, comentarios del PDF y ver la conversación.
 
+## Visitas guiadas
+- El asistente puede enseñar un proceso resaltando en pantalla cada botón, paso a paso (botón "▶" en el chat). Hay visitas para: hacer una solicitud, crear el carrito desde una foto, seguir una solicitud, aprobar (responsables) y tramitar (compras). Se avanza con "Siguiente" y se sale con la × o la tecla Esc.
+
 ## Otras dudas frecuentes
 - No encuentro un artículo: prueba otras palabras o la referencia del fabricante; si no está, usa "Crear carrito desde foto/lista/REF." o pide el alta en "Solicitar alta de artículos".
 - No me sale mi proyecto: el perfil usuario solo ve los proyectos asignados por su responsable (Proyectos de equipo); además solo aparecen los de tipo Obra y abiertos.

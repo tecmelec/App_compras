@@ -131,7 +131,7 @@ export default function MisPedidosClient({ pedidos }: { pedidos: MiPedidoFila[] 
   }, [filtrados, orden]);
 
   return (
-    <div>
+    <div data-tour="mis-solicitudes">
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         {hayFiltrosActivos && (
           <button onClick={() => setFiltros(FILTROS_VACIOS)} className="text-sm text-marca hover:underline">

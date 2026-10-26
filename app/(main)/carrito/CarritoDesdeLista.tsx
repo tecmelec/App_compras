@@ -215,7 +215,7 @@ export default function CarritoDesdeLista({ modo }: { modo: 'foto' | 'texto' | '
 
       {fase === 'inicio' && modo === 'foto' && (
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={() => inputRef.current?.click()} className="btn-primary">
+          <button onClick={() => inputRef.current?.click()} data-tour="foto-boton" className="btn-primary">
             Hacer o elegir foto
           </button>
           <span className="text-sm text-slate">o pega una captura de pantalla con Ctrl+V</span>

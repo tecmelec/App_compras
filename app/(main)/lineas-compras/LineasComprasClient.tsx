@@ -268,6 +268,7 @@ export default function LineasComprasClient({
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input
+            data-tour="lineas-buscador"
             className="input input-icon-left w-full"
             placeholder="Buscar por Nº solicitud, Nº pedido Tecmelec o artículo..."
             value={filtros.busqueda}
@@ -336,7 +337,7 @@ export default function LineasComprasClient({
         {/* La tabla tiene su propio scroll (vertical y horizontal) para que la fila de
             títulos quede fija arriba al desplazarse por las líneas. */}
         <div className="overflow-auto max-h-[calc(100vh-15rem)] min-h-[20rem] rounded-lg">
-        <table className="w-full text-sm">
+        <table data-tour="lineas-tabla" className="w-full text-sm">
           <thead className="bg-fondo text-slate text-left sticky top-0 z-20 shadow-[0_1px_0_0_#DDE1E0]">
             <tr>
               <ColumnaFiltroOrden

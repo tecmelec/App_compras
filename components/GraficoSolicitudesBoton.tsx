@@ -85,7 +85,7 @@ export default function GraficoSolicitudesBoton({
   const titulo = { solicitante: 'solicitante', comprador: 'comprador', obra: 'obra' };
 
   return (
-    <div className="relative ml-auto">
+    <div data-tour="ver-grafico" className="relative ml-auto">
       <button
         type="button"
         onClick={() => setMenu((m) => !m)}

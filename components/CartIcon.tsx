@@ -8,6 +8,7 @@ export default function CartIcon() {
 
   return (
     <Link
+      data-tour="carrito"
       href="/carrito"
       className="relative inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-fondo transition-colors"
       aria-label="Carrito"

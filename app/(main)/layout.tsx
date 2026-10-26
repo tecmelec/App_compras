@@ -5,6 +5,7 @@ import { CartProvider } from '@/context/CartContext';
 import Nav from '@/components/Nav';
 import HeaderBar from '@/components/HeaderBar';
 import AsistenteChat from '@/components/AsistenteChat';
+import VisitaGuiada from '@/components/VisitaGuiada';
 import { idsEfectivos, obtenerContactoComprador } from '@/lib/pedidos-utils';
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
@@ -78,6 +79,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         </main>
       </div>
       <AsistenteChat rol={profile.rol} nombre={profile.nombre_completo || ''} />
+      <VisitaGuiada rol={profile.rol} />
     </CartProvider>
   );
 }

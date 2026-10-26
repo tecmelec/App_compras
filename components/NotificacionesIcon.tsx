@@ -109,6 +109,7 @@ export default function NotificacionesIcon({ userId }: { userId: string }) {
   return (
     <>
       <button
+        data-tour="avisos"
         onClick={alternar}
         className="relative inline-flex items-center justify-center w-10 h-10 rounded-full hover:bg-fondo transition-colors"
         aria-label="Notificaciones"

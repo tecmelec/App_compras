@@ -76,14 +76,14 @@ export default function CarritoPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-semibold text-grafito">Carrito</h1>
         <div className="flex flex-wrap gap-2">
-        <Link href="/carrito/foto" className="btn-secondary inline-flex items-center gap-2">
+        <Link href="/carrito/foto" data-tour="carrito-foto" className="btn-secondary inline-flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
             <circle cx="12" cy="13" r="4" />
           </svg>
           Crear carrito desde foto
         </Link>
-        <Link href="/carrito/lista" className="btn-secondary inline-flex items-center gap-2">
+        <Link href="/carrito/lista" data-tour="carrito-lista" className="btn-secondary inline-flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="8" y1="6" x2="21" y2="6" />
             <line x1="8" y1="12" x2="21" y2="12" />
@@ -94,7 +94,7 @@ export default function CarritoPage() {
           </svg>
           Crear carrito desde lista
         </Link>
-        <Link href="/carrito/referencias" className="btn-secondary inline-flex items-center gap-2">
+        <Link href="/carrito/referencias" data-tour="carrito-ref" className="btn-secondary inline-flex items-center gap-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
             <line x1="7" y1="7" x2="7.01" y2="7" />
@@ -102,7 +102,7 @@ export default function CarritoPage() {
           Crear carrito por REF.
         </Link>
         {rol && rol !== 'usuario' && (
-          <Link href="/carrito/articulos-bc" className="btn-secondary inline-flex items-center gap-2">
+          <Link href="/carrito/articulos-bc" data-tour="carrito-bc" className="btn-secondary inline-flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <ellipse cx="12" cy="5" rx="9" ry="3" />
               <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
@@ -126,7 +126,8 @@ export default function CarritoPage() {
           {error && (
             <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mt-4">{error}</p>
           )}
-          <button onClick={() => setMostrarModal(true)} className="btn-primary mt-6">
+          <button onClick={() => setMostrarModal(true)}
+            data-tour="solicitar" className="btn-primary mt-6">
             Solicitar materiales
           </button>
         </>
@@ -212,6 +213,7 @@ export default function CarritoPage() {
 
           <button
             onClick={() => setMostrarModal(true)}
+            data-tour="solicitar"
             disabled={hayErrores}
             title={hayErrores ? 'Corrige las cantidades marcadas antes de continuar.' : undefined}
             className="btn-primary mt-6 disabled:opacity-60 disabled:cursor-not-allowed"

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { preguntarAsistente, valorarRespuestaAsistente, type MensajeAsistente } from '@/app/actions/asistente';
+import { visitasParaRol } from '@/lib/asistente/visitas';
 
 // Asistente de la app (fase 1). Se abre con el botón flotante "?" o desde el recuadro
 // "¿Necesitas ayuda?" del menú (evento "abrir-asistente").
@@ -44,7 +45,7 @@ function Mascota({ tam, className = '' }: { tam: number; className?: string }) {
 }
 
 // Texto con botones [[Etiqueta|/ruta]] y **negritas**.
-function Contenido({ texto, onIr }: { texto: string; onIr: () => void }) {
+function Contenido({ texto, onIr, onVisita }: { texto: string; onIr: () => void; onVisita: (id: string) => void }) {
   const lineas = texto.split('\n');
   return (
     <div className="space-y-1">
@@ -55,6 +56,18 @@ function Contenido({ texto, onIr }: { texto: string; onIr: () => void }) {
           <p key={i} className="leading-snug">
             {partes.map((p, k) => {
               const m = p.match(/^\[\[([^|\]]+)\|([^\]]+)\]\]$/);
+              if (m && m[2].trim().startsWith('tour:')) {
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => onVisita(m[2].trim().slice(5))}
+                    className="inline-flex items-center gap-1 my-0.5 mr-1 px-2.5 py-1 rounded-full bg-[#0F3D2A] text-white text-xs font-medium hover:bg-black"
+                  >
+                    {m[1].trim()}
+                  </button>
+                );
+              }
               if (m) {
                 return (
                   <Link
@@ -147,6 +160,11 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
     }
     const d = r as { respuesta: string; id: string | null };
     setMensajes((prev) => [...prev, { rol: 'assistant', texto: d.respuesta, id: d.id }]);
+  }
+
+  function iniciarVisita(id: string) {
+    setAbierto(false);
+    window.dispatchEvent(new CustomEvent('iniciar-visita', { detail: { id } }));
   }
 
   async function valorar(k: number, v: 1 | -1) {
@@ -244,6 +262,22 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                     Pregúntame cómo hacer cualquier cosa en la app y te guío paso a paso.
                   </p>
                 </div>
+                <div>
+                  <p className="text-[11px] font-medium text-slate mb-1">Visitas guiadas por la app</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {visitasParaRol(rol).map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => iniciarVisita(v.id)}
+                        className="text-xs rounded-full px-3 py-1.5 bg-[#0F3D2A] text-white hover:bg-black"
+                      >
+                        ▶ {v.titulo}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] font-medium text-slate -mb-1">O pregúntame</p>
                 <div className="flex flex-col gap-1.5">
                   {(SUGERENCIAS[rol] || SUGERENCIAS.usuario).map((s) => (
                     <button
@@ -268,7 +302,7 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                   <Mascota tam={28} className="shrink-0 mt-0.5" />
                   <div className="min-w-0 flex-1">
                   <div className="bg-fondo text-grafito rounded-lg rounded-bl-sm px-3 py-2">
-                    <Contenido texto={m.texto} onIr={() => (window.innerWidth < 640 ? setAbierto(false) : undefined)} />
+                    <Contenido texto={m.texto} onIr={() => (window.innerWidth < 640 ? setAbierto(false) : undefined)} onVisita={iniciarVisita} />
                   </div>
                   {m.id && (
                     <div className="flex items-center gap-1 mt-0.5 text-[11px] text-slate">

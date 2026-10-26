@@ -7,7 +7,7 @@ import { useCart } from '@/context/CartContext';
 export default function ComentariosCarrito() {
   const { comentarios, setComentarios } = useCart();
   return (
-    <div className="bg-white border border-borde rounded-lg p-3 mt-4">
+    <div data-tour="comentarios" className="bg-white border border-borde rounded-lg p-3 mt-4">
       <label htmlFor="comentarios-comprador" className="text-sm font-medium text-grafito">
         Comentarios al comprador <span className="text-xs text-slate font-normal">(opcional)</span>
       </label>

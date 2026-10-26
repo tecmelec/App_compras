@@ -221,6 +221,7 @@ export default function SolicitudesFiltrables({
   return (
     <div>
       {filtrosRapidos && (
+        <div data-tour="filtros-rapidos">
         <FiltrosRapidosSolicitudes
           modo={modoRapido}
           onModo={setModoRapido}
@@ -229,6 +230,7 @@ export default function SolicitudesFiltrables({
           guardados={guardados}
           onGuardados={setGuardados}
         />
+        </div>
       )}
 
       <div className="flex items-center gap-3 mb-4">
@@ -248,6 +250,7 @@ export default function SolicitudesFiltrables({
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input
+            data-tour="solicitudes-buscador"
             className="input input-icon-left w-full"
             placeholder="Buscar por Nº solicitud, Nº pedido Tecmelec, solicitante u obra..."
             value={filtros.busqueda}
@@ -307,7 +310,7 @@ export default function SolicitudesFiltrables({
         {/* Scroll propio de la tabla para que la fila de títulos quede fija arriba
             (igual que en Líns. compras). */}
         <div className="overflow-auto max-h-[calc(100vh-15rem)] min-h-[20rem] rounded-lg">
-        <table className="w-full text-sm">
+        <table data-tour="solicitudes-tabla" className="w-full text-sm">
           <thead className="bg-fondo text-slate text-left sticky top-0 z-20 shadow-[0_1px_0_0_#DDE1E0]">
             <tr>
               <ColumnaFiltro

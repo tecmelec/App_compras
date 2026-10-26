@@ -178,6 +178,7 @@ export default function ProductCard({
           </div>
           <button
             onClick={handleAdd}
+            data-tour="anadir"
             className="btn-primary flex-1 flex items-center justify-center gap-2"
             aria-label="Añadir al carrito"
           >

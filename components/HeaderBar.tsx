@@ -58,6 +58,7 @@ export default function HeaderBar({
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
+              data-tour="buscador"
               className="input input-icon-left"
               placeholder="Buscar por referencia, nombre, descripción o categoría..."
               value={valor}

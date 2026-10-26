@@ -165,7 +165,8 @@ export default function ProductRow({
             </button>
           </div>
 
-          <button onClick={handleAdd} className="btn-primary shrink-0 whitespace-nowrap px-4">
+          <button
+            data-tour="anadir" onClick={handleAdd} className="btn-primary shrink-0 whitespace-nowrap px-4">
             {agregado ? '✓ Añadido' : 'Añadir'}
           </button>
         </div>

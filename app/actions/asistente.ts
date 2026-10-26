@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GUIA_APP, RUTAS_PERMITIDAS } from '@/lib/asistente/guia';
+import { visitasParaRol } from '@/lib/asistente/visitas';
 
 // Asistente de la app (fase 1): responde dudas de uso con la guía, según el perfil y la
 // pantalla, y propone botones para ir a cada sitio ([[Texto|/ruta]]).
@@ -33,6 +34,8 @@ export async function preguntarAsistente(mensajes: MensajeAsistente[], ruta: str
   if (ultima.texto.length > 1500) return { error: 'La pregunta es demasiado larga.' };
 
   const rutas = RUTAS_PERMITIDAS.filter((r) => r.roles.includes(perfil.rol)).map((r) => r.ruta);
+  const visitas = visitasParaRol(perfil.rol);
+  const destinos = [...rutas, ...visitas.map((v) => `tour:${v.id}`)];
   const system = `Eres el asistente de ayuda de la app de compras de Tecmelec (empresa de instalaciones eléctricas en España). Ayudas a las personas a usar la app, paso a paso y en español sencillo, tuteando.
 
 Quién pregunta: ${perfil.nombre_completo || 'un usuario'}, perfil ${ROLES[perfil.rol] || perfil.rol}.
@@ -44,6 +47,7 @@ Reglas:
 - Sé breve: pasos numerados cortos, de uno en uno si es un proceso largo, y pregunta si quiere seguir.
 - Cuando indiques ir a una pantalla, añade un botón con la sintaxis [[Texto del botón|/ruta]] en su propia línea. Solo puedes usar estas rutas: ${rutas.join(', ')}.
 - Usa los nombres exactos de los botones y pantallas entre comillas, como aparecen en la app.
+- Visitas guiadas: la app puede enseñar un proceso resaltando en pantalla cada botón, paso a paso. Cuando expliques uno de estos procesos, ofrécela al final con un botón [[▶ Ver visita guiada|tour:ID]] (solo estas): ${visitas.map((v) => `tour:${v.id} = "${v.titulo}"`).join('; ')}.
 - No pidas ni muestres datos personales, contraseñas ni datos de otras personas. No puedes hacer acciones en la app: solo explicas.
 
 GUÍA DE LA APP:
@@ -71,7 +75,7 @@ ${GUIA_APP}`;
   if (!texto) return { error: 'El asistente no ha podido responder. Prueba a reformular la pregunta.' };
 
   // Quitar botones a rutas no permitidas para este perfil
-  texto = texto.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, (m, etiqueta, destino) => (rutas.includes(String(destino).trim()) ? m : etiqueta));
+  texto = texto.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, (m, etiqueta, destino) => (destinos.includes(String(destino).trim()) ? m : etiqueta));
 
   const { data: guardado } = await admin
     .from('asistente_mensajes')
