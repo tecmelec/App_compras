@@ -34,7 +34,7 @@ export default async function PresupuestosSolicitud({
   );
 
   return (
-    <section className="mb-6 space-y-3">
+    <section id="presupuestos" className="mb-6 space-y-3 scroll-mt-24">
       {conUrls.map((p) => {
         const prov = (p.proveedor || {}) as ProveedorPresupuesto;
         const lineas = (p.lineas || []) as LineaPresupuesto[];

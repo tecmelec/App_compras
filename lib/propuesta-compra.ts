@@ -47,6 +47,8 @@ type Candidato = {
   fecha: string | null; // AAAA-MM-DD
   confianza: Confianza;
   presupuestoId?: string | null; // presupuesto de esta solicitud
+  origenPedidoId?: string | null; // solicitud donde está el presupuesto (si es de otra)
+  origenNumeroApp?: string | null;
 };
 
 export type LineaPropuesta = {
@@ -66,6 +68,8 @@ export type LineaPropuesta = {
     fecha: string | null;
     confianza: Confianza | null;
     presupuestoId: string | null;
+    origenPedidoId?: string | null; // solicitud con el presupuesto usado (si es de otra)
+    origenNumeroApp?: string | null;
     precioNeto?: number | null; // con pronto pago y rappel de Condiciones comerciales (si las hay)
   };
   notas: string[];
@@ -166,8 +170,19 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
     for (const d of data || []) if ((d as any).productos?.bc_item_no) bcPorItemOtras.set((d as any).id, (d as any).productos.bc_item_no);
   }
 
+  // Nº de las otras solicitudes con presupuestos (para enlazarlas desde la propuesta)
+  const idsOtrasSolicitudes = Array.from(
+    new Set((presupuestos || []).map((p: any) => p.pedido_id).filter((id: string) => id && id !== pedidoId))
+  );
+  const numeroPorSolicitud = new Map<string, string>();
+  for (let k = 0; k < idsOtrasSolicitudes.length; k += 200) {
+    const { data } = await admin.from('pedidos').select('id, numero_app').in('id', idsOtrasSolicitudes.slice(k, k + 200));
+    for (const d of data || []) numeroPorSolicitud.set((d as any).id, (d as any).numero_app);
+  }
+
   for (const p of presupuestos || []) {
     const esta = (p as any).pedido_id === pedidoId;
+    const numeroOtra = esta ? null : numeroPorSolicitud.get((p as any).pedido_id) || null;
     const prov = ((p as any).proveedor || {}) as ProveedorPresupuesto;
     const lineasP = ((p as any).lineas || []) as LineaPresupuesto[];
     const asign = ((p as any).asignaciones || []) as { item_id: string; linea_idx: number; precio?: number }[];
@@ -194,10 +209,14 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
         proveedorNombre: provNombre,
         precio: Number(linea.precio_unitario),
         origen: esta ? 'presupuesto' : 'presupuesto_otra',
-        origenTexto: esta ? `Presupuesto de esta solicitud (${fmtFecha(fecha)})` : `Presupuesto de otra solicitud (${fmtFecha(fecha)})`,
+        origenTexto: esta
+          ? `Presupuesto de esta solicitud${provNombre ? ' · ' + provNombre : ''} (${fmtFecha(fecha)})`
+          : `Presupuesto de ${numeroOtra || 'otra solicitud'}${provNombre ? ' · ' + provNombre : ''} (${fmtFecha(fecha)})`,
         fecha,
         confianza: 'alta',
         presupuestoId: esta ? (p as any).id : null,
+        origenPedidoId: esta ? null : (p as any).pedido_id,
+        origenNumeroApp: numeroOtra,
       });
     }
   }
@@ -257,7 +276,7 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
       const varia = pct(Math.max(...precios), Math.min(...precios));
       if (varia > params.pctVariacion) {
         confianza = 'media';
-        nota(it.id, `El precio varía un ${Math.round(varia)} % entre las compras de los últimos ${params.mesesCompras} meses.`);
+        nota(it.id, `Compras en BC: el precio varía un ${Math.round(varia)} % entre las de los últimos ${params.mesesCompras} meses.`);
       }
     }
     const anterior = compras.find((c) => c !== elegida && (c.fecha || '') <= (elegida.fecha || ''));
@@ -266,7 +285,7 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
       if (Math.abs(dif) > params.pctVariacion) {
         nota(
           it.id,
-          `${dif > 0 ? 'Subida' : 'Bajada'} del ${Math.abs(Math.round(dif))} % respecto a la compra del ${fmtFecha(anterior.fecha)} (${fmtEur(anterior.precio)} €).`
+          `Compras en BC: ${dif > 0 ? 'subida' : 'bajada'} del ${Math.abs(Math.round(dif))} % de la última (${fmtEur(elegida.precio)} €) respecto a la del ${fmtFecha(anterior.fecha)} (${fmtEur(anterior.precio)} €).`
         );
       }
     }
@@ -443,6 +462,8 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
             fecha: c.fecha,
             confianza: c.confianza,
             presupuestoId: c.presupuestoId || null,
+            origenPedidoId: c.origenPedidoId || null,
+            origenNumeroApp: c.origenNumeroApp || null,
             precioNeto: factor(c) !== 1 ? Number(neto(c).toFixed(5)) : null,
           }
         : {

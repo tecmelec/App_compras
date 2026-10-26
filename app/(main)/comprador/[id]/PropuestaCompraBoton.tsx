@@ -290,6 +290,17 @@ function Panel({ pedidoId, proveedores, onCerrar }: { pedidoId: string; proveedo
                           )
                         )}
                         <p className="text-xs text-slate mt-1">{l.propuesta.origenTexto}</p>
+                        {l.propuesta.origenPedidoId && (
+                          <a
+                            href={`/comprador/${l.propuesta.origenPedidoId}#presupuestos`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-marca hover:underline inline-flex items-center gap-1 mt-0.5"
+                            title="Abre esa solicitud en otra pestaña, en sus presupuestos"
+                          >
+                            Ver presupuesto en {l.propuesta.origenNumeroApp || 'la solicitud'} ↗
+                          </a>
+                        )}
                       </td>
                     </tr>
                   );
