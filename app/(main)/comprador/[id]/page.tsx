@@ -58,6 +58,15 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     .not('propuesta_compra_id', 'is', null);
   const propuestaPorItem = new Map<string, string>((conPropuesta || []).map((x: any) => [x.id, x.propuesta_compra_id]));
 
+  // El admin puede aprobar cualquier solicitud pendiente (desde la vista de aprobación).
+  const {
+    data: { user: quienMira },
+  } = await supabase.auth.getUser();
+  const { data: perfilQuienMira } = quienMira
+    ? await supabase.from('profiles').select('rol').eq('id', quienMira.id).single()
+    : { data: null };
+  const adminPuedeAprobar = perfilQuienMira?.rol === 'admin' && p.requiere_aprobacion && p.aprobado == null;
+
   // Quién tiene que aprobar la solicitud (para el aviso del botón "Crear pedido en BC").
   let pendienteDeAprobar: string | null = null;
   if (p.requiere_aprobacion && p.aprobado == null) {
@@ -181,6 +190,12 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <p className="font-mono text-sm text-marca">{p.numero_app}</p>
           <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
         </div>
+        <div className="flex flex-wrap items-start justify-end gap-2">
+        {adminPuedeAprobar && (
+          <a href={`/responsable/${p.id}`} className="btn-secondary whitespace-nowrap" title="Como administrador puedes aprobar esta solicitud">
+            Revisar y aprobar
+          </a>
+        )}
         <CrearPedidoBCBoton
           pedidoId={p.id}
           puedeCrear={puedeCrearPedidoBC(p.pedido_items, estados || [], p) && listaSinResolver.length === 0}
@@ -192,6 +207,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
                 : null
           }
         />
+        </div>
       </div>
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">

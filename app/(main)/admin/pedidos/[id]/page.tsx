@@ -90,6 +90,11 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
             <p className="text-grafito">
               {p.aprobado === null ? 'Pendiente' : p.aprobado ? 'Aprobada' : 'Rechazada'}
             </p>
+            {p.aprobado === null && (
+              <a href={`/responsable/${p.id}`} className="btn-primary inline-block mt-2 text-sm">
+                Revisar y aprobar
+              </a>
+            )}
           </div>
         )}
       </div>
