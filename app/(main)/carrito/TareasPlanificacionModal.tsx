@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { tareasRegistroProyecto } from '@/app/actions/tareas-proyecto';
 import { formatoCantidad } from '@/lib/cantidad';
+import ComboboxBuscable from '@/components/ComboboxBuscable';
 
 type Item = { producto_id: string; nombre: string; cantidad: number; unidad_medida?: string | null };
 type Tarea = { no: string; descripcion: string };
@@ -46,16 +47,11 @@ export default function TareasPlanificacionModal({
     return () => window.removeEventListener('keydown', alPulsar);
   }, [onCancelar]);
 
-  const opciones = (
-    <>
-      <option value="">95.01 (por defecto)</option>
-      {(tareas || []).map((t) => (
-        <option key={t.no} value={t.no}>
-          {t.no} — {t.descripcion}
-        </option>
-      ))}
-    </>
-  );
+  const opciones = [
+    { value: '', label: '95.01 (por defecto)' },
+    ...(tareas || []).map((t) => ({ value: t.no, label: `${t.no} — ${t.descripcion}` })),
+  ];
+  const [todos, setTodos] = useState('__nada__');
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-start justify-center p-4 overflow-y-auto">
@@ -81,22 +77,16 @@ export default function TareasPlanificacionModal({
           <>
             <div className="flex flex-wrap items-center gap-2 bg-fondo border border-borde rounded-md p-2 mb-3">
               <span className="text-sm text-grafito">Asignar a todos:</span>
-              <select
-                className="input text-sm flex-1 min-w-[14rem]"
-                value=""
-                onChange={(e) => {
-                  const v = e.target.value === '__defecto__' ? '' : e.target.value;
+              <ComboboxBuscable
+                className="flex-1 min-w-[14rem]"
+                opciones={opciones}
+                value={todos}
+                placeholder="Busca y elige una tarea…"
+                onChange={(v) => {
+                  setTodos(v);
                   setAsignadas(Object.fromEntries(items.map((i) => [i.producto_id, v])));
                 }}
-              >
-                <option value="">Elige una tarea…</option>
-                <option value="__defecto__">95.01 (por defecto)</option>
-                {tareas.map((t) => (
-                  <option key={t.no} value={t.no}>
-                    {t.no} — {t.descripcion}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <ul className="border border-borde rounded-md divide-y divide-borde max-h-[55vh] overflow-y-auto">
               {items.map((i) => (
@@ -107,13 +97,12 @@ export default function TareasPlanificacionModal({
                       · {formatoCantidad(i.cantidad)} {i.unidad_medida || 'ud.'}
                     </span>
                   </span>
-                  <select
-                    className="input text-sm w-full sm:w-80"
+                  <ComboboxBuscable
+                    className="w-full sm:w-80"
+                    opciones={opciones}
                     value={asignadas[i.producto_id] || ''}
-                    onChange={(e) => setAsignadas((prev) => ({ ...prev, [i.producto_id]: e.target.value }))}
-                  >
-                    {opciones}
-                  </select>
+                    onChange={(v) => setAsignadas((prev) => ({ ...prev, [i.producto_id]: v }))}
+                  />
                 </li>
               ))}
             </ul>
