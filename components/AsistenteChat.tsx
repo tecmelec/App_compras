@@ -143,10 +143,57 @@ function Mascota({ tam, className = '' }: { tam: number; className?: string }) {
 
 // Texto con botones [[Etiqueta|/ruta]] y **negritas**.
 function Contenido({ texto, onIr, onVisita }: { texto: string; onIr: () => void; onVisita: (id: string) => void }) {
-  const lineas = texto.split('\n');
+  // Agrupa las líneas de tabla markdown (| a | b |) para pintarlas como tabla.
+  const bloques: ({ tipo: 'linea'; texto: string } | { tipo: 'tabla'; filas: string[][] })[] = [];
+  for (const l of texto.split('\n')) {
+    const t = l.trim();
+    if (/^\|.*\|$/.test(t)) {
+      if (/^\|[\s:|-]+\|$/.test(t)) continue; // separador |---|---|
+      const celdas = t.slice(1, -1).split('|').map((c) => c.trim());
+      const ultimo = bloques[bloques.length - 1];
+      if (ultimo && ultimo.tipo === 'tabla') ultimo.filas.push(celdas);
+      else bloques.push({ tipo: 'tabla', filas: [celdas] });
+    } else bloques.push({ tipo: 'linea', texto: l });
+  }
+  const enLinea = (t: string, clave: string) =>
+    t.split(/(\*\*[^*]+\*\*)/g).map((x, j) =>
+      /^\*\*[^*]+\*\*$/.test(x) ? <strong key={`${clave}-${j}`}>{x.slice(2, -2)}</strong> : <span key={`${clave}-${j}`}>{x}</span>
+    );
   return (
     <div className="space-y-1">
-      {lineas.map((linea, i) => {
+      {bloques.map((b, i) => {
+        if (b.tipo === 'tabla') {
+          const [cab, ...resto] = b.filas;
+          return (
+            <div key={i} className="overflow-x-auto my-1 -mx-1">
+              <table className="text-[0.92em] border-collapse min-w-full">
+                <thead>
+                  <tr>
+                    {cab.map((c, k) => (
+                      <th key={k} className="text-left font-semibold text-grafito border-b border-borde px-1.5 py-1 whitespace-nowrap">
+                        {enLinea(c, `h${i}${k}`)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {resto.map((f, k) => (
+                    <tr key={k} className="align-top">
+                      {f.map((c, j) => (
+                        <td key={j} className="border-b border-borde/70 px-1.5 py-1">
+                          {enLinea(c, `c${i}${k}${j}`)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        const titulo = b.texto.match(/^\s*#{1,4}\s+(.*)$/);
+        if (titulo) return <p key={i} className="font-semibold text-grafito mt-1">{enLinea(titulo[1], `t${i}`)}</p>;
+        const linea = b.texto;
         const partes = linea.split(/(\[\[[^|\]]+\|[^\]]+\]\])/g).filter((p) => p !== '');
         if (partes.length === 0) return <div key={i} className="h-1.5" />;
         return (
@@ -197,6 +244,34 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
   const [error, setError] = useState<string | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
   const [burbuja, setBurbuja] = useState(false);
+  // Tamaño de la ventana y del texto, recordados en este navegador.
+  const [grande, setGrande] = useState(false);
+  const [letra, setLetra] = useState(0); // 0 normal, 1 grande, 2 muy grande
+  useEffect(() => {
+    try {
+      setGrande(window.localStorage.getItem('asistente_grande') === '1');
+      setLetra(Math.min(2, Math.max(0, Number(window.localStorage.getItem('asistente_letra') || 0))));
+    } catch {
+      /* sin almacenamiento */
+    }
+  }, []);
+  const cambiarGrande = (v: boolean) => {
+    setGrande(v);
+    try {
+      window.localStorage.setItem('asistente_grande', v ? '1' : '0');
+    } catch {
+      /* nada */
+    }
+  };
+  const cambiarLetra = (v: number) => {
+    const n = Math.min(2, Math.max(0, v));
+    setLetra(n);
+    try {
+      window.localStorage.setItem('asistente_letra', String(n));
+    } catch {
+      /* nada */
+    }
+  };
   const pista = pistaParaRuta(ruta || '', rol);
 
   // La mascota saluda con una burbuja la primera vez en cada pantalla de la sesión.
@@ -316,7 +391,11 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
       )}
 
       {abierto && (
-        <div className="fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:bottom-4 sm:right-4 sm:w-[380px] h-[75vh] sm:h-[560px] bg-white sm:rounded-xl rounded-t-xl shadow-2xl border border-borde flex flex-col print:hidden">
+        <div
+          className={`fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:bottom-4 sm:right-4 bg-white sm:rounded-xl rounded-t-xl shadow-2xl border border-borde flex flex-col print:hidden ${
+            grande ? 'h-[92vh] sm:w-[min(720px,calc(100vw-2rem))] sm:h-[calc(100vh-2rem)]' : 'h-[75vh] sm:w-[380px] sm:h-[560px]'
+          }`}
+        >
           <div className="flex items-center justify-between gap-2 px-4 py-3 bg-[#0F3D2A] text-white sm:rounded-t-xl rounded-t-xl">
             <div className="flex items-center gap-2.5">
               <span className="relative">
@@ -328,7 +407,44 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                 <p className="text-[11px] text-white/70">{pensando ? 'Escribiendo…' : 'Te guío paso a paso en el uso de la app'}</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => cambiarLetra(letra - 1)}
+                disabled={letra === 0}
+                className="text-white/80 hover:text-white disabled:opacity-40 px-1.5 text-xs font-semibold"
+                title="Letra más pequeña"
+                aria-label="Letra más pequeña"
+              >
+                A−
+              </button>
+              <button
+                type="button"
+                onClick={() => cambiarLetra(letra + 1)}
+                disabled={letra === 2}
+                className="text-white/80 hover:text-white disabled:opacity-40 px-1.5 text-sm font-semibold"
+                title="Letra más grande"
+                aria-label="Letra más grande"
+              >
+                A+
+              </button>
+              <button
+                type="button"
+                onClick={() => cambiarGrande(!grande)}
+                className="text-white/80 hover:text-white px-1.5"
+                title={grande ? 'Ventana normal' : 'Ampliar ventana'}
+                aria-label={grande ? 'Ventana normal' : 'Ampliar ventana'}
+              >
+                {grande ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+                  </svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                  </svg>
+                )}
+              </button>
               {mensajes.length > 0 && (
                 <button
                   type="button"
@@ -336,10 +452,14 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                     setMensajes([]);
                     setError(null);
                   }}
-                  className="text-[11px] text-white/80 hover:text-white px-2"
-                  title="Empezar de nuevo"
+                  className="text-white/80 hover:text-white px-1.5"
+                  title="Nueva conversación"
+                  aria-label="Nueva conversación"
                 >
-                  Nueva conversación
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+                    <path d="M3 3v5h5" />
+                  </svg>
                 </button>
               )}
               <button type="button" onClick={() => setAbierto(false)} className="text-white/80 hover:text-white text-xl leading-none px-1" aria-label="Cerrar">
@@ -348,7 +468,7 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 text-sm">
+          <div className={`flex-1 overflow-y-auto px-3 py-3 space-y-3 ${['text-sm', 'text-base', 'text-lg'][letra]}`}>
             {mensajes.length === 0 && (
               <div className="space-y-3">
                 <div className="flex flex-col items-center text-center pt-2">
@@ -451,7 +571,7 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
               rows={1}
               maxLength={1500}
               placeholder="Escribe tu pregunta…"
-              className="input flex-1 text-sm resize-none max-h-28"
+              className={`input flex-1 resize-none max-h-28 ${['text-sm', 'text-base', 'text-lg'][letra]}`}
             />
             <button
               type="button"
