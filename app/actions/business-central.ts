@@ -833,6 +833,12 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
     .eq('pedido_id', pedidoId)
     .eq('rechazada_por_aprobador', false); // las rechazadas por el aprobador no se piden
 
+  // Tarea de proyecto elegida por línea (migración 20261024120000; si no existe, ninguna).
+  const { data: tareasItems } = await supabase.from('pedido_items').select('id, job_task_no').eq('pedido_id', pedidoId);
+  const tareaPorItem = new Map<string, string>(
+    ((tareasItems || []) as any[]).filter((t) => t.job_task_no).map((t) => [t.id, t.job_task_no])
+  );
+
   const sinProveedor: any[] = [];
   const sinCodigoBC: any[] = [];
   const sinPrecio: any[] = [];
@@ -881,6 +887,7 @@ async function agruparPorProveedorParaBC(supabase: any, pedidoId: string) {
         id: it.id,
         nombre: it.productos?.nombre,
         bcItemNo: it.productos?.bc_item_no,
+        jobTaskNo: (tareaPorItem.get(it.id) as string | undefined) || null,
         cantidad: it.cantidad,
         precio: it.precio_unitario ?? it.productos?.precio ?? 0,
       })),
@@ -1105,39 +1112,40 @@ export async function crearPedidosCompraBC(pedidoId: string) {
     bcUserIdQuienCrea = perfil?.bc_user_id || null;
   }
 
-  // La obra es la misma para todo el pedido, así que la tarea solo hace falta
-  // comprobarla una vez, no por cada línea.
-  let jobTaskNo: string | undefined;
-  if (previa.jobNo) {
-    try {
-      const existe = await existeTareaProyectoBC(previa.jobNo, JOB_TASK_NO_FIJA);
-      if (existe) {
-        jobTaskNo = JOB_TASK_NO_FIJA;
-      } else {
+  // Tarea de proyecto de cada línea: la elegida al crear la solicitud ("Asignar líneas de
+  // planificación manualmente") o, si no hay, la 95.01. Cada tarea distinta se comprueba
+  // una vez y lleva su propio contador de líneas de planificación.
+  const tareaValidada = new Map<string, string | undefined>(); // tarea pedida → tarea que se usa
+  const proximoPorTarea = new Map<string, number | null>();
+  async function tareaDeLinea(pedida: string | null): Promise<string | undefined> {
+    const clave = pedida || JOB_TASK_NO_FIJA;
+    if (tareaValidada.has(clave)) return tareaValidada.get(clave);
+    let usar: string | undefined;
+    if (previa.jobNo) {
+      try {
+        if (await existeTareaProyectoBC(previa.jobNo, clave)) usar = clave;
+        else if (pedida) {
+          errores.push(`ℹ La obra ${previa.jobNo} no tiene la tarea ${pedida} — esas líneas usan la tarea ${JOB_TASK_NO_FIJA}.`);
+          usar = await tareaDeLinea(null);
+        } else {
+          errores.push(`ℹ La obra ${previa.jobNo} no tiene la tarea ${JOB_TASK_NO_FIJA} — las líneas se crean sin Nº de tarea.`);
+        }
+      } catch (e: any) {
+        errores.push(`⚠ No se pudo comprobar la tarea ${clave} de la obra ${previa.jobNo} (se deja en blanco) — ${e.message}`);
+      }
+    }
+    tareaValidada.set(clave, usar);
+    if (usar && previa.jobNo && !proximoPorTarea.has(usar)) {
+      try {
+        proximoPorTarea.set(usar, (await obtenerMaxLineaPlanificacionBC(previa.jobNo, usar)) + 10000);
+      } catch (e: any) {
+        proximoPorTarea.set(usar, null);
         errores.push(
-          `ℹ La obra ${previa.jobNo} no tiene la tarea ${JOB_TASK_NO_FIJA} — las líneas se crean sin Nº de tarea.`
+          `⚠ No se pudo consultar las líneas de planificación de la tarea ${usar} de la obra ${previa.jobNo} — no se vincularán líneas de planificación (${e.message}).`
         );
       }
-    } catch (e: any) {
-      errores.push(
-        `⚠ No se pudo comprobar la tarea ${JOB_TASK_NO_FIJA} de la obra ${previa.jobNo} (se deja en blanco) — ${e.message}`
-      );
     }
-  }
-
-  // Nº de línea de planificación disponible; se calcula una vez y se va
-  // incrementando en memoria (de 10000 en 10000, como BC) para no repetir
-  // la consulta ni arriesgar colisiones entre líneas creadas en el mismo lote.
-  let proximoLineNo: number | null = null;
-  if (previa.jobNo && jobTaskNo) {
-    try {
-      const maxActual = await obtenerMaxLineaPlanificacionBC(previa.jobNo, jobTaskNo);
-      proximoLineNo = maxActual + 10000;
-    } catch (e: any) {
-      errores.push(
-        `⚠ No se pudo consultar las líneas de planificación de la obra ${previa.jobNo} — no se vincularán líneas de planificación (${e.message}).`
-      );
-    }
+    return usar;
   }
 
   for (const grupo of previa.grupos) {
@@ -1185,6 +1193,8 @@ export async function crearPedidosCompraBC(pedidoId: string) {
 
     for (const item of grupo.items) {
       let jobPlanningLineNo: number | undefined;
+      const jobTaskNo = await tareaDeLinea(item.jobTaskNo);
+      const proximoLineNo = jobTaskNo ? proximoPorTarea.get(jobTaskNo) ?? null : null;
 
       if (previa.jobNo && jobTaskNo && proximoLineNo !== null) {
         try {
@@ -1198,7 +1208,7 @@ export async function crearPedidosCompraBC(pedidoId: string) {
             Planning_Date: new Date().toISOString().slice(0, 10),
           });
           jobPlanningLineNo = proximoLineNo;
-          proximoLineNo += 10000;
+          proximoPorTarea.set(jobTaskNo, proximoLineNo + 10000);
         } catch (e: any) {
           errores.push(
             `${grupo.proveedorNombre}: no se pudo crear la línea de planificación para "${item.nombre}" (se crea la línea de compra sin vincular) — ${e.message}`

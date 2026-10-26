@@ -25,6 +25,8 @@ type DatosSolicitud = {
   lista_foto_ids?: string[];
   documento_ids?: string[];
   comentarios_comprador?: string | null;
+  // "Asignar líneas de planificación manualmente": producto_id → Nº tarea proyecto
+  tareas_planificacion?: Record<string, string>;
   aprobador_id?: string | null;
 };
 
@@ -301,17 +303,18 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     return { error: 'No se pudo crear el pedido. Intenta nuevamente.' };
   }
 
-  // 4. Crear las líneas del pedido
-  const { error: errorItems } =
-    items.length > 0
-      ? await supabase.from('pedido_items').insert(
-          items.map((i) => ({
-            pedido_id: pedido.id,
-            producto_id: i.producto_id,
-            cantidad: i.cantidad,
-          }))
-        )
-      : { error: null };
+  // 4. Crear las líneas del pedido (con la tarea de proyecto elegida, si la hay; el
+  //    perfil usuario no puede elegirla)
+  const tareas = perfil?.rol !== 'usuario' ? datos.tareas_planificacion || {} : {};
+  const filasItems = items.map((i) => {
+    const t = (tareas[i.producto_id] || '').trim();
+    return { pedido_id: pedido.id, producto_id: i.producto_id, cantidad: i.cantidad, ...(t ? { job_task_no: t.slice(0, 20) } : {}) };
+  });
+  let { error: errorItems } = items.length > 0 ? await supabase.from('pedido_items').insert(filasItems) : { error: null };
+  if (errorItems && /job_task_no/.test(errorItems.message || '')) {
+    // migración 20261024120000 aún sin aplicar: se guardan sin la tarea
+    ({ error: errorItems } = await supabase.from('pedido_items').insert(filasItems.map(({ job_task_no: _t, ...f }: any) => f)));
+  }
 
   if (errorItems) {
     return { error: 'El pedido se creó pero hubo un problema guardando los artículos.' };

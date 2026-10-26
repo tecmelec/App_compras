@@ -10,7 +10,7 @@ type Grupo = {
   proveedorId: string;
   proveedorNombre: string;
   proveedorBcNo?: string;
-  items: { id: string; nombre: string; bcItemNo?: string; cantidad: number; precio: number }[];
+  items: { id: string; nombre: string; bcItemNo?: string; jobTaskNo?: string | null; cantidad: number; precio: number }[];
   subtotal: number;
 };
 
@@ -148,7 +148,10 @@ export default function CrearPedidoBCBoton({
                             <tbody className="divide-y divide-borde">
                               {g.items.map((it) => (
                                 <tr key={it.id}>
-                                  <td className="px-4 py-2 text-grafito">{it.nombre}</td>
+                                  <td className="px-4 py-2 text-grafito">
+                                    {it.nombre}
+                                    <span className="block text-[11px] text-slate">Tarea {it.jobTaskNo || '95.01'}</span>
+                                  </td>
                                   <td className="px-4 py-2 font-mono text-slate text-right">x{it.cantidad}</td>
                                   <td className="px-4 py-2 font-mono text-slate text-right">
                                     {formatoPrecioUnitario(it.precio)} €

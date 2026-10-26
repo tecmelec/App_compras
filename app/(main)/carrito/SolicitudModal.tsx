@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { aprobadoresParaSolicitud, type AprobadorOpcion } from '@/app/actions/aprobadores-proyecto';
 import { createClient } from '@/lib/supabase/client';
+import { useCart } from '@/context/CartContext';
+import TareasPlanificacionModal from './TareasPlanificacionModal';
 import { crearDireccion, actualizarDireccion, eliminarDireccion } from '@/app/actions/direcciones';
 import { crearContactoEntrega, eliminarContactoEntrega } from '@/app/actions/contactos';
 
@@ -103,6 +105,7 @@ export default function SolicitudModal({
     comprador_id: string | null;
     seguir_pedido: boolean;
     aprobador_id: string | null;
+    tareas_planificacion: Record<string, string>;
   }) => void;
   enviando: boolean;
 }) {
@@ -132,6 +135,16 @@ export default function SolicitudModal({
 
   const [proyectos, setProyectos] = useState<Proyecto[]>([]);
   const [proyectoId, setProyectoId] = useState('');
+  // "Asignar líneas de planificación manualmente" (todos los perfiles excepto usuario):
+  // producto_id → Nº tarea proyecto. Se borra al cambiar de proyecto (vuelve a 95.01).
+  const { items: itemsCarrito } = useCart();
+  const [asignarTareas, setAsignarTareas] = useState(false);
+  const [tareasPlan, setTareasPlan] = useState<Record<string, string>>({});
+  const [editandoTareas, setEditandoTareas] = useState(false);
+  useEffect(() => {
+    setAsignarTareas(false);
+    setTareasPlan({});
+  }, [proyectoId]);
   // Proyectos con varios aprobadores: el solicitante elige quién aprueba la solicitud.
   const [aprobadores, setAprobadores] = useState<AprobadorOpcion[]>([]);
   const [aprobadorId, setAprobadorId] = useState('');
@@ -311,6 +324,7 @@ export default function SolicitudModal({
       comprador_id: rol === 'usuario' ? compradorAsignadoId : compradorSeleccionado,
       seguir_pedido: seguirPedido,
       aprobador_id: aprobadores.length > 0 ? aprobadorId : null,
+      tareas_planificacion: rol !== 'usuario' && asignarTareas ? tareasPlan : {},
     });
   }
 
@@ -349,7 +363,63 @@ export default function SolicitudModal({
         <p className="text-xs text-slate mb-1">
           Paso {pasoIndex + 1} de {PASOS.length}
         </p>
-        <h3 className="font-medium text-grafito text-lg mb-4">{TITULOS_PASO[paso]}</h3>
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-4">
+          <h3 className="font-medium text-grafito text-lg">{TITULOS_PASO[paso]}</h3>
+          {paso === 'proyecto' && rol !== 'usuario' && itemsCarrito.length > 0 && (
+            <div className="text-right">
+              <label
+                className={`inline-flex items-center gap-2 text-xs ${proyectoId ? 'text-grafito cursor-pointer' : 'text-slate/70 cursor-not-allowed'}`}
+                title={proyectoId ? undefined : 'Elige primero el proyecto'}
+              >
+                <input
+                  type="checkbox"
+                  disabled={!proyectoId}
+                  checked={asignarTareas}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setAsignarTareas(true);
+                      setEditandoTareas(true);
+                    } else {
+                      setAsignarTareas(false);
+                      setTareasPlan({});
+                    }
+                  }}
+                />
+                Asignar líneas de planificación manualmente
+              </label>
+              {asignarTareas && (
+                <p className="text-[11px] text-slate mt-0.5">
+                  {Object.keys(tareasPlan).length} de {itemsCarrito.length} con tarea ·{' '}
+                  <button type="button" onClick={() => setEditandoTareas(true)} className="text-marca hover:underline">
+                    Editar
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+        {editandoTareas && proyectoId && (
+          <TareasPlanificacionModal
+            proyectoId={proyectoId}
+            proyectoNo={proyectos.find((p) => p.id === proyectoId)?.bc_job_no || ''}
+            items={itemsCarrito.map((i) => ({
+              producto_id: i.producto_id,
+              nombre: i.nombre,
+              cantidad: i.cantidad,
+              unidad_medida: i.unidad_medida,
+            }))}
+            inicial={tareasPlan}
+            onAceptar={(t) => {
+              setTareasPlan(t);
+              setEditandoTareas(false);
+              if (Object.keys(t).length === 0) setAsignarTareas(false);
+            }}
+            onCancelar={() => {
+              setEditandoTareas(false);
+              if (Object.keys(tareasPlan).length === 0) setAsignarTareas(false);
+            }}
+          />
+        )}
 
         {cargando ? (
           <p className="text-sm text-slate">Cargando…</p>

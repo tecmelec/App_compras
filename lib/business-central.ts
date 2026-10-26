@@ -637,3 +637,18 @@ export async function obtenerProyectoBCCrudo(jobNo: string): Promise<Record<stri
   const r: Record<string, any>[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
   return r?.[0] || null;
 }
+
+// Tareas de un proyecto de tipo "Registro" (Job_Task_Type = Posting en OData), para
+// asignar la línea de planificación de cada artículo.
+export async function obtenerTareasRegistroProyectoBC(jobNo: string): Promise<{ no: string; descripcion: string }[]> {
+  const base = urlServicioBC(process.env.BC_ODATA_SERVICE_TAREAS_PROYECTO!);
+  const filtro = `Job_No eq '${jobNo.replace(/'/g, "''")}'`;
+  const r: any[] = await consultarBC(`${base}?$filter=${encodeURIComponent(filtro)}`);
+  return (r || [])
+    .filter((t) => {
+      const tipo = String(t.Job_Task_Type ?? '').toLowerCase();
+      return !tipo || tipo === 'posting' || tipo === 'registro';
+    })
+    .map((t) => ({ no: String(t.Job_Task_No), descripcion: String(t.Description || '') }))
+    .sort((a, b) => a.no.localeCompare(b.no, 'es', { numeric: true }));
+}
