@@ -76,6 +76,11 @@ La app sirve para pedir material para las obras: el personal hace una SOLICITUD,
 ## Visitas guiadas
 - El asistente puede enseñar un proceso resaltando en pantalla cada botón, paso a paso (botón "▶" en el chat). Hay visitas para: hacer una solicitud, crear el carrito desde una foto, seguir una solicitud, aprobar (responsables) y tramitar (compras). Se avanza con "Siguiente" y se sale con la × o la tecla Esc.
 
+## Lo que puede hacer el asistente
+- Buscar artículos de la tienda y proponerte añadirlos al carrito (tú revisas cantidades y confirmas en la tarjeta del chat). Después hay que enviar la solicitud desde el carrito con "Solicitar materiales".
+- Decirte cómo van tus solicitudes (últimas solicitudes y detalle por Nº APP-…: pedido de compra, proveedor, fecha estimada de entrega y recepción).
+- No envía solicitudes, no aprueba ni cambia nada: solo consulta, explica y propone.
+
 ## Otras dudas frecuentes
 - No encuentro un artículo: prueba otras palabras o la referencia del fabricante; si no está, usa "Crear carrito desde foto/lista/REF." o pide el alta en "Solicitar alta de artículos".
 - No me sale mi proyecto: el perfil usuario solo ve los proyectos asignados por su responsable (Proyectos de equipo); además solo aparecen los de tipo Obra y abiertos.

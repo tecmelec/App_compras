@@ -5,14 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { preguntarAsistente, valorarRespuestaAsistente, type MensajeAsistente } from '@/app/actions/asistente';
 import { visitasParaRol } from '@/lib/asistente/visitas';
+import type { AccionAsistente, ArticuloPropuesto } from '@/lib/asistente/herramientas';
+import { useCart } from '@/context/CartContext';
+import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
 
 // Asistente de la app (fase 1). Se abre con el botón flotante "?" o desde el recuadro
 // "¿Necesitas ayuda?" del menú (evento "abrir-asistente").
-type Msg = MensajeAsistente & { id?: string | null; valoracion?: 1 | -1 };
+type Msg = MensajeAsistente & { id?: string | null; valoracion?: 1 | -1; acciones?: AccionAsistente[] };
 
 const SUGERENCIAS: Record<string, string[]> = {
-  usuario: ['Quiero hacer una solicitud de material', 'No encuentro un artículo en la tienda', '¿Cómo sé cuándo llega mi material?'],
-  responsable: ['Quiero hacer una solicitud de material', '¿Cómo apruebo una solicitud?', '¿Cómo asigno proyectos a mi equipo?'],
+  usuario: ['Necesito 200 m de hilo de 1,5 azul', '¿Cómo van mis solicitudes?', 'No encuentro un artículo en la tienda'],
+  responsable: ['Necesito 200 m de hilo de 1,5 azul', '¿Cómo van mis solicitudes?', '¿Cómo apruebo una solicitud?'],
   comprador: ['¿Cómo tramito una solicitud?', '¿Cómo pido ofertas a varios proveedores?', '¿Cómo envío el pedido al proveedor?'],
   admin: ['Quiero hacer una solicitud de material', '¿Cómo apruebo una solicitud?', '¿Cómo tramito una solicitud?'],
 };
@@ -28,6 +31,96 @@ function pistaParaRuta(ruta: string, rol: string): { texto: string; pregunta: st
   if (ruta.startsWith('/comprador') && (rol === 'comprador' || rol === 'admin'))
     return { texto: '¿Te ayudo a tramitar la solicitud?', pregunta: '¿Cómo tramito una solicitud?' };
   return { texto: '¡Hola! ¿Te ayudo con algo?', pregunta: '' };
+}
+
+// Tarjeta "Añadir al carrito" propuesta por el asistente: el usuario revisa y confirma.
+function PropuestaCarrito({ items }: { items: ArticuloPropuesto[] }) {
+  const { addItem } = useCart();
+  const [cantidades, setCantidades] = useState<Record<string, string>>(
+    Object.fromEntries(items.map((i) => [i.producto_id, String(i.cantidad)]))
+  );
+  const [elegidos, setElegidos] = useState<Set<string>>(new Set(items.map((i) => i.producto_id)));
+  const [hecho, setHecho] = useState(false);
+  const error = (i: ArticuloPropuesto) => {
+    const n = leerCantidad(cantidades[i.producto_id]);
+    if (!esCantidadValida(n)) return 'Cantidad no válida';
+    if (!esMultiploDe(n, i.multiplo_compra)) return `Múltiplo de ${i.multiplo_compra}`;
+    return null;
+  };
+  const hayError = items.some((i) => elegidos.has(i.producto_id) && error(i));
+  if (hecho) {
+    return (
+      <div className="mt-2 rounded-lg border border-[#A7E3C4] bg-[#F3FBF6] px-3 py-2 text-xs text-[#047857]">
+        ✓ Añadido al carrito. Cuando lo tengas todo, entra en el carrito y pulsa &quot;Solicitar materiales&quot;.{' '}
+        <Link href="/carrito" className="underline font-medium">
+          Ir al carrito
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-2 rounded-lg border border-borde bg-white p-2.5">
+      <p className="text-xs font-semibold text-grafito mb-1.5">Añadir al carrito</p>
+      <ul className="space-y-1.5">
+        {items.map((i) => {
+          const e = elegidos.has(i.producto_id) ? error(i) : null;
+          return (
+            <li key={i.producto_id} className="flex items-start gap-2 text-xs">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={elegidos.has(i.producto_id)}
+                onChange={(ev) =>
+                  setElegidos((prev) => {
+                    const n = new Set(prev);
+                    if (ev.target.checked) n.add(i.producto_id);
+                    else n.delete(i.producto_id);
+                    return n;
+                  })
+                }
+              />
+              <span className="flex-1 min-w-0">
+                <span className="text-grafito">{i.nombre}</span>
+                <span className="block text-slate">
+                  {i.ref || ''}
+                  {i.multiplo_compra > 1 ? ` · múltiplo de ${i.multiplo_compra}` : ''}
+                </span>
+                {e && <span className="block text-rojo">{e}</span>}
+              </span>
+              <span className="flex items-center gap-1 shrink-0">
+                <input
+                  type="number"
+                  min={0}
+                  step={pasoCantidad(i.multiplo_compra)}
+                  value={cantidades[i.producto_id]}
+                  onChange={(ev) => setCantidades((prev) => ({ ...prev, [i.producto_id]: ev.target.value }))}
+                  className="input w-20 text-xs text-right py-1"
+                />
+                <span className="text-slate w-6">{i.unidad_medida || 'ud'}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <button
+        type="button"
+        disabled={elegidos.size === 0 || hayError}
+        onClick={() => {
+          for (const i of items) {
+            if (!elegidos.has(i.producto_id)) continue;
+            addItem(
+              { producto_id: i.producto_id, nombre: i.nombre, imagen_url: i.imagen_url, multiplo_compra: i.multiplo_compra, unidad_medida: i.unidad_medida },
+              leerCantidad(cantidades[i.producto_id])
+            );
+          }
+          setHecho(true);
+        }}
+        className="btn-primary w-full mt-2 text-xs py-1.5 disabled:opacity-60"
+      >
+        Añadir {elegidos.size} al carrito
+      </button>
+    </div>
+  );
 }
 
 function Mascota({ tam, className = '' }: { tam: number; className?: string }) {
@@ -158,8 +251,8 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
       setError(r.error);
       return;
     }
-    const d = r as { respuesta: string; id: string | null };
-    setMensajes((prev) => [...prev, { rol: 'assistant', texto: d.respuesta, id: d.id }]);
+    const d = r as { respuesta: string; id: string | null; acciones?: AccionAsistente[] };
+    setMensajes((prev) => [...prev, { rol: 'assistant', texto: d.respuesta, id: d.id, acciones: d.acciones || [] }]);
   }
 
   function iniciarVisita(id: string) {
@@ -303,6 +396,7 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                   <div className="min-w-0 flex-1">
                   <div className="bg-fondo text-grafito rounded-lg rounded-bl-sm px-3 py-2">
                     <Contenido texto={m.texto} onIr={() => (window.innerWidth < 640 ? setAbierto(false) : undefined)} onVisita={iniciarVisita} />
+                    {(m.acciones || []).map((a, j) => (a.tipo === 'carrito' ? <PropuestaCarrito key={j} items={a.items} /> : null))}
                   </div>
                   {m.id && (
                     <div className="flex items-center gap-1 mt-0.5 text-[11px] text-slate">
