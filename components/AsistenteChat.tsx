@@ -65,39 +65,43 @@ function PropuestaCarrito({ items }: { items: ArticuloPropuesto[] }) {
         {items.map((i) => {
           const e = elegidos.has(i.producto_id) ? error(i) : null;
           return (
-            <li key={i.producto_id} className="flex items-start gap-2 text-xs">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={elegidos.has(i.producto_id)}
-                onChange={(ev) =>
-                  setElegidos((prev) => {
-                    const n = new Set(prev);
-                    if (ev.target.checked) n.add(i.producto_id);
-                    else n.delete(i.producto_id);
-                    return n;
-                  })
-                }
-              />
-              <span className="flex-1 min-w-0">
-                <span className="text-grafito">{i.nombre}</span>
-                <span className="block text-slate">
-                  {i.ref || ''}
-                  {i.multiplo_compra > 1 ? ` · múltiplo de ${i.multiplo_compra}` : ''}
+            <li key={i.producto_id} className="text-xs border-b border-borde last:border-b-0 pb-1.5 last:pb-0">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 shrink-0"
+                  checked={elegidos.has(i.producto_id)}
+                  onChange={(ev) =>
+                    setElegidos((prev) => {
+                      const n = new Set(prev);
+                      if (ev.target.checked) n.add(i.producto_id);
+                      else n.delete(i.producto_id);
+                      return n;
+                    })
+                  }
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-grafito leading-snug break-words">{i.nombre}</span>
+                  <span className="block text-slate">
+                    {i.ref || ''}
+                    {i.multiplo_compra > 1 ? ` · múltiplo de ${i.multiplo_compra}` : ''}
+                  </span>
                 </span>
-                {e && <span className="block text-rojo">{e}</span>}
-              </span>
-              <span className="flex items-center gap-1 shrink-0">
+              </label>
+              <div className="flex items-center justify-end gap-1.5 mt-1">
+                <span className="text-slate">Cantidad</span>
                 <input
                   type="number"
                   min={0}
                   step={pasoCantidad(i.multiplo_compra)}
                   value={cantidades[i.producto_id]}
                   onChange={(ev) => setCantidades((prev) => ({ ...prev, [i.producto_id]: ev.target.value }))}
-                  className="input w-20 text-xs text-right py-1"
+                  style={{ width: '5.5rem' }}
+                  className="border border-borde rounded-md px-2 py-1 text-xs text-right font-mono focus:outline-none focus:border-marca"
                 />
-                <span className="text-slate w-6">{i.unidad_medida || 'ud'}</span>
-              </span>
+                <span className="text-slate">{i.unidad_medida || 'ud'}</span>
+              </div>
+              {e && <span className="block text-right text-rojo mt-0.5">{e}</span>}
             </li>
           );
         })}
