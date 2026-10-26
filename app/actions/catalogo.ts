@@ -135,3 +135,12 @@ export async function actualizarParametrosPropuesta(v: {
   revalidatePath('/admin/configuracion');
   return { success: true };
 }
+
+// Interruptor del asistente de la app.
+export async function actualizarAsistenteActivo(activo: boolean) {
+  await requireAdmin();
+  const { error } = await createClient().from('configuracion').update({ asistente_activo: activo }).eq('id', 1);
+  if (error) return { error: 'No se pudo guardar: ' + error.message };
+  revalidatePath('/admin/configuracion');
+  return { success: true };
+}

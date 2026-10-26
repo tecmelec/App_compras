@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import ConfiguracionClient from './ConfiguracionClient';
 import ParametrosPropuestaCompra from './ParametrosPropuestaCompra';
+import AsistenteConfig from './AsistenteConfig';
 import { leerParametrosPropuesta } from '@/lib/propuesta-compra';
 
 export default async function ConfiguracionPage() {
@@ -8,7 +9,7 @@ export default async function ConfiguracionPage() {
 
   const { data: config } = await supabase
     .from('configuracion')
-    .select('limite_aprobacion')
+    .select('*')
     .eq('id', 1)
     .single();
 
@@ -21,6 +22,7 @@ export default async function ConfiguracionPage() {
 
       <ConfiguracionClient limiteInicial={config?.limite_aprobacion ?? 200} />
       <ParametrosPropuestaCompra inicial={parametros} />
+      <AsistenteConfig inicial={(config as any)?.asistente_activo !== false} />
     </div>
   );
 }
