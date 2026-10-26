@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { LineaPresupuesto, ProveedorPresupuesto } from '@/lib/presupuesto';
+import { referenciaEnDescripcion } from '@/lib/referencia-proveedor';
 
 // Comparativo de ofertas en Excel (misma estructura que la plantilla
 // BASE_COMPARATIVO_MATERIALES_v2): una columna por oferta (las versiones anteriores de un
@@ -103,6 +104,7 @@ export async function generarComparativoExcel(pedidoId: string): Promise<{ buffe
           let l = a ? lineasP.find((x) => x.idx === a.linea_idx) : undefined;
           const bc = normalizar(it.productos?.bc_item_no);
           if (!l && bc) l = lineasP.find((x) => normalizar(x.referencia) === bc);
+          if (!l) l = lineasP.find((x) => referenciaEnDescripcion(x.referencia, it.productos?.nombre));
           return l && l.precio_unitario != null ? Number(l.precio_unitario) : null;
         }),
       });

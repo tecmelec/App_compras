@@ -2,10 +2,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerProveedorPedidosCompraBC, obtenerUltimasComprasArticuloBC } from '@/lib/business-central';
 import type { LineaPresupuesto, ProveedorPresupuesto } from '@/lib/presupuesto';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import { referenciaEnDescripcion } from '@/lib/referencia-proveedor';
 
 // Comprador IA — Fase 1, paso 1: propuesta de proveedor y precio por línea calculada
 // con reglas fijas (sin IA). Prioridad de fuentes:
 //   1. presupuesto adjunto a esta solicitud                       → confianza alta
+//      (línea del presupuesto asignada al artículo, o cuya referencia del proveedor
+//      aparece en la descripción de nuestro artículo)
 //   2. presupuesto de otra solicitud de los últimos N días         → alta
 //   3. última compra en BC de los últimos M meses (mismo proyecto
 //      antes que otro proyecto)                                    → alta (media si el
@@ -182,6 +185,8 @@ export async function calcularPropuestaCompra(pedidoId: string, params: Parametr
       if (a) linea = lineasP.find((l) => l.idx === a.linea_idx);
       // O por referencia igual al código de BC
       if (!linea && bc) linea = lineasP.find((l) => normalizar(l.referencia) === bc);
+      // O por la referencia del proveedor contenida en la descripción de nuestro artículo
+      if (!linea) linea = lineasP.find((l) => referenciaEnDescripcion(l.referencia, it.productos?.nombre));
       if (!linea || linea.precio_unitario == null || !(linea.precio_unitario > 0)) continue;
       anadir(it.id, {
         proveedorId: provId,
