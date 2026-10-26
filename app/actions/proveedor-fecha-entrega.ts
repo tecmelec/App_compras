@@ -107,10 +107,7 @@ export async function obtenerPedidoPorToken(token: string) {
     return { error: 'Este enlace no es válido o ha caducado.' };
   }
 
-  const { data: items } = await supabase
-    .from('pedido_items')
-    .select('id, cantidad, fecha_estimada_entrega, proveedor_id, productos(nombre, unidad_medida)')
-    .eq('numero_tecmelec', numeroTecmelec);
+  const items = await lineasActivasPedido(supabase, numeroTecmelec);
 
   if (!items || items.length === 0) {
     return { error: 'No se encontraron artículos para este pedido.' };
@@ -139,6 +136,22 @@ export async function obtenerPedidoPorToken(token: string) {
   };
 }
 
+// Líneas que se le piden al proveedor: igual que en el PDF, fuera las de cantidad 0 y
+// las anuladas (estado o recepción "Anulado").
+async function lineasActivasPedido(supabase: any, numeroTecmelec: string) {
+  const [{ data: items }, { data: anulado }] = await Promise.all([
+    supabase
+      .from('pedido_items')
+      .select('id, cantidad, estado_id, estado_recepcion, fecha_estimada_entrega, proveedor_id, productos(nombre, unidad_medida)')
+      .eq('numero_tecmelec', numeroTecmelec),
+    supabase.from('estados_pedido').select('id').ilike('nombre', 'anulado').maybeSingle(),
+  ]);
+  const idAnulado: number | null = anulado?.id ?? null;
+  return ((items || []) as any[]).filter(
+    (it) => Number(it.cantidad) > 0 && it.estado_recepcion !== 'Anulado' && (idAnulado == null || it.estado_id !== idAnulado)
+  );
+}
+
 export async function guardarFechaEntregaProveedor(
   token: string,
   payload:
@@ -158,10 +171,8 @@ export async function guardarFechaEntregaProveedor(
       return { error: 'Indica una fecha.' };
     }
 
-    const { data: itemsGrupo } = await supabase
-      .from('pedido_items')
-      .select('id')
-      .eq('numero_tecmelec', numeroTecmelec);
+    const itemsGrupo = await lineasActivasPedido(supabase, numeroTecmelec);
+    if (itemsGrupo.length === 0) return { error: 'No hay artículos pendientes en este pedido.' };
 
     const { error } = await supabase
       .from('pedido_items')
@@ -169,6 +180,10 @@ export async function guardarFechaEntregaProveedor(
         fecha_estimada_entrega: payload.fecha,
         fecha_estimada_entrega_confirmada_en: new Date().toISOString(),
       })
+      .in(
+        'id',
+        itemsGrupo.map((it: any) => it.id)
+      )
       .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
@@ -182,7 +197,8 @@ export async function guardarFechaEntregaProveedor(
     return { success: true };
   }
 
-  const fechasValidas = payload.fechas.filter((f) => f.fecha);
+  const activas = new Set((await lineasActivasPedido(supabase, numeroTecmelec)).map((it: any) => it.id));
+  const fechasValidas = payload.fechas.filter((f) => f.fecha && activas.has(f.itemId));
   if (fechasValidas.length === 0) {
     return { error: 'Indica al menos una fecha.' };
   }

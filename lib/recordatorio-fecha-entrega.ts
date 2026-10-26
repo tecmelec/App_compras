@@ -82,7 +82,7 @@ export async function enviarRecordatoriosFechaEntrega(): Promise<{
 
   const { data: items } = await admin
     .from('pedido_items')
-    .select('numero_tecmelec, estado_recepcion, eliminada_en_bc, rechazada_por_aprobador, fecha_estimada_entrega_confirmada_en')
+    .select('numero_tecmelec, cantidad, estado_recepcion, eliminada_en_bc, rechazada_por_aprobador, fecha_estimada_entrega_confirmada_en')
     .in(
       'numero_tecmelec',
       candidatos.map((c) => c.numero_tecmelec)
@@ -97,7 +97,8 @@ export async function enviarRecordatoriosFechaEntrega(): Promise<{
         i.numero_tecmelec === e.numero_tecmelec &&
         !i.eliminada_en_bc &&
         !i.rechazada_por_aprobador &&
-        !['Anulado', 'Recibido'].includes(i.estado_recepcion || '')
+        !['Anulado', 'Recibido'].includes(i.estado_recepcion || '') &&
+        Number((i as any).cantidad ?? 1) > 0
     );
     // Nada pendiente de recibir, o el proveedor ya indicó la fecha después del envío → no hace falta.
     const confirmado = lineas.some(
