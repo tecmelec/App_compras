@@ -142,7 +142,20 @@ async function consultarBC(url: string) {
   }
 
   const data = await respuesta.json();
-  return data.value;
+  // BC devuelve los resultados por páginas cuando superan su límite: se siguen todas
+  // las páginas (@odata.nextLink) para no quedarnos solo con la primera.
+  let valor: any[] = data.value || [];
+  let siguiente: string | undefined = data['@odata.nextLink'];
+  let vueltas = 0;
+  while (siguiente && vueltas < 100) {
+    vueltas++;
+    const r = await fetch(siguiente, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
+    if (!r.ok) throw new Error(`Error consultando Business Central (página ${vueltas + 1}): ${r.status} ${await r.text()}`);
+    const d = await r.json();
+    valor = valor.concat(d.value || []);
+    siguiente = d['@odata.nextLink'];
+  }
+  return valor;
 }
 
 // Crea un registro nuevo en BC vía POST. Devuelve el registro creado tal cual
