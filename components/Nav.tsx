@@ -173,9 +173,8 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
               onClick={() => window.dispatchEvent(new Event('abrir-asistente'))}
               className="w-full flex items-center justify-center gap-2 text-sm font-medium bg-white/10 text-white rounded-full py-2 mb-2 hover:bg-white/20 transition-colors"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/asistente/mascota-96.png" alt="" width={22} height={22} className="rounded-full bg-white" />
               Asistente
             </button>
             {comprador ? (

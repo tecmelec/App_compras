@@ -16,6 +16,33 @@ const SUGERENCIAS: Record<string, string[]> = {
   admin: ['Quiero hacer una solicitud de material', '¿Cómo apruebo una solicitud?', '¿Cómo tramito una solicitud?'],
 };
 
+// Burbuja de la mascota según la pantalla (al pulsarla abre el chat con esa pregunta).
+function pistaParaRuta(ruta: string, rol: string): { texto: string; pregunta: string } {
+  if (ruta.startsWith('/carrito/foto')) return { texto: '¿Te explico cómo crear el carrito con una foto?', pregunta: '¿Cómo creo el carrito desde una foto?' };
+  if (ruta.startsWith('/carrito')) return { texto: '¿Te ayudo a enviar la solicitud?', pregunta: '¿Cómo envío la solicitud de material?' };
+  if (ruta.startsWith('/tienda')) return { texto: '¿Buscas algún material? Te ayudo', pregunta: 'Quiero hacer una solicitud de material' };
+  if (ruta.startsWith('/lineas-compras')) return { texto: '¿Te explico qué significa cada columna?', pregunta: '¿Qué significa cada columna de Líns. compras?' };
+  if (ruta.startsWith('/mis-pedidos')) return { texto: '¿Quieres saber cómo va tu solicitud?', pregunta: '¿Cómo sé cuándo llega mi material?' };
+  if (ruta.startsWith('/responsable') && rol !== 'usuario') return { texto: '¿Te explico cómo aprobar?', pregunta: '¿Cómo apruebo una solicitud?' };
+  if (ruta.startsWith('/comprador') && (rol === 'comprador' || rol === 'admin'))
+    return { texto: '¿Te ayudo a tramitar la solicitud?', pregunta: '¿Cómo tramito una solicitud?' };
+  return { texto: '¡Hola! ¿Te ayudo con algo?', pregunta: '' };
+}
+
+function Mascota({ tam, className = '' }: { tam: number; className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={tam > 64 ? '/asistente/mascota-192.png' : '/asistente/mascota-96.png'}
+      alt=""
+      width={tam}
+      height={tam}
+      className={`rounded-full bg-white object-cover ${className}`}
+      draggable={false}
+    />
+  );
+}
+
 // Texto con botones [[Etiqueta|/ruta]] y **negritas**.
 function Contenido({ texto, onIr }: { texto: string; onIr: () => void }) {
   const lineas = texto.split('\n');
@@ -59,6 +86,34 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
   const [pensando, setPensando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
+  const [burbuja, setBurbuja] = useState(false);
+  const pista = pistaParaRuta(ruta || '', rol);
+
+  // La mascota saluda con una burbuja la primera vez en cada pantalla de la sesión.
+  useEffect(() => {
+    setBurbuja(false);
+    if (abierto) return;
+    let clave = '';
+    try {
+      clave = `asistente_burbuja_${(ruta || '').split('/').slice(0, 3).join('/')}`;
+      if (window.sessionStorage.getItem(clave)) return;
+    } catch {
+      /* sin almacenamiento: se muestra igual */
+    }
+    const mostrar = setTimeout(() => {
+      setBurbuja(true);
+      try {
+        if (clave) window.sessionStorage.setItem(clave, '1');
+      } catch {
+        /* nada */
+      }
+    }, 2500);
+    const ocultar = setTimeout(() => setBurbuja(false), 11000);
+    return () => {
+      clearTimeout(mostrar);
+      clearTimeout(ocultar);
+    };
+  }, [ruta, abierto]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -106,27 +161,57 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
   return (
     <>
       {!abierto && (
-        <button
-          type="button"
-          onClick={() => setAbierto(true)}
-          className="fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-marca text-white shadow-lg flex items-center justify-center hover:bg-[#12703D] print:hidden"
-          title="Asistente: pregúntame cómo usar la app"
-          aria-label="Abrir el asistente"
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            <path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5" />
-            <path d="M12 15h.01" />
-          </svg>
-        </button>
+        <div className="fixed bottom-4 right-4 z-40 flex items-end gap-2 print:hidden">
+          {burbuja && (
+            <div className="asistente-aparecer relative mb-3 max-w-[220px] bg-white border border-borde shadow-lg rounded-2xl rounded-br-sm pl-3 pr-6 py-2 text-sm text-grafito">
+              <button
+                type="button"
+                onClick={() => {
+                  setBurbuja(false);
+                  setAbierto(true);
+                  if (pista.pregunta) enviar(pista.pregunta);
+                }}
+                className="text-left hover:text-marca"
+              >
+                {pista.texto}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBurbuja(false)}
+                className="absolute top-1 right-1.5 text-slate hover:text-grafito text-sm leading-none"
+                aria-label="Cerrar"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setBurbuja(false);
+              setAbierto(true);
+            }}
+            className="asistente-flotar rounded-full shadow-xl ring-2 ring-white bg-white"
+            title="Asistente: pregúntame cómo usar la app"
+            aria-label="Abrir el asistente"
+          >
+            <Mascota tam={64} />
+          </button>
+        </div>
       )}
 
       {abierto && (
         <div className="fixed z-50 inset-x-0 bottom-0 sm:inset-auto sm:bottom-4 sm:right-4 sm:w-[380px] h-[75vh] sm:h-[560px] bg-white sm:rounded-xl rounded-t-xl shadow-2xl border border-borde flex flex-col print:hidden">
           <div className="flex items-center justify-between gap-2 px-4 py-3 bg-[#0F3D2A] text-white sm:rounded-t-xl rounded-t-xl">
-            <div>
-              <p className="text-sm font-semibold">Asistente de compras</p>
-              <p className="text-[11px] text-white/70">Te guío paso a paso en el uso de la app</p>
+            <div className="flex items-center gap-2.5">
+              <span className="relative">
+                <Mascota tam={40} className={pensando ? 'asistente-pensando' : ''} />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#4ADE80] ring-2 ring-[#0F3D2A]" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Asistente de compras</p>
+                <p className="text-[11px] text-white/70">{pensando ? 'Escribiendo…' : 'Te guío paso a paso en el uso de la app'}</p>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               {mensajes.length > 0 && (
@@ -151,8 +236,13 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 text-sm">
             {mensajes.length === 0 && (
               <div className="space-y-3">
-                <div className="bg-fondo rounded-lg px-3 py-2 text-grafito">
-                  Hola{primerNombre ? ` ${primerNombre}` : ''} 👋 Pregúntame cómo hacer cualquier cosa en la app y te guío paso a paso.
+                <div className="flex flex-col items-center text-center pt-2">
+                  <Mascota tam={96} className="asistente-flotar shadow-md" />
+                  <p className="mt-2 text-grafito">
+                    ¡Hola{primerNombre ? ` ${primerNombre}` : ''}! 👋 Soy tu asistente de compras.
+                    <br />
+                    Pregúntame cómo hacer cualquier cosa en la app y te guío paso a paso.
+                  </p>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {(SUGERENCIAS[rol] || SUGERENCIAS.usuario).map((s) => (
@@ -174,7 +264,9 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                   <div className="max-w-[85%] bg-marca text-white rounded-lg rounded-br-sm px-3 py-2 whitespace-pre-line">{m.texto}</div>
                 </div>
               ) : (
-                <div key={k} className="max-w-[92%]">
+                <div key={k} className="max-w-[94%] flex items-start gap-2 asistente-aparecer">
+                  <Mascota tam={28} className="shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
                   <div className="bg-fondo text-grafito rounded-lg rounded-bl-sm px-3 py-2">
                     <Contenido texto={m.texto} onIr={() => (window.innerWidth < 640 ? setAbierto(false) : undefined)} />
                   </div>
@@ -195,10 +287,20 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
                       )}
                     </div>
                   )}
+                  </div>
                 </div>
               )
             )}
-            {pensando && <div className="text-xs text-slate px-1">Escribiendo…</div>}
+            {pensando && (
+              <div className="flex items-center gap-2">
+                <Mascota tam={28} className="asistente-pensando" />
+                <span className="inline-flex gap-1 bg-fondo rounded-lg px-3 py-2.5 text-slate">
+                  <span className="asistente-punto" />
+                  <span className="asistente-punto" style={{ animationDelay: '.15s' }} />
+                  <span className="asistente-punto" style={{ animationDelay: '.3s' }} />
+                </span>
+              </div>
+            )}
             {error && <div className="text-xs text-rojo bg-[#F6E9E9] rounded-md px-3 py-2">{error}</div>}
             <div ref={finRef} />
           </div>
