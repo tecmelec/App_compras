@@ -49,7 +49,7 @@ Reglas:
 - Cuando indiques ir a una pantalla, añade un botón con la sintaxis [[Texto del botón|/ruta]] en su propia línea. Solo puedes usar estas rutas: ${rutas.join(', ')}.
 - Usa los nombres exactos de los botones y pantallas entre comillas, como aparecen en la app.
 - Visitas guiadas: la app puede enseñar un proceso resaltando en pantalla cada botón, paso a paso. Cuando expliques uno de estos procesos, ofrécela al final con un botón [[▶ Ver visita guiada|tour:ID]] (solo estas): ${visitas.map((v) => `tour:${v.id} = "${v.titulo}"`).join('; ')}.
-- Herramientas: puedes buscar artículos en la tienda (buscar_articulos), proponer añadirlos al carrito (proponer_carrito: se muestra una tarjeta y es el usuario quien confirma; nunca digas que ya están en el carrito), ver sus últimas solicitudes (mis_solicitudes) y el detalle de una solicitud (detalle_solicitud: artículos, pedido, fecha estimada y recepción). Úsalas cuando ayuden; si buscar_articulos no encuentra nada, sugiere "Crear carrito desde foto/lista/REF.".
+- Herramientas: puedes buscar artículos en la tienda (buscar_articulos), proponer añadirlos al carrito (proponer_carrito: se muestra una tarjeta y es el usuario quien confirma; nunca digas que ya están en el carrito), ver sus últimas solicitudes (mis_solicitudes), buscar en las líneas de compra que puede ver por artículo y/o proyecto (buscar_lineas_compra, p. ej. "¿se ha pedido arena para Robledo?") y el detalle de una solicitud (detalle_solicitud: artículos, pedido, fecha estimada y recepción). Úsalas cuando ayuden; si buscar_articulos no encuentra nada, sugiere "Crear carrito desde foto/lista/REF.".
 - Para pedir material: busca, confirma con el usuario el artículo exacto si hay dudas (varios parecidos) y la cantidad, y entonces propón el carrito. Recuérdale que después debe enviar la solicitud desde el carrito ("Solicitar materiales").
 - Al dar el estado de una solicitud, resume por artículo: pedido de compra, fecha estimada (y si está confirmada) y recepción. Puedes añadir un botón al detalle con [[Ver en Líns. compras|ENLACE]] usando el enlace que devuelve la herramienta.
 - No pidas ni muestres contraseñas ni datos de otras personas. No modificas nada en la app: solo consultas, explicas y propones.
@@ -74,6 +74,7 @@ ${GUIA_APP}`;
       texto = bloques.filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
       const usos = bloques.filter((c) => c.type === 'tool_use');
       if (cuerpo.stop_reason !== 'tool_use' || usos.length === 0) break;
+      if (ronda === 4) break; // última ronda: se pide la respuesta final abajo
       conversacion.push({ role: 'assistant', content: bloques });
       const resultados = [];
       for (const u of usos) {
@@ -86,6 +87,24 @@ ${GUIA_APP}`;
         resultados.push({ type: 'tool_result', tool_use_id: u.id, content: JSON.stringify(salida).slice(0, 12000) });
       }
       conversacion.push({ role: 'user', content: resultados });
+    }
+    // Si se ha quedado sin texto (p. ej. terminó con una llamada a herramienta), se le
+    // pide la respuesta final sin herramientas con lo que ya ha consultado.
+    if (!texto) {
+      const ultimaAsistente = conversacion[conversacion.length - 1];
+      const mensajesFinal =
+        ultimaAsistente?.role === 'user'
+          ? conversacion
+          : [...conversacion, { role: 'user', content: 'Responde ahora al usuario con lo que hayas encontrado.' }];
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: HERRAMIENTAS, tool_choice: { type: 'none' }, messages: mensajesFinal }),
+      });
+      if (r.ok) {
+        const cuerpo = await r.json();
+        texto = ((cuerpo.content || []) as any[]).filter((c) => c.type === 'text').map((c) => c.text).join('\n').trim();
+      } else console.error('[asistente] respuesta final', r.status, (await r.text()).slice(0, 200));
     }
   } catch (e: any) {
     console.error('[asistente]', e?.message || e);

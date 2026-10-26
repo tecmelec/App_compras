@@ -55,6 +55,18 @@ export const HERRAMIENTAS = [
     input_schema: { type: 'object', properties: { limite: { type: 'number', description: 'Máximo de solicitudes (por defecto 8).' } } },
   },
   {
+    name: 'buscar_lineas_compra',
+    description:
+      'Busca en las líneas de compra (todas las solicitudes que quien pregunta puede ver, como en "Líns. compras") por artículo y/o proyecto (obra). Úsala para preguntas como "¿se ha pedido arena para Robledo?". Devuelve solicitud, fecha, proyecto, artículo, cantidad, pedido de compra, proveedor, fecha estimada y recepción.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        articulo: { type: 'string', description: 'Palabras del artículo, p. ej. "arena" o "hilo 1,5 azul".' },
+        proyecto: { type: 'string', description: 'Nº o nombre del proyecto/obra, p. ej. "robledo" o "M260123".' },
+      },
+    },
+  },
+  {
     name: 'detalle_solicitud',
     description:
       'Detalle de una solicitud por su número (APP-…): artículos, cantidades, pedido de compra (PC…), proveedor, fecha estimada de entrega (y si la confirmó el proveedor) y estado de recepción. Solo si quien pregunta puede verla.',
@@ -152,6 +164,58 @@ export async function ejecutarHerramienta(
         aprobacion: !p.requiere_aprobacion ? 'automática' : p.aprobado === true ? 'aprobada' : p.aprobado === false ? 'rechazada' : 'pendiente',
         lineas: (p.pedido_items || []).length,
       })),
+    };
+  }
+
+  if (nombre === 'buscar_lineas_compra') {
+    const limpiar = (t: any) => String(t || '').replace(/[%,()]/g, ' ').trim().slice(0, 80);
+    const articulo = limpiar(entrada?.articulo);
+    const proyecto = limpiar(entrada?.proyecto);
+    if (!articulo && !proyecto) return { error: 'Indica un artículo o un proyecto.' };
+    const admin = createAdminClient();
+    let idsProyecto: string[] | null = null;
+    if (proyecto) {
+      const { data: proys } = await admin
+        .from('proyectos')
+        .select('id')
+        .or(`bc_job_no.ilike.%${proyecto}%,descripcion.ilike.%${proyecto}%`)
+        .limit(50);
+      idsProyecto = (proys || []).map((x: any) => x.id);
+      if (idsProyecto.length === 0) return { resultados: [], nota: `No hay ningún proyecto que coincida con "${proyecto}".` };
+    }
+    let q = admin
+      .from('pedido_items')
+      .select(
+        'cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, rechazada_por_aprobador, productos!inner(nombre, unidad_medida), proveedores(nombre), pedidos!inner(id, numero_app, created_at, usuario_id, proyecto_id, responsable_id, proyectos(bc_job_no, descripcion))'
+      )
+      .limit(300);
+    for (const pal of articulo.split(/\s+/).filter((x) => x.length >= 2).slice(0, 4)) q = q.ilike('productos.nombre', `%${pal}%`);
+    if (idsProyecto) q = q.in('pedidos.proyecto_id', idsProyecto);
+    const { data, error } = await q;
+    if (error) return { error: error.message };
+    let filas = (data || []) as any[];
+    if (ctx.rol === 'usuario' || ctx.rol === 'responsable') {
+      const v = await visibilidadLineas(ctx.userId, ctx.rol);
+      filas = filas.filter((f) => puedeVerSolicitud(v, ctx.userId, f.pedidos));
+    }
+    filas.sort((a, b) => String(b.pedidos?.created_at).localeCompare(String(a.pedidos?.created_at)));
+    return {
+      total: filas.length,
+      resultados: filas.slice(0, 25).map((f) => ({
+        solicitud: f.pedidos?.numero_app,
+        fecha_solicitud: fecha(f.pedidos?.created_at),
+        proyecto: f.pedidos?.proyectos ? `${f.pedidos.proyectos.bc_job_no} ${f.pedidos.proyectos.descripcion || ''}`.trim() : null,
+        articulo: f.productos?.nombre,
+        cantidad: Number(f.cantidad),
+        unidad: f.productos?.unidad_medida || null,
+        pedido_compra: f.numero_tecmelec || 'aún sin pedido de compra',
+        proveedor: f.proveedores?.nombre || null,
+        fecha_estimada_entrega: fecha(f.fecha_estimada_entrega) || 'por definir',
+        confirmada_por_proveedor: !!f.fecha_estimada_entrega_confirmada_en,
+        recepcion: f.rechazada_por_aprobador ? 'rechazada por el aprobador' : f.estado_recepcion || 'Pendiente de recibir',
+        enlace: `/lineas-compras/${f.pedidos?.id}`,
+      })),
+      nota: filas.length > 25 ? `Hay ${filas.length} líneas; se muestran las 25 más recientes.` : undefined,
     };
   }
 
