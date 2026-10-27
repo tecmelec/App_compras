@@ -19,7 +19,7 @@ async function usuarioActual() {
   return perfil?.activo ? { id: user.id, rol: perfil.rol as string } : null;
 }
 
-export type AprobadorOpcion = { id: string; nombre: string; jefeObraBC: boolean };
+export type AprobadorOpcion = { id: string; nombre: string; jefeObraBC: boolean; integral?: boolean };
 
 // Aprobadores elegibles para una solicitud de este proyecto: los asignados en la app y,
 // si está dado de alta (responsable/admin activo), el jefe de obra de BC. Lista vacía si
@@ -39,7 +39,7 @@ export async function aprobadoresElegibles(proyectoId: string): Promise<Aprobado
   const opciones: AprobadorOpcion[] = (asignados || [])
     .map((a: any) => a.profiles)
     .filter((p: any) => p && p.activo && ['responsable', 'admin', 'integral'].includes(p.rol))
-    .map((p: any) => ({ id: p.id, nombre: p.nombre_completo, jefeObraBC: false }));
+    .map((p: any) => ({ id: p.id, nombre: p.nombre_completo, jefeObraBC: false, integral: p.rol === 'integral' }));
   if (opciones.length === 0) return [];
 
   // El jefe de obra de BC también se ofrece (si está en la app y no está ya en la lista).
@@ -50,7 +50,7 @@ export async function aprobadoresElegibles(proyectoId: string): Promise<Aprobado
       if (jefe.userSecurityId) {
         const { data: perfiles } = await admin
           .from('profiles')
-          .select('id, nombre_completo')
+          .select('id, nombre_completo, rol')
           .eq('bc_user_id', jefe.userSecurityId)
           .eq('activo', true)
           .in('rol', ['responsable', 'admin', 'integral'])
@@ -59,7 +59,7 @@ export async function aprobadoresElegibles(proyectoId: string): Promise<Aprobado
         if (p) {
           const ya = opciones.find((o) => o.id === p.id);
           if (ya) ya.jefeObraBC = true;
-          else opciones.unshift({ id: p.id, nombre: p.nombre_completo, jefeObraBC: true });
+          else opciones.unshift({ id: p.id, nombre: p.nombre_completo, jefeObraBC: true, integral: (p as any).rol === 'integral' });
         }
       }
     }

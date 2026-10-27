@@ -150,6 +150,19 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     return data || id;
   }
 
+  // Comprador elegido a mano (admin/responsable): debe ser comprador o admin, o bien un
+  // perfil integral que sea el aprobador elegido para esta solicitud.
+  if (puedeElegirComprador && compradorFinal) {
+    const { data: elegido } = await createAdminClient()
+      .from('profiles')
+      .select('rol, activo')
+      .eq('id', compradorFinal)
+      .maybeSingle();
+    const valido =
+      !!elegido?.activo &&
+      (['comprador', 'admin'].includes(elegido.rol) || (elegido.rol === 'integral' && datos.aprobador_id === compradorFinal));
+    if (!valido) return { error: 'El comprador elegido no es válido para esta solicitud.' };
+  }
   const compradorEfectivo = await resolverSustituto(compradorFinal);
 
   // Aprobador de la solicitud: el jefe de obra (Project Manager) del proyecto en BC,

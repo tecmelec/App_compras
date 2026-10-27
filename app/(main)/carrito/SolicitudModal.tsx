@@ -148,6 +148,19 @@ export default function SolicitudModal({
   // Proyectos con varios aprobadores: el solicitante elige quién aprueba la solicitud.
   const [aprobadores, setAprobadores] = useState<AprobadorOpcion[]>([]);
   const [aprobadorId, setAprobadorId] = useState('');
+  // Si el aprobador elegido es un perfil integral, también se le puede elegir como comprador.
+  const aprobadorIntegral = aprobadores.find((a) => a.id === aprobadorId && a.integral);
+  const opcionesComprador = [
+    ...(aprobadorIntegral && !compradoresDisponibles.some((c) => c.id === aprobadorIntegral.id)
+      ? [{ id: aprobadorIntegral.id, nombre_completo: aprobadorIntegral.nombre, rol: 'integral' }]
+      : []),
+    ...compradoresDisponibles,
+  ];
+  // Si se cambia el aprobador, deja de ser elegible el integral anterior como comprador.
+  useEffect(() => {
+    if (compradorSeleccionado && !opcionesComprador.some((c) => c.id === compradorSeleccionado)) setCompradorSeleccionado('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aprobadorId, aprobadores]);
   const [cargandoAprobadores, setCargandoAprobadores] = useState(false);
   useEffect(() => {
     setAprobadores([]);
@@ -638,9 +651,9 @@ export default function SolicitudModal({
                       onChange={(e) => setCompradorSeleccionado(e.target.value)}
                     >
                       <option value="">Selecciona un comprador</option>
-                      {compradoresDisponibles.map((c) => (
+                      {opcionesComprador.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.nombre_completo} {c.rol === 'admin' ? '(admin)' : ''}
+                          {c.nombre_completo} {c.rol === 'admin' ? '(admin)' : c.rol === 'integral' ? '(aprobador · integral)' : ''}
                         </option>
                       ))}
                     </select>
