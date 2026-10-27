@@ -12,6 +12,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerItemBC, buscarArticulosBC } from '@/lib/business-central';
 import { ajustarAMultiplo, type CandidatoLista, type LineaLista } from '@/lib/lista-foto-tipos';
+import { claudeJSON } from '@/lib/ia-json';
 
 export type { CandidatoLista, LineaLista };
 
@@ -21,26 +22,6 @@ const MAX_CANDIDATOS = 8;
 
 // --- Claude -------------------------------------------------------------------------
 
-async function llamarClaude(content: any[], maxTokens: number): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('Falta la variable de entorno ANTHROPIC_API_KEY en Vercel.');
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODELO, max_tokens: maxTokens, messages: [{ role: 'user', content }] }),
-  });
-  if (!r.ok) throw new Error(`Error de la API de Claude (${r.status}): ${(await r.text()).slice(0, 300)}`);
-  const cuerpo = await r.json();
-  return (cuerpo.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
-}
-
-function extraerJSON(texto: string): any {
-  const limpio = texto.replace(/```json|```/g, '').trim();
-  const inicio = limpio.indexOf('{');
-  const fin = limpio.lastIndexOf('}');
-  if (inicio < 0 || fin < inicio) throw new Error('La respuesta del análisis no tiene un formato válido.');
-  return JSON.parse(limpio.slice(inicio, fin + 1));
-}
 
 const PROMPT_LECTURA = `Esta foto es una lista de materiales escrita (normalmente a mano) por un operario de una empresa de instalaciones eléctricas, para pedirlos a compras.
 
@@ -324,7 +305,7 @@ export async function analizarLista(entrada: EntradaLista): Promise<LineaLista[]
       text: prompt + (texto ? `\n\nLista escrita:\n"""\n${texto.slice(0, 8000)}\n"""` : ''),
     },
   ];
-  const lectura = extraerJSON(await llamarClaude(contenido, 4000));
+  const lectura = (await claudeJSON(contenido, 4000));
   const leidas: {
     texto: string;
     cantidad: number | null;
@@ -424,7 +405,7 @@ Indica además la cantidad en la unidad del producto elegido: si la lista dice "
 Responde SOLO con JSON:
 {"resultados":[{"linea":1,"candidato":"1.2","cantidad":200,"confianza":"alta","nota":null}]}`;
 
-  const eleccion = extraerJSON(await llamarClaude([{ type: 'text', text: promptEleccion }], 6000));
+  const eleccion = (await claudeJSON([{ type: 'text', text: promptEleccion }], 6000));
   const resultados = new Map<number, any>();
   for (const r of Array.isArray(eleccion?.resultados) ? eleccion.resultados : []) {
     const n = Number(r?.linea);

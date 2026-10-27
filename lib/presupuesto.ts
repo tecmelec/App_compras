@@ -8,6 +8,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerProveedoresBC } from '@/lib/business-central';
+import { claudeJSON } from '@/lib/ia-json';
 
 const MODELO = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 
@@ -81,26 +82,6 @@ const palabras = (s: string) =>
     .split(/[^A-Z0-9]+/)
     .filter((t) => t.length > 2);
 
-async function llamarClaude(content: any[], maxTokens: number): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('Falta la variable de entorno ANTHROPIC_API_KEY en Vercel.');
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODELO, max_tokens: maxTokens, messages: [{ role: 'user', content }] }),
-  });
-  if (!r.ok) throw new Error(`Error de la API de Claude (${r.status}): ${(await r.text()).slice(0, 300)}`);
-  const cuerpo = await r.json();
-  return (cuerpo.content || []).filter((c: any) => c.type === 'text').map((c: any) => c.text).join('\n');
-}
-
-function extraerJSON(texto: string): any {
-  const limpio = texto.replace(/```json|```/g, '').trim();
-  const inicio = limpio.indexOf('{');
-  const fin = limpio.lastIndexOf('}');
-  if (inicio < 0 || fin < inicio) throw new Error('La respuesta del análisis no tiene un formato válido.');
-  return JSON.parse(limpio.slice(inicio, fin + 1));
-}
 
 const PROMPT_PRESUPUESTO = `Esto es un presupuesto u oferta de un proveedor de material eléctrico (puede tener varias páginas o fotos).
 
@@ -236,7 +217,7 @@ Usa null si una columna no existe.
 Responde SOLO con JSON:
 {"proveedor":{"nombre":null,"cif":null},"columnas":{"referencia":0,"descripcion":1,"cantidad":2,"precio_unitario":5,"precio_total":6,"descuento_pct":0}}`;
 
-  const r = extraerJSON(await llamarClaude([{ type: 'text', text: prompt }], 800));
+  const r = (await claudeJSON([{ type: 'text', text: prompt }], 800));
   const c = r?.columnas || {};
   const idx = (k: string) => (Number.isInteger(c[k]) && c[k] >= 0 ? (c[k] as number) : null);
   const iRef = idx('referencia');
@@ -304,7 +285,7 @@ export async function analizarPresupuesto(
     }
   }
   if (visuales.length > 0) {
-    const lectura = extraerJSON(await llamarClaude([...visuales, { type: 'text', text: PROMPT_PRESUPUESTO }], 8000));
+    const lectura = (await claudeJSON([...visuales, { type: 'text', text: PROMPT_PRESUPUESTO }], 8000));
     for (const l of (Array.isArray(lectura?.lineas) ? lectura.lineas : []).slice(0, 200)) {
       if (!l || !(l.descripcion || l.referencia)) continue;
       lineasLeidas.push({
@@ -375,7 +356,7 @@ ${libres.map((l) => `P${l.idx}: ${l.referencia ? `${l.referencia} — ` : ''}${l
 Cada línea del presupuesto se puede usar una sola vez. Responde SOLO con JSON:
 {"emparejados":[{"articulo":"A1","linea":"P3"}]}`;
     try {
-      const r = extraerJSON(await llamarClaude([{ type: 'text', text: prompt }], 4000));
+      const r = (await claudeJSON([{ type: 'text', text: prompt }], 4000));
       for (const e of Array.isArray(r?.emparejados) ? r.emparejados : []) {
         const k = Number(String(e?.articulo || '').replace(/\D/g, '')) - 1;
         const idx = Number(String(e?.linea || '').replace(/\D/g, ''));
