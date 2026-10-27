@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { BUCKET_DOCUMENTOS, EXTENSIONES_DOCUMENTO, MAX_DOCUMENTO_BYTES, extensionDe } from '@/lib/documentos-solicitud';
+import { accesoComprasPedido } from '@/lib/acceso-compras';
 
 // Documentos que acompañan a una solicitud. Se adjuntan en el carrito (todos los
 // perfiles excepto "usuario"): el navegador sube el archivo directamente a Storage con
@@ -126,7 +127,7 @@ async function compradorOAdmin() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: perfil } = await supabase.from('profiles').select('rol, activo').eq('id', user.id).single();
-  if (!perfil?.activo || !['comprador', 'admin'].includes(perfil.rol)) return null;
+  if (!perfil?.activo || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return null;
   return user;
 }
 
@@ -136,6 +137,7 @@ export async function registrarDocumentoEnSolicitud(
 ) {
   const user = await compradorOAdmin();
   if (!user) return { error: 'Solo el comprador o el admin pueden adjuntar documentos aquí.' };
+  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
   if (!datos.ruta.startsWith(`${user.id}/`)) return { error: 'Ruta no válida.' };
   const admin = createAdminClient();
   const { data: pedido } = await admin.from('pedidos').select('id').eq('id', pedidoId).maybeSingle();

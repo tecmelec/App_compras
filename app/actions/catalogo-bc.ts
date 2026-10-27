@@ -7,7 +7,7 @@ import { productoOcultoPorCodigo } from '@/lib/lista-foto';
 
 // "Crear desde artículos de BC": catálogo completo de BC para añadir al carrito.
 // Disponible para admin, comprador y responsable (no para el perfil usuario).
-const ROLES = ['admin', 'comprador', 'responsable'];
+const ROLES = ['admin', 'comprador', 'responsable', 'integral'];
 
 async function autorizado() {
   const supabase = createClient();

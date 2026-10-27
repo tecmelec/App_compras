@@ -76,7 +76,7 @@ export async function actualizarSeguirPedido(
   if (ped.usuario_id !== user.id) {
     const { data: perfil } = await supabase.from('profiles').select('rol, activo').eq('id', user.id).single();
     if (!perfil?.activo) return { error: 'No autorizado.' };
-    if (perfil.rol === 'usuario' || perfil.rol === 'responsable') {
+    if (perfil.rol === 'usuario' || perfil.rol === 'responsable' || perfil.rol === 'integral') {
       const v = await visibilidadLineas(user.id, perfil.rol);
       if (!puedeVerSolicitud(v, user.id, ped)) return { error: 'No autorizado.' };
     }

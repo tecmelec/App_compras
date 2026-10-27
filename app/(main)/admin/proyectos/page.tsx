@@ -25,7 +25,7 @@ export default async function ProyectosAdminPage() {
   const admin = createAdminClient();
   const [{ data: asignaciones }, { data: personas }] = await Promise.all([
     admin.from('proyecto_aprobadores').select('id, proyecto_id, usuario_id'),
-    admin.from('profiles').select('id, nombre_completo, rol').eq('activo', true).in('rol', ['responsable', 'admin']).order('nombre_completo'),
+    admin.from('profiles').select('id, nombre_completo, rol').eq('activo', true).in('rol', ['responsable', 'admin', 'integral']).order('nombre_completo'),
   ]);
 
   return (

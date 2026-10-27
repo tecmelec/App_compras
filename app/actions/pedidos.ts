@@ -89,10 +89,11 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
   // Admin y responsable eligen el comprador manualmente al solicitar (no tienen uno fijo).
   // Un comprador que pide para sí mismo se autoasigna como comprador de su propio pedido,
   // pero sigue necesitando la aprobación de su responsable si supera el límite (como un usuario más).
+  // El perfil integral es siempre el comprador de sus propias solicitudes.
   const puedeElegirComprador = perfil.rol === 'admin' || perfil.rol === 'responsable';
   const compradorFinal = puedeElegirComprador
     ? datos.comprador_id || null
-    : perfil.rol === 'comprador'
+    : perfil.rol === 'comprador' || perfil.rol === 'integral'
       ? user.id
       : perfil.comprador_id;
 
@@ -181,7 +182,7 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
           .select('id')
           .eq('bc_user_id', jefe.userSecurityId)
           .eq('activo', true)
-          .in('rol', ['responsable', 'admin'])
+          .in('rol', ['responsable', 'admin', 'integral'])
           .limit(1);
         jefeObraId = perfilesJefe?.[0]?.id || null;
       }

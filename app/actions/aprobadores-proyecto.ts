@@ -38,7 +38,7 @@ export async function aprobadoresElegibles(proyectoId: string): Promise<Aprobado
     .eq('proyecto_id', proyectoId);
   const opciones: AprobadorOpcion[] = (asignados || [])
     .map((a: any) => a.profiles)
-    .filter((p: any) => p && p.activo && ['responsable', 'admin'].includes(p.rol))
+    .filter((p: any) => p && p.activo && ['responsable', 'admin', 'integral'].includes(p.rol))
     .map((p: any) => ({ id: p.id, nombre: p.nombre_completo, jefeObraBC: false }));
   if (opciones.length === 0) return [];
 
@@ -53,7 +53,7 @@ export async function aprobadoresElegibles(proyectoId: string): Promise<Aprobado
           .select('id, nombre_completo')
           .eq('bc_user_id', jefe.userSecurityId)
           .eq('activo', true)
-          .in('rol', ['responsable', 'admin'])
+          .in('rol', ['responsable', 'admin', 'integral'])
           .limit(1);
         const p = perfiles?.[0];
         if (p) {
@@ -76,7 +76,7 @@ export async function agregarAprobadorProyecto(proyectoId: string, usuarioId: st
   if (yo?.rol !== 'admin') return { error: 'No autorizado.' };
   const admin = createAdminClient();
   const { data: perfil } = await admin.from('profiles').select('rol, activo').eq('id', usuarioId).single();
-  if (!perfil?.activo || !['responsable', 'admin'].includes(perfil.rol)) {
+  if (!perfil?.activo || !['responsable', 'admin', 'integral'].includes(perfil.rol)) {
     return { error: 'Solo se pueden asignar usuarios con rol responsable o admin.' };
   }
   const { error } = await admin.from('proyecto_aprobadores').insert({ proyecto_id: proyectoId, usuario_id: usuarioId });

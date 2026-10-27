@@ -52,7 +52,7 @@ export async function confirmarListaFoto(
 // fijar además precio y proveedor. Si el artículo no existe en la tabla de
 // productos, se crea oculto (visible = false): no aparece en la tienda.
 
-const ROLES_ASIGNAR = ['responsable', 'comprador', 'admin'];
+const ROLES_ASIGNAR = ['responsable', 'comprador', 'admin', 'integral'];
 
 async function perfilActual() {
   const supabase = createClient();
@@ -109,7 +109,7 @@ export async function asignarArticuloLineaListaFoto(datos: {
 }) {
   const { supabase, user, perfil } = await perfilActual();
   if (!user || !perfil?.activo || !ROLES_ASIGNAR.includes(perfil.rol)) return { error: 'No autorizado.' };
-  const esCompras = perfil.rol === 'comprador' || perfil.rol === 'admin';
+  const esCompras = perfil.rol === 'comprador' || perfil.rol === 'admin' || perfil.rol === 'integral';
 
   const admin = createAdminClient();
   const { data: lista } = await admin.from('listas_foto').select('id, pedido_id, lineas').eq('id', datos.listaId).single();

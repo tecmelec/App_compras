@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calcularPropuestaCompra, leerParametrosPropuesta, type LineaPropuesta } from '@/lib/propuesta-compra';
 import { notasIAPropuesta } from '@/lib/propuesta-compra-ia';
+import { accesoComprasPedido } from '@/lib/acceso-compras';
 
 // Comprador IA — Fase 1, paso 1: "Proponer compra" (reglas, sin IA). Solo comprador/admin.
 
@@ -15,11 +16,12 @@ async function compradorOAdmin() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: perfil } = await supabase.from('profiles').select('rol, activo').eq('id', user.id).single();
-  if (!perfil?.activo || !['comprador', 'admin'].includes(perfil.rol)) return null;
+  if (!perfil?.activo || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return null;
   return user;
 }
 
 export async function proponerCompra(pedidoId: string) {
+  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
   const user = await compradorOAdmin();
   if (!user) return { error: 'No autorizado.' };
   try {
@@ -55,6 +57,7 @@ export async function aplicarPropuestaCompra(
   const admin = createAdminClient();
   const { data: propuesta } = await admin.from('propuestas_compra').select('id, pedido_id, lineas').eq('id', propuestaId).single();
   if (!propuesta) return { error: 'No se encontró la propuesta.' };
+  if (!(await accesoComprasPedido(propuesta.pedido_id))) return { error: 'No autorizado.' };
   const lineas = (propuesta.lineas || []) as LineaPropuesta[];
 
   const { data: items } = await admin

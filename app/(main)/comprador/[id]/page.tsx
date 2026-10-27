@@ -34,7 +34,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, responsable_id, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
+      'id, usuario_id, comprador_id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, responsable_id, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
     )
     .eq('id', params.id)
     .single();
@@ -47,6 +47,16 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: proveedores } = await obtenerTodosLosProveedores(supabase);
 
   if (!pedido) notFound();
+  // Solo compras: comprador y admin ven todas; el perfil integral, solo las suyas.
+  {
+    const {
+      data: { user: yo },
+    } = await supabase.auth.getUser();
+    const { data: miPerfil } = yo ? await supabase.from('profiles').select('rol').eq('id', yo.id).single() : { data: null };
+    const rolYo = miPerfil?.rol || '';
+    if (!['comprador', 'admin', 'integral'].includes(rolYo)) notFound();
+    if (rolYo === 'integral' && (pedido as any).usuario_id !== yo!.id && (pedido as any).comprador_id !== yo!.id) notFound();
+  }
 
   const p = pedido as any;
   // Líneas con proveedor/precio aplicados desde "Proponer compra" (si la migración

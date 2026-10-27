@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { LineaPresupuesto } from '@/lib/presupuesto';
+import { accesoComprasPedido } from '@/lib/acceso-compras';
 
 // Aplica a las líneas de la solicitud los precios del presupuesto elegidos en la
 // revisión (y el proveedor, si se indica). Solo en líneas sin pedido de compra y no
@@ -19,7 +20,7 @@ export async function aplicarPreciosPresupuesto(
   } = await supabase.auth.getUser();
   if (!user) return { error: 'No autenticado.' };
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
-  if (!perfil || !['comprador', 'admin'].includes(perfil.rol)) return { error: 'No autorizado.' };
+  if (!perfil || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return { error: 'No autorizado.' };
 
   const admin = createAdminClient();
   const { data: presupuesto } = await admin
@@ -28,6 +29,7 @@ export async function aplicarPreciosPresupuesto(
     .eq('id', presupuestoId)
     .single();
   if (!presupuesto) return { error: 'No se encontró el presupuesto.' };
+  if (!(await accesoComprasPedido(presupuesto.pedido_id))) return { error: 'No autorizado.' };
 
   const lineas = (presupuesto.lineas || []) as LineaPresupuesto[];
   const { data: items } = await admin
@@ -85,10 +87,11 @@ export async function eliminarPresupuesto(presupuestoId: string) {
   } = await supabase.auth.getUser();
   if (!user) return { error: 'No autenticado.' };
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
-  if (!perfil || !['comprador', 'admin'].includes(perfil.rol)) return { error: 'No autorizado.' };
+  if (!perfil || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return { error: 'No autorizado.' };
   const admin = createAdminClient();
   const { data: p } = await admin.from('presupuestos').select('id, pedido_id, archivos').eq('id', presupuestoId).single();
   if (!p) return { success: true };
+  if (!(await accesoComprasPedido(p.pedido_id))) return { error: 'No autorizado.' };
   if ((p.archivos || []).length) await admin.storage.from('listas-foto').remove(p.archivos);
   await admin.from('presupuestos').delete().eq('id', p.id);
   revalidatePath(`/comprador/${p.pedido_id}`);

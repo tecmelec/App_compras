@@ -11,7 +11,7 @@ export default async function AltaArticulosPage() {
 
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
   const rol = perfil?.rol || '';
-  if (!['comprador', 'responsable', 'admin'].includes(rol)) redirect('/tienda');
+  if (!['comprador', 'responsable', 'admin', 'integral'].includes(rol)) redirect('/tienda');
   const esAdmin = rol === 'admin';
 
   // El admin ve todas; el resto, las suyas (lo garantizan también los permisos de la base de datos).

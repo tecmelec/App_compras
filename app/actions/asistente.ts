@@ -10,7 +10,7 @@ import { HERRAMIENTAS, ejecutarHerramienta, type AccionAsistente } from '@/lib/a
 // pantalla, y propone botones para ir a cada sitio ([[Texto|/ruta]]).
 
 const MODELO = process.env.ANTHROPIC_MODEL_ASISTENTE || 'claude-haiku-5-5';
-const ROLES: Record<string, string> = { usuario: 'Usuario', responsable: 'Responsable', comprador: 'Comprador', admin: 'Admin' };
+const ROLES: Record<string, string> = { usuario: 'Usuario', responsable: 'Responsable', comprador: 'Comprador', admin: 'Admin', integral: 'Integral' };
 
 export type MensajeAsistente = { rol: 'user' | 'assistant'; texto: string };
 

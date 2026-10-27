@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { buscarArticulosBC } from '@/lib/business-central';
 import { despacharPushPendientes } from '@/lib/push';
 
-const ROLES_PERMITIDOS = ['comprador', 'responsable', 'admin'];
+const ROLES_PERMITIDOS = ['comprador', 'responsable', 'admin', 'integral'];
 export type EstadoAlta = 'Solicitud enviada' | 'Rechazada' | 'Disponible en tienda';
 const ESTADOS: EstadoAlta[] = ['Solicitud enviada', 'Rechazada', 'Disponible en tienda'];
 

@@ -194,7 +194,7 @@ export async function ejecutarHerramienta(
     const { data, error } = await q;
     if (error) return { error: error.message };
     let filas = (data || []) as any[];
-    if (ctx.rol === 'usuario' || ctx.rol === 'responsable') {
+    if (ctx.rol === 'usuario' || ctx.rol === 'responsable' || ctx.rol === 'integral') {
       const v = await visibilidadLineas(ctx.userId, ctx.rol);
       filas = filas.filter((f) => puedeVerSolicitud(v, ctx.userId, f.pedidos));
     }
@@ -231,7 +231,7 @@ export async function ejecutarHerramienta(
       .eq('numero_app', numero)
       .maybeSingle();
     if (!p) return { error: `No encuentro la solicitud ${numero}.` };
-    if (ctx.rol === 'usuario' || ctx.rol === 'responsable') {
+    if (ctx.rol === 'usuario' || ctx.rol === 'responsable' || ctx.rol === 'integral') {
       const v = await visibilidadLineas(ctx.userId, ctx.rol);
       if (!puedeVerSolicitud(v, ctx.userId, p as any)) return { error: `No tienes acceso a la solicitud ${numero}.` };
     }

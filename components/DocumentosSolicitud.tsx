@@ -19,7 +19,7 @@ export default async function DocumentosSolicitud({ pedidoId }: { pedidoId: stri
   if (!perfil?.rol || perfil.rol === 'usuario') return null;
 
   // El comprador y el admin pueden adjuntar más documentos y quitar los que subieron ellos.
-  const puedeAdjuntar = perfil.rol === 'comprador' || perfil.rol === 'admin';
+  const puedeAdjuntar = ['comprador', 'admin', 'integral'].includes(perfil.rol);
 
   const admin = createAdminClient();
   const { data: docs } = await admin

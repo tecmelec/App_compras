@@ -18,6 +18,7 @@ const SUGERENCIAS: Record<string, string[]> = {
   responsable: ['Necesito 200 m de hilo de 1,5 azul', '¿Cómo van mis solicitudes?', '¿Cómo apruebo una solicitud?'],
   comprador: ['¿Cómo tramito una solicitud?', '¿Cómo pido ofertas a varios proveedores?', '¿Cómo envío el pedido al proveedor?'],
   admin: ['Quiero hacer una solicitud de material', '¿Cómo apruebo una solicitud?', '¿Cómo tramito una solicitud?'],
+  integral: ['Necesito 200 m de hilo de 1,5 azul', '¿Cómo apruebo una solicitud?', '¿Cómo tramito una solicitud?'],
 };
 
 // Burbuja de la mascota según la pantalla (al pulsarla abre el chat con esa pregunta).
@@ -28,7 +29,7 @@ function pistaParaRuta(ruta: string, rol: string): { texto: string; pregunta: st
   if (ruta.startsWith('/lineas-compras')) return { texto: '¿Te explico qué significa cada columna?', pregunta: '¿Qué significa cada columna de Líns. compras?' };
   if (ruta.startsWith('/mis-pedidos')) return { texto: '¿Quieres saber cómo va tu solicitud?', pregunta: '¿Cómo sé cuándo llega mi material?' };
   if (ruta.startsWith('/responsable') && rol !== 'usuario') return { texto: '¿Te explico cómo aprobar?', pregunta: '¿Cómo apruebo una solicitud?' };
-  if (ruta.startsWith('/comprador') && (rol === 'comprador' || rol === 'admin'))
+  if (ruta.startsWith('/comprador') && ['comprador', 'admin', 'integral'].includes(rol))
     return { texto: '¿Te ayudo a tramitar la solicitud?', pregunta: '¿Cómo tramito una solicitud?' };
   return { texto: '¡Hola! ¿Te ayudo con algo?', pregunta: '' };
 }

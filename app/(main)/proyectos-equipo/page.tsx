@@ -14,7 +14,7 @@ export default async function ProyectosEquipoPage() {
 
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
 
-  if (perfil?.rol !== 'admin' && perfil?.rol !== 'responsable') redirect('/tienda');
+  if (!['admin', 'responsable', 'integral'].includes(perfil?.rol || '')) redirect('/tienda');
 
   let usuariosQuery = supabase
     .from('profiles')
@@ -22,7 +22,7 @@ export default async function ProyectosEquipoPage() {
     .eq('rol', 'usuario')
     .order('nombre_completo');
 
-  if (perfil.rol === 'responsable') {
+  if (perfil?.rol === 'responsable' || perfil?.rol === 'integral') {
     const ids = await idsEfectivos(supabase, user.id);
     usuariosQuery = usuariosQuery.in('responsable_id', ids);
   }

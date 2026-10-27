@@ -5,7 +5,7 @@
 export type PasoVisita = { ruta?: string; selector?: string; titulo: string; texto: string };
 export type Visita = { id: string; titulo: string; roles: string[]; pasos: PasoVisita[] };
 
-const TODOS = ['usuario', 'responsable', 'comprador', 'admin'];
+const TODOS = ['usuario', 'responsable', 'comprador', 'admin', 'integral'];
 
 export const VISITAS: Visita[] = [
   {
@@ -112,7 +112,7 @@ export const VISITAS: Visita[] = [
   {
     id: 'aprobar',
     titulo: 'Aprobar solicitudes',
-    roles: ['responsable', 'admin'],
+    roles: ['responsable', 'admin', 'integral'],
     pasos: [
       {
         ruta: '/responsable',
@@ -131,7 +131,7 @@ export const VISITAS: Visita[] = [
   {
     id: 'comprador',
     titulo: 'Tramitar solicitudes (compras)',
-    roles: ['comprador', 'admin'],
+    roles: ['comprador', 'admin', 'integral'],
     pasos: [
       {
         ruta: '/comprador',

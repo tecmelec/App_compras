@@ -33,6 +33,7 @@ import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import { despacharPushPendientes } from '@/lib/push';
+import { accesoComprasPedido } from '@/lib/acceso-compras';
 
 export async function sincronizarProductosBC() {
   await requireAdmin();
@@ -1023,6 +1024,7 @@ export async function depurarLineasSolicitudBC(numeroApp: string) {
 }
 
 export async function previsualizarPedidoCompraBC(pedidoId: string) {
+  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
   const supabase = createClient();
   return agruparPorProveedorParaBC(supabase, pedidoId);
 }
@@ -1033,6 +1035,7 @@ export async function previsualizarPedidoCompraBC(pedidoId: string) {
 const JOB_TASK_NO_FIJA = '95.01';
 
 export async function crearPedidosCompraBC(pedidoId: string) {
+  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
   const supabase = createClient();
 
   // No confiar solo en el botón deshabilitado: se vuelve a comprobar aquí.
@@ -1262,7 +1265,7 @@ export async function ultimasComprasArticulo(bcItemNo: string) {
   } = await supabase.auth.getUser();
   if (!user) return { error: 'No autenticado.' };
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
-  if (!perfil || !['comprador', 'admin'].includes(perfil.rol)) return { error: 'No autorizado.' };
+  if (!perfil || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return { error: 'No autorizado.' };
   if (!bcItemNo) return { error: 'El artículo no tiene código de BC.' };
   try {
     const lineas = await obtenerUltimasComprasArticuloBC(bcItemNo, 5);

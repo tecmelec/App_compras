@@ -18,7 +18,7 @@ export default function DiagnosticoJefeObra() {
 
   const r = resultado;
   const aprueba =
-    r?.perfil && r.perfil.activo && (r.perfil.rol === 'responsable' || r.perfil.rol === 'admin');
+    r?.perfil && r.perfil.activo && ['responsable', 'admin', 'integral'].includes(r.perfil.rol);
 
   return (
     <div className="mb-6 border border-gray-200 rounded-md p-3 max-w-xl text-sm">

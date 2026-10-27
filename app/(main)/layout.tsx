@@ -29,7 +29,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   const comprador = profile.rol === 'usuario' ? await obtenerContactoComprador(supabase, user.id) : null;
 
   let pendientesAprobacion = 0;
-  if (profile.rol === 'responsable' || profile.rol === 'admin') {
+  if (profile.rol === 'responsable' || profile.rol === 'admin' || profile.rol === 'integral') {
     const ids = await idsEfectivos(supabase, user.id);
     const { count } = await supabase
       .from('pedidos')
@@ -43,7 +43,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   // Solicitudes por comprar con estado "Pendiente de tramitar" (sin contar las
   // rechazadas por el responsable, que no hay que tramitar).
   let pendientesTramitar = 0;
-  if (profile.rol === 'comprador' || profile.rol === 'admin') {
+  if (profile.rol === 'comprador' || profile.rol === 'admin' || profile.rol === 'integral') {
     const ids = await idsEfectivos(supabase, user.id);
     const { count } = await supabase
       .from('pedidos')
@@ -55,7 +55,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
   }
 
   const tieneCarrito =
-    profile.rol === 'admin' || profile.rol === 'usuario' || profile.rol === 'comprador' || profile.rol === 'responsable';
+    ['admin', 'usuario', 'comprador', 'responsable', 'integral'].includes(profile.rol);
 
   return (
     <CartProvider userId={user.id} rol={profile.rol}>

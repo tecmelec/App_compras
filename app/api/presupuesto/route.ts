@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BUCKET_LISTAS_FOTO } from '@/lib/lista-foto';
 import { analizarPresupuesto } from '@/lib/presupuesto';
+import { accesoComprasPedido } from '@/lib/acceso-compras';
 
 // Asignar precios desde presupuesto: recibe el presupuesto (PDF o hasta 4 fotos) de
 // una solicitud, lo guarda en el bucket privado, lo analiza y devuelve la propuesta
@@ -18,12 +19,13 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'No autenticado.' }, { status: 401 });
   const { data: perfil } = await supabase.from('profiles').select('rol').eq('id', user.id).single();
-  if (!perfil || !['comprador', 'admin'].includes(perfil.rol)) {
+  if (!perfil || !['comprador', 'admin', 'integral'].includes(perfil.rol)) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   }
 
   const form = await request.formData();
   const pedidoId = String(form.get('pedidoId') || '');
+  if (!(await accesoComprasPedido(pedidoId))) return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
   const { data: pedido } = await supabase.from('pedidos').select('id').eq('id', pedidoId).single();
   if (!pedido) return NextResponse.json({ error: 'No se encontró la solicitud.' }, { status: 404 });
 

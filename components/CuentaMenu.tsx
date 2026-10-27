@@ -9,6 +9,7 @@ const ETIQUETAS_ROL: Record<string, string> = {
   usuario: 'Usuario',
   comprador: 'Comprador',
   responsable: 'Responsable',
+  integral: 'Integral',
 };
 
 export default function CuentaMenu({ nombre, rol }: { nombre: string; rol: string }) {

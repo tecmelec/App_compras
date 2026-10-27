@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import Image from 'next/image';
 
 type Props = {
-  rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
+  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
   pendientesAprobacion?: number;
   pendientesTramitar?: number;
   comprador?: { nombre_completo: string; email: string; telefono: string | null } | null;
@@ -39,35 +39,35 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
   };
 
   const links: NavLink[] = [
-    { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
-    { href: '/mis-pedidos', label: 'Mis solicitudes', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
-    { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable'] },
+    { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
+    { href: '/mis-pedidos', label: 'Mis solicitudes', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
+    { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
     {
       href: '/comprador',
       label: 'Solicitudes por comprar',
-      roles: ['admin', 'comprador'],
+      roles: ['admin', 'comprador', 'integral'],
       badge: pendientesTramitar,
     },
     {
       href: '/responsable',
       label: 'Solicitudes de mi equipo',
-      roles: ['admin', 'responsable'],
+      roles: ['admin', 'responsable', 'integral'],
       badge: pendientesAprobacion,
     },
-    { href: '/proyectos-equipo', label: 'Proyectos de equipo', roles: ['admin', 'responsable'] },
-    { href: '/alta-articulos', label: 'Solicitar alta de artículos', roles: ['admin', 'comprador', 'responsable'] },
+    { href: '/proyectos-equipo', label: 'Proyectos de equipo', roles: ['admin', 'responsable', 'integral'] },
+    { href: '/alta-articulos', label: 'Solicitar alta de artículos', roles: ['admin', 'comprador', 'responsable', 'integral'] },
     { href: '/admin/pedidos', label: 'Todas las solicitudes', roles: ['admin'] },
     { href: '/admin', label: 'Administración', roles: ['admin'] },
     {
       href: 'https://tecmelec.github.io/Fotos-albaranes/',
       label: 'Subir foto albarán',
-      roles: ['admin', 'usuario', 'comprador', 'responsable'],
+      roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'],
       externo: true,
     },
     {
       href: 'https://tecmelec.github.io/ALTA-PRODUCTOS-BC/',
       label: 'Crear artículo en BC',
-      roles: ['admin', 'comprador', 'responsable'],
+      roles: ['admin', 'comprador', 'responsable', 'integral'],
       externo: true,
     },
   ].filter((l) => l.roles.includes(rol));

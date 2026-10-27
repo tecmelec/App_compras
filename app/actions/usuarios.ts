@@ -25,7 +25,7 @@ export async function crearUsuario(datos: {
   password: string;
   telefono: string;
   bc_user_id?: string;
-  rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
+  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
   comprador_id: string | null;
   responsable_id: string | null;
   sustituto_id: string | null;
@@ -46,7 +46,7 @@ export async function crearUsuario(datos: {
     return { error: errorAuth?.message || 'No se pudo crear el usuario.' };
   }
 
-  const esComprablesOResponsable = datos.rol === 'comprador' || datos.rol === 'responsable';
+  const esComprablesOResponsable = datos.rol === 'comprador' || datos.rol === 'responsable' || datos.rol === 'integral';
 
   const { error: errorPerfil } = await admin.from('profiles').insert({
     id: nuevoUsuario.user.id,
@@ -56,7 +56,7 @@ export async function crearUsuario(datos: {
     bc_user_id: normalizarBcUserId(datos.bc_user_id),
     rol: datos.rol,
     comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
-    responsable_id: datos.rol === 'usuario' || datos.rol === 'comprador' ? datos.responsable_id : null,
+    responsable_id: datos.rol === 'usuario' || datos.rol === 'comprador' || datos.rol === 'integral' ? datos.responsable_id : null,
     sustituto_id: esComprablesOResponsable ? datos.sustituto_id : null,
     sustituto_activo: esComprablesOResponsable ? datos.sustituto_activo : false,
   });
@@ -77,7 +77,7 @@ export async function actualizarUsuario(
     nombre_completo: string;
     telefono: string;
     bc_user_id?: string;
-    rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
+    rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
     comprador_id: string | null;
     responsable_id: string | null;
     sustituto_id: string | null;
@@ -89,7 +89,7 @@ export async function actualizarUsuario(
   if (errorBc) return { error: errorBc };
   const supabase = createClient();
 
-  const esComprablesOResponsable = datos.rol === 'comprador' || datos.rol === 'responsable';
+  const esComprablesOResponsable = datos.rol === 'comprador' || datos.rol === 'responsable' || datos.rol === 'integral';
 
   const { error } = await supabase
     .from('profiles')
@@ -99,7 +99,7 @@ export async function actualizarUsuario(
       bc_user_id: normalizarBcUserId(datos.bc_user_id),
       rol: datos.rol,
       comprador_id: datos.rol === 'usuario' ? datos.comprador_id : null,
-      responsable_id: datos.rol === 'usuario' || datos.rol === 'comprador' ? datos.responsable_id : null,
+      responsable_id: datos.rol === 'usuario' || datos.rol === 'comprador' || datos.rol === 'integral' ? datos.responsable_id : null,
       sustituto_id: esComprablesOResponsable ? datos.sustituto_id : null,
       sustituto_activo: esComprablesOResponsable ? datos.sustituto_activo : false,
     })

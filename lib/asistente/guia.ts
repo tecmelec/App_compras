@@ -5,18 +5,18 @@
 // las rutas de RUTAS_PERMITIDAS (y, en el chat, solo si el perfil puede verlas).
 
 export const RUTAS_PERMITIDAS: { ruta: string; roles: string[] }[] = [
-  { ruta: '/tienda', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/carrito', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/carrito/foto', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/carrito/lista', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/carrito/referencias', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/carrito/articulos-bc', roles: ['responsable', 'comprador', 'admin'] },
-  { ruta: '/mis-pedidos', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/lineas-compras', roles: ['usuario', 'responsable', 'comprador', 'admin'] },
-  { ruta: '/responsable', roles: ['responsable', 'admin'] },
-  { ruta: '/proyectos-equipo', roles: ['responsable', 'admin'] },
-  { ruta: '/alta-articulos', roles: ['responsable', 'comprador', 'admin'] },
-  { ruta: '/comprador', roles: ['comprador', 'admin'] },
+  { ruta: '/tienda', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/carrito', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/carrito/foto', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/carrito/lista', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/carrito/referencias', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/carrito/articulos-bc', roles: ['responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/mis-pedidos', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/lineas-compras', roles: ['usuario', 'responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/responsable', roles: ['responsable', 'admin', 'integral'] },
+  { ruta: '/proyectos-equipo', roles: ['responsable', 'admin', 'integral'] },
+  { ruta: '/alta-articulos', roles: ['responsable', 'comprador', 'admin', 'integral'] },
+  { ruta: '/comprador', roles: ['comprador', 'admin', 'integral'] },
   { ruta: '/admin', roles: ['admin'] },
   { ruta: '/admin/pedidos', roles: ['admin'] },
 ];
@@ -30,6 +30,7 @@ La app sirve para pedir material para las obras: el personal hace una SOLICITUD,
 - Usuario: hace solicitudes de material para los proyectos que tiene asignados y sigue su estado. No ve documentos adjuntos ni puede asignar líneas de planificación.
 - Responsable (jefe de obra / aprobador): lo mismo que el usuario para cualquier proyecto de tipo Obra abierto, y además aprueba las solicitudes de su equipo ("Solicitudes de mi equipo") y asigna proyectos a su equipo ("Proyectos de equipo").
 - Comprador: tramita las solicitudes ("Solicitudes por comprar"): elige proveedor y precio, crea el pedido de compra en BC y lo envía al proveedor.
+- Integral: como un responsable y un comprador a la vez, pero solo para sus propias solicitudes (él mismo es su comprador) y no se le puede elegir como comprador.
 - Admin: todo lo anterior y la Administración (usuarios, productos, proyectos, configuración). Puede aprobar cualquier solicitud.
 
 ## Menú (izquierda; en el móvil, botón ☰ arriba a la izquierda)

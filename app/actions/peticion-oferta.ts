@@ -14,6 +14,7 @@ import {
   mensajesConversacionGraph,
 } from '@/lib/microsoft-graph';
 import { sugerirProveedoresOferta, type GrupoPeticion, type LineaPeticion } from '@/lib/peticion-oferta';
+import { accesoComprasPedido } from '@/lib/acceso-compras';
 
 // Comprador IA — Fase 1, paso 3: peticiones de oferta. Un email por proveedor, desde el
 // buzón del comprador (Microsoft Graph). Solo comprador/admin.
@@ -25,7 +26,7 @@ async function compradorOAdmin() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: perfil } = await supabase.from('profiles').select('rol, activo, nombre_completo').eq('id', user.id).single();
-  if (!perfil?.activo || !['comprador', 'admin'].includes(perfil.rol)) return null;
+  if (!perfil?.activo || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return null;
   return { user, nombre: (perfil.nombre_completo as string) || '' };
 }
 
@@ -51,6 +52,7 @@ export type ContextoPeticion = {
 };
 
 export async function prepararPeticionesOferta(pedidoId: string, itemIds: string[]) {
+  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
   const quien = await compradorOAdmin();
   if (!quien) return { error: 'No autorizado.' };
   if (itemIds.length === 0) return { error: 'Elige al menos una línea.' };
@@ -107,6 +109,7 @@ export async function enviarPeticionOferta(datos: {
 }) {
   const quien = await compradorOAdmin();
   if (!quien) return { error: 'No autorizado.' };
+  if (!(await accesoComprasPedido(datos.pedidoId))) return { error: 'No autorizado.' };
   if (!quien.user.email) return { error: 'Tu usuario no tiene email: no se puede enviar en tu nombre.' };
   const destinatarios = datos.destinatarios.map((e) => e.trim()).filter(Boolean);
   const cc = datos.cc.map((e) => e.trim()).filter(Boolean);
@@ -219,6 +222,7 @@ const contieneNumero = (texto: string, numeroApp: string) =>
   texto.replace(/\s+/g, '').toUpperCase().includes(numeroApp.replace(/\s+/g, '').toUpperCase());
 
 export async function obtenerRespuestasOferta(pedidoId: string) {
+  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
   if (!(await compradorOAdmin())) return { error: 'No autorizado.' };
   const admin = createAdminClient();
   const [{ data: peticiones, error }, { data: ped }] = await Promise.all([

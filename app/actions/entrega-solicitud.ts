@@ -16,7 +16,7 @@ async function comprobarCompras() {
   } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: perfil } = await supabase.from('profiles').select('rol, activo').eq('id', user.id).single();
-  if (!perfil?.activo || !['comprador', 'admin'].includes(perfil.rol)) return null;
+  if (!perfil?.activo || !['comprador', 'admin', 'integral'].includes(perfil.rol)) return null;
   return supabase;
 }
 

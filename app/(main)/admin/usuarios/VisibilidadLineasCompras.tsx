@@ -13,7 +13,7 @@ import {
 // Administración → Usuarios (perfiles usuario y responsable): qué ve en "Líns. compras"
 // además de lo suyo. Los cambios se guardan al momento. Solo consulta: no habilita los
 // proyectos para solicitar materiales.
-export default function VisibilidadLineasCompras({ usuarioId, rol }: { usuarioId: string; rol: 'usuario' | 'responsable' }) {
+export default function VisibilidadLineasCompras({ usuarioId, rol }: { usuarioId: string; rol: 'usuario' | 'responsable' | 'integral' }) {
   const [cargando, setCargando] = useState(true);
   const [todos, setTodos] = useState(false);
   const [proyectos, setProyectos] = useState<ProyectoVisibilidad[]>([]);

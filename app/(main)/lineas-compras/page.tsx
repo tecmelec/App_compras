@@ -27,7 +27,7 @@ export default async function LineasCompraPage() {
   // La RLS no les deja leer esas solicitudes, así que la consulta se hace con el cliente
   // admin y el filtro se aplica aquí.
   const rol = perfil?.rol;
-  const restringido = rol === 'usuario' || rol === 'responsable';
+  const restringido = rol === 'usuario' || rol === 'responsable' || rol === 'integral';
   const visibilidad = restringido ? await visibilidadLineas(user!.id, rol) : null;
   const db = restringido ? createAdminClient() : supabase;
 
@@ -133,7 +133,7 @@ export default async function LineasCompraPage() {
         <LineasComprasClient
           filas={filas}
           fotosPorPedido={fotosPorPedido}
-          mostrarPrecios={['comprador', 'responsable', 'admin'].includes(perfil?.rol || '')}
+          mostrarPrecios={['comprador', 'responsable', 'admin', 'integral'].includes(perfil?.rol || '')}
         />
       )}
     </div>

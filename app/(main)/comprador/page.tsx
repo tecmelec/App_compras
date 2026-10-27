@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { textoUltimaSincronizacionBC } from '@/lib/ultima-sincronizacion';
 import { createClient } from '@/lib/supabase/server';
 import SolicitudesFiltrables, { type PedidoFila } from '@/components/SolicitudesFiltrables';
@@ -15,19 +16,25 @@ export default async function CompradorPage() {
   } = await supabase.auth.getUser();
 
   const ids = await idsEfectivos(supabase, user!.id);
+  const { data: miPerfil } = await supabase.from('profiles').select('rol').eq('id', user!.id).single();
+  if (!['comprador', 'admin', 'integral'].includes(miPerfil?.rol || '')) redirect('/tienda');
+  // El perfil integral solo ve sus propias solicitudes (las que crea o tiene como comprador).
+  const soloPropias = miPerfil?.rol === 'integral';
 
   // Los compradores ven las solicitudes de TODOS los compradores; las suyas
   // (o las de quien sustituyen) se marcan como "Asignada a mí".
   // Supabase devuelve como máximo 1.000 filas por consulta: se pide por tramos.
   const pedidos: any[] = [];
   for (let desde = 0; ; desde += 1000) {
-    const { data } = await supabase
+    let q = supabase
       .from('pedidos')
       .select(
         'id, numero_app, created_at, total_estimado, requiere_aprobacion, aprobado, estado_general, usuario_id, comprador_id, proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), comprador:profiles!pedidos_comprador_id_fkey(nombre_completo), pedido_items(numero_tecmelec, estado_id)'
       )
       .order('created_at', { ascending: false })
       .range(desde, desde + 999);
+    if (soloPropias) q = q.or(`usuario_id.eq.${user!.id},comprador_id.eq.${user!.id}`);
+    const { data } = await q;
     pedidos.push(...(data || []));
     if (!data || data.length < 1000) break;
   }
@@ -37,7 +44,7 @@ export default async function CompradorPage() {
     supabase
       .from('profiles')
       .select('id, nombre_completo')
-      .in('rol', ['usuario', 'comprador', 'responsable', 'admin'])
+      .in('rol', ['usuario', 'comprador', 'responsable', 'admin', 'integral'])
       .order('nombre_completo'),
     supabase.from('estados_pedido').select('id, nombre, orden'),
   ]);

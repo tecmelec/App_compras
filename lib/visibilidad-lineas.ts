@@ -15,7 +15,8 @@ export type VisibilidadLineas = {
 
 export async function visibilidadLineas(userId: string, rol: string | null | undefined): Promise<VisibilidadLineas> {
   const admin = createAdminClient();
-  if (rol !== 'usuario' && rol !== 'responsable') return { todos: true, proyectos: [], responsableIds: [] };
+  // El perfil integral ve como un responsable: lo suyo, lo que aprueba y lo que se le amplíe.
+  if (rol !== 'usuario' && rol !== 'responsable' && rol !== 'integral') return { todos: true, proyectos: [], responsableIds: [] };
 
   const [{ data: perfil }, { data: consulta }, { data: habilitados }, responsableIds] = await Promise.all([
     admin.from('profiles').select('lineas_compras_todos').eq('id', userId).maybeSingle(),
@@ -23,7 +24,7 @@ export async function visibilidadLineas(userId: string, rol: string | null | und
     rol === 'usuario'
       ? admin.from('usuario_proyectos').select('proyecto_id').eq('usuario_id', userId)
       : Promise.resolve({ data: [] as { proyecto_id: string }[] }),
-    rol === 'responsable' ? idsEfectivos(admin, userId) : Promise.resolve([] as string[]),
+    rol === 'responsable' || rol === 'integral' ? idsEfectivos(admin, userId) : Promise.resolve([] as string[]),
   ]);
 
   const proyectos = Array.from(

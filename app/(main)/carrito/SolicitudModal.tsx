@@ -263,7 +263,7 @@ export default function SolicitudModal({
     }
 
     if (paso === 'contacto') {
-      if (rol !== 'usuario' && !compradorSeleccionado) return 'Selecciona el comprador para esta solicitud.';
+      if (rol !== 'usuario' && rol !== 'integral' && !compradorSeleccionado) return 'Selecciona el comprador para esta solicitud.';
       if (!nombre.trim()) return 'Falta el nombre de contacto.';
       if (!/^\d{6,12}$/.test(telefono.trim())) {
         return 'El teléfono debe tener solo números (6 a 12 dígitos).';
@@ -321,7 +321,7 @@ export default function SolicitudModal({
       telefono_contacto: `${codigoPais} ${telefono.trim()}`,
       direccion_entrega_id: direccionId,
       fecha_requerida: fecha,
-      comprador_id: rol === 'usuario' ? compradorAsignadoId : compradorSeleccionado,
+      comprador_id: rol === 'usuario' ? compradorAsignadoId : rol === 'integral' ? null : compradorSeleccionado,
       seguir_pedido: seguirPedido,
       aprobador_id: aprobadores.length > 0 ? aprobadorId : null,
       tareas_planificacion: rol !== 'usuario' && asignarTareas ? tareasPlan : {},
@@ -623,7 +623,13 @@ export default function SolicitudModal({
 
             {paso === 'contacto' && (
               <div className="space-y-5">
-                {rol !== 'usuario' && (
+                {rol === 'integral' && (
+                  <div>
+                    <p className="block text-sm text-slate mb-1">Comprador</p>
+                    <p className="text-sm text-grafito">Tú gestionas la compra de esta solicitud.</p>
+                  </div>
+                )}
+                {rol !== 'usuario' && rol !== 'integral' && (
                   <div>
                     <label className="block text-sm text-slate mb-1">Comprador</label>
                     <select

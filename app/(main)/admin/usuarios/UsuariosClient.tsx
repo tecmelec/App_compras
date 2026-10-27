@@ -19,7 +19,7 @@ type Usuario = {
   email: string;
   telefono: string | null;
   bc_user_id: string | null;
-  rol: 'admin' | 'usuario' | 'comprador' | 'responsable';
+  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
   comprador_id: string | null;
   responsable_id: string | null;
   sustituto_id: string | null;
@@ -31,6 +31,7 @@ const ROLES = [
   { value: 'usuario', label: 'Usuario' },
   { value: 'comprador', label: 'Comprador' },
   { value: 'responsable', label: 'Responsable' },
+  { value: 'integral', label: 'Integral (responsable + comprador de lo suyo)' },
   { value: 'admin', label: 'Administrador' },
 ];
 
@@ -44,11 +45,11 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
   const compradores = activos.filter((u) => u.rol === 'comprador');
   const responsables = activos.filter((u) => u.rol === 'responsable');
   // Un admin también puede actuar como responsable asignado de un usuario/comprador.
-  const responsablesDisponibles = activos.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
+  const responsablesDisponibles = activos.filter((u) => u.rol === 'responsable' || u.rol === 'admin' || u.rol === 'integral');
   // Y también como sustituto de un comprador o responsable (p.ej. para poder
   // gestionar sus compras/aprobaciones sin tener que cambiarle el rol).
   const compradoresSustitutosDisponibles = activos.filter((u) => u.rol === 'comprador' || u.rol === 'admin');
-  const responsablesSustitutosDisponibles = activos.filter((u) => u.rol === 'responsable' || u.rol === 'admin');
+  const responsablesSustitutosDisponibles = activos.filter((u) => u.rol === 'responsable' || u.rol === 'admin' || u.rol === 'integral');
 
   function nombrePorId(id: string | null) {
     if (!id) return '—';
@@ -158,7 +159,7 @@ export default function UsuariosClient({ usuarios }: { usuarios: Usuario[] }) {
                           router.refresh();
                         }}
                       />
-                      {(u.rol === 'usuario' || u.rol === 'responsable') && (
+                      {(u.rol === 'usuario' || u.rol === 'responsable' || u.rol === 'integral') && (
                         <VisibilidadLineasCompras usuarioId={u.id} rol={u.rol} />
                       )}
                     </td>
@@ -265,9 +266,9 @@ function UsuarioForm({
       bc_user_id: bcUserId,
       rol,
       comprador_id: rol === 'usuario' ? compradorId || null : null,
-      responsable_id: rol === 'usuario' || rol === 'comprador' ? responsableId || null : null,
-      sustituto_id: rol === 'comprador' || rol === 'responsable' ? sustitutoId || null : null,
-      sustituto_activo: rol === 'comprador' || rol === 'responsable' ? sustitutoActivo : false,
+      responsable_id: rol === 'usuario' || rol === 'comprador' || rol === 'integral' ? responsableId || null : null,
+      sustituto_id: rol === 'comprador' || rol === 'responsable' || rol === 'integral' ? sustitutoId || null : null,
+      sustituto_activo: rol === 'comprador' || rol === 'responsable' || rol === 'integral' ? sustitutoActivo : false,
     };
 
     const resultado = esEdicion
@@ -384,7 +385,7 @@ function UsuarioForm({
           </div>
         )}
 
-        {(rol === 'usuario' || rol === 'comprador') && (
+        {(rol === 'usuario' || rol === 'comprador' || rol === 'integral') && (
           <div>
             <label className="block text-sm font-medium text-grafito mb-1">Responsable asignado</label>
             <select className="input" value={responsableId} onChange={(e) => setResponsableId(e.target.value)}>
@@ -398,7 +399,7 @@ function UsuarioForm({
           </div>
         )}
 
-        {(rol === 'comprador' || rol === 'responsable') && (
+        {(rol === 'comprador' || rol === 'responsable' || rol === 'integral') && (
           <>
             <div>
               <label className="block text-sm font-medium text-grafito mb-1">Sustituto (vacaciones)</label>
