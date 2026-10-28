@@ -8,7 +8,7 @@ import { AdjuntarDocumentoSolicitud, QuitarDocumentoSolicitud } from '@/componen
 // firmada de 1 hora. Solo se monta en páginas que ya han comprobado el acceso.
 const SE_VEN_EN_NAVEGADOR = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'txt'];
 
-export default async function DocumentosSolicitud({ pedidoId }: { pedidoId: string }) {
+export default async function DocumentosSolicitud({ pedidoId, aprobador = false }: { pedidoId: string; aprobador?: boolean }) {
   // El perfil usuario no ve los documentos adjuntos (ni los adjunta).
   const supabase = createClient();
   const {
@@ -19,7 +19,8 @@ export default async function DocumentosSolicitud({ pedidoId }: { pedidoId: stri
   if (!perfil?.rol || perfil.rol === 'usuario') return null;
 
   // El comprador y el admin pueden adjuntar más documentos y quitar los que subieron ellos.
-  const puedeAdjuntar = ['comprador', 'admin', 'integral'].includes(perfil.rol);
+  // (y el aprobador en la pantalla de aprobación, mientras está pendiente)
+  const puedeAdjuntar = aprobador || ['comprador', 'admin', 'integral'].includes(perfil.rol);
 
   const admin = createAdminClient();
   const { data: docs } = await admin

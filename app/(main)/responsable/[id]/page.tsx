@@ -1,3 +1,4 @@
+import { createAdminClient } from '@/lib/supabase/admin';
 import ComentariosSolicitud from '@/components/ComentariosSolicitud';
 import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
@@ -31,6 +32,14 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const pendiente = p.requiere_aprobacion && p.aprobado === null;
   // Lista en foto: no se puede aprobar mientras queden líneas sin artículo ni rechazar.
   const sinResolver = pendiente ? await lineasListaFotoSinResolver(p.id) : [];
+
+  // Datos para comentarios y artículos añadidos por el aprobador (con '*' para no fallar si
+  // la migración 20261028120000 aún no está aplicada).
+  const adminExtras = createAdminClient();
+  const [{ data: extras }, { data: itemsExtras }] = await Promise.all([
+    adminExtras.from('pedidos').select('*').eq('id', params.id).maybeSingle(),
+    adminExtras.from('pedido_items').select('*').eq('pedido_id', params.id),
+  ]);
 
   return (
     <div className="p-8 max-w-2xl">
@@ -82,13 +91,14 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
       </div>
 
       <ComentariosSolicitud pedidoId={params.id} />
-      <DocumentosSolicitud pedidoId={params.id} />
+      <DocumentosSolicitud pedidoId={params.id} aprobador={pendiente} />
 
       {pendiente ? (
         <RevisionAprobacion
-          key={(p.pedido_items as any[]).map((i) => i.id).join(',')}
           pedidoId={p.id}
           lineasListaSinResolver={sinResolver.length}
+          comentarioInicial={(extras as any)?.comentarios_aprobador || ''}
+          anadidas={(itemsExtras || []).filter((x: any) => x.anadida_por_aprobador).map((x: any) => x.id)}
           lineas={p.pedido_items.map((item: any) => ({
             id: item.id,
             nombre: item.productos?.nombre || 'Producto no disponible',

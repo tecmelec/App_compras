@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { aprobadorDeSolicitud } from '@/app/actions/aprobacion-extras';
 import { BUCKET_DOCUMENTOS, EXTENSIONES_DOCUMENTO, MAX_DOCUMENTO_BYTES, extensionDe } from '@/lib/documentos-solicitud';
 import { accesoComprasPedido } from '@/lib/acceso-compras';
 
@@ -135,9 +136,11 @@ export async function registrarDocumentoEnSolicitud(
   pedidoId: string,
   datos: { ruta: string; nombre: string; tipo: string; tamano: number }
 ) {
-  const user = await compradorOAdmin();
-  if (!user) return { error: 'Solo el comprador o el admin pueden adjuntar documentos aquí.' };
-  if (!(await accesoComprasPedido(pedidoId))) return { error: 'No autorizado.' };
+  // Compras (comprador/admin; integral en las suyas) o el aprobador de la solicitud pendiente.
+  const deCompras = (await compradorOAdmin()) && (await accesoComprasPedido(pedidoId));
+  const aprobador = deCompras ? null : await aprobadorDeSolicitud(pedidoId);
+  const user = deCompras ? await compradorOAdmin() : aprobador?.user;
+  if (!user) return { error: 'Solo compras o el aprobador pueden adjuntar documentos aquí.' };
   if (!datos.ruta.startsWith(`${user.id}/`)) return { error: 'Ruta no válida.' };
   const admin = createAdminClient();
   const { data: pedido } = await admin.from('pedidos').select('id').eq('id', pedidoId).maybeSingle();
@@ -161,7 +164,11 @@ export async function registrarDocumentoEnSolicitud(
 
 // El comprador o el admin pueden quitar de una solicitud los documentos que adjuntaron ellos.
 export async function eliminarDocumentoSolicitud(id: string) {
-  const user = await compradorOAdmin();
+  // Cada uno quita los documentos que subió él (compras o aprobador).
+  const supabaseQuita = createClient();
+  const {
+    data: { user },
+  } = await supabaseQuita.auth.getUser();
   if (!user) return { error: 'No autorizado.' };
   const admin = createAdminClient();
   const { data: doc } = await admin
