@@ -79,6 +79,7 @@ La app sirve para pedir material para las obras: el personal hace una SOLICITUD,
 
 ## Lo que puede hacer el asistente
 - Buscar artículos de la tienda y proponerte añadirlos al carrito (tú revisas cantidades y confirmas en la tarjeta del chat). Después hay que enviar la solicitud desde el carrito con "Solicitar materiales".
+- Si tu perfil ve precios (responsable, comprador, integral y admin): precios unitarios, importes y totales de las líneas de compra que puedes ver (p. ej. cuánto se ha gastado en un material en una obra) y las últimas compras de un artículo en BC con su precio. El perfil usuario no tiene acceso a precios.
 - Decirte cómo van tus solicitudes (últimas solicitudes y detalle por Nº APP-…: pedido de compra, proveedor, fecha estimada de entrega y recepción).
 - No envía solicitudes, no aprueba ni cambia nada: solo consulta, explica y propone.
 

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { visibilidadLineas, puedeVerSolicitud } from '@/lib/visibilidad-lineas';
 import { esMultiploDe } from '@/lib/cantidad';
+import { obtenerProveedorPedidosCompraBC, obtenerUltimasComprasArticuloBC } from '@/lib/business-central';
 
 // Asistente, fase 3: herramientas que el modelo puede usar. Todas consultan con los
 // permisos de quien pregunta y NINGUNA modifica datos: añadir al carrito solo se propone
@@ -57,7 +58,7 @@ export const HERRAMIENTAS = [
   {
     name: 'buscar_lineas_compra',
     description:
-      'Busca en las líneas de compra (todas las solicitudes que quien pregunta puede ver, como en "Líns. compras") por artículo y/o proyecto (obra). Úsala para preguntas como "¿se ha pedido arena para Robledo?". Devuelve solicitud, fecha, proyecto, artículo, cantidad, pedido de compra, proveedor, fecha estimada y recepción.',
+      'Busca en las líneas de compra (todas las solicitudes que quien pregunta puede ver, como en "Líns. compras") por artículo y/o proyecto (obra). Úsala para preguntas como "¿se ha pedido arena para Robledo?" o "¿cuánto se ha gastado en cinta aislante en la obra X?". Devuelve solicitud, fecha, proyecto, artículo, cantidad, pedido de compra, proveedor, fecha estimada y recepción y, si el perfil puede ver precios, precio unitario, importe y totales de todas las líneas encontradas.',
     input_schema: {
       type: 'object',
       properties: {
@@ -67,12 +68,22 @@ export const HERRAMIENTAS = [
     },
   },
   {
+    name: 'ultimas_compras_bc',
+    description:
+      'Últimas compras de un artículo en Business Central (precio pagado, proveedor, fecha, pedido y proyecto). Solo para perfiles que ven precios. Necesita el código de BC del artículo (búscalo antes con buscar_articulos si hace falta).',
+    input_schema: { type: 'object', properties: { codigo_bc: { type: 'string', description: 'Código de BC del artículo, p. ej. GPQM0023' } }, required: ['codigo_bc'] },
+  },
+  {
     name: 'detalle_solicitud',
     description:
       'Detalle de una solicitud por su número (APP-…): artículos, cantidades, pedido de compra (PC…), proveedor, fecha estimada de entrega (y si la confirmó el proveedor) y estado de recepción. Solo si quien pregunta puede verla.',
     input_schema: { type: 'object', properties: { numero: { type: 'string', description: 'Número de solicitud, p. ej. APP-2600054' } }, required: ['numero'] },
   },
 ];
+
+// Precios e importes: solo para quien los ve en Líns. compras (no el perfil usuario).
+const VE_PRECIOS = ['comprador', 'responsable', 'admin', 'integral'];
+const redondear = (n: number) => Math.round(n * 100) / 100;
 
 const fecha = (f: string | null | undefined) => (f ? new Date(f.length <= 10 ? f + 'T00:00:00' : f).toLocaleDateString('es-ES') : null);
 
@@ -186,9 +197,9 @@ export async function ejecutarHerramienta(
     let q = admin
       .from('pedido_items')
       .select(
-        'cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, rechazada_por_aprobador, productos!inner(nombre, unidad_medida), proveedores(nombre), pedidos!inner(id, numero_app, created_at, usuario_id, proyecto_id, responsable_id, proyectos(bc_job_no, descripcion))'
+        'cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, rechazada_por_aprobador, productos!inner(nombre, unidad_medida, precio), proveedores(nombre), pedidos!inner(id, numero_app, created_at, usuario_id, proyecto_id, responsable_id, proyectos(bc_job_no, descripcion))'
       )
-      .limit(300);
+      .limit(1000);
     for (const pal of articulo.split(/\s+/).filter((x) => x.length >= 2).slice(0, 4)) q = q.ilike('productos.nombre', `%${pal}%`);
     if (idsProyecto) q = q.in('pedidos.proyecto_id', idsProyecto);
     const { data, error } = await q;
@@ -199,8 +210,27 @@ export async function ejecutarHerramienta(
       filas = filas.filter((f) => puedeVerSolicitud(v, ctx.userId, f.pedidos));
     }
     filas.sort((a, b) => String(b.pedidos?.created_at).localeCompare(String(a.pedidos?.created_at)));
+    const verPrecios = VE_PRECIOS.includes(ctx.rol);
+    const precioDe = (f: any) => Number(f.precio_unitario ?? f.productos?.precio ?? 0);
+    const anulada = (f: any) => f.rechazada_por_aprobador || f.estado_recepcion === 'Anulado';
+    let totales: any;
+    if (verPrecios) {
+      const validas = filas.filter((f) => !anulada(f));
+      const conPedido = validas.filter((f) => f.numero_tecmelec);
+      const sinPedido = validas.filter((f) => !f.numero_tecmelec);
+      const suma = (xs: any[]) => redondear(xs.reduce((t, f) => t + precioDe(f) * Number(f.cantidad), 0));
+      totales = {
+        importe_con_pedido_de_compra_eur: suma(conPedido),
+        lineas_con_pedido: conPedido.length,
+        importe_sin_pedido_aun_eur: suma(sinPedido),
+        lineas_sin_pedido: sinPedido.length,
+        lineas_anuladas_excluidas: filas.length - validas.length,
+        nota: 'Importes sin IVA = precio unitario × cantidad de todas las líneas encontradas (no solo las mostradas). "Con pedido de compra" es lo comprado; "sin pedido" es lo solicitado pendiente de comprar. Precio 0 = sin precio asignado.',
+      };
+    }
     return {
       total: filas.length,
+      ...(totales ? { totales } : {}),
       resultados: filas.slice(0, 25).map((f) => ({
         solicitud: f.pedidos?.numero_app,
         fecha_solicitud: fecha(f.pedidos?.created_at),
@@ -210,12 +240,35 @@ export async function ejecutarHerramienta(
         unidad: f.productos?.unidad_medida || null,
         pedido_compra: f.numero_tecmelec || 'aún sin pedido de compra',
         proveedor: f.proveedores?.nombre || null,
+        ...(verPrecios ? { precio_unitario_eur: precioDe(f), importe_eur: redondear(precioDe(f) * Number(f.cantidad)) } : {}),
         fecha_estimada_entrega: fecha(f.fecha_estimada_entrega) || 'por definir',
         confirmada_por_proveedor: !!f.fecha_estimada_entrega_confirmada_en,
         recepcion: f.rechazada_por_aprobador ? 'rechazada por el aprobador' : f.estado_recepcion || 'Pendiente de recibir',
         enlace: `/lineas-compras/${f.pedidos?.id}`,
       })),
       nota: filas.length > 25 ? `Hay ${filas.length} líneas; se muestran las 25 más recientes.` : undefined,
+    };
+  }
+
+  if (nombre === 'ultimas_compras_bc') {
+    if (!VE_PRECIOS.includes(ctx.rol)) return { error: 'Tu perfil no tiene acceso a los precios de compra.' };
+    const codigo = String(entrada?.codigo_bc || '').trim().toUpperCase();
+    if (!codigo) return { error: 'Falta el código de BC.' };
+    const lineas = await obtenerUltimasComprasArticuloBC(codigo, 8);
+    const cab = await obtenerProveedorPedidosCompraBC(Array.from(new Set(lineas.map((l) => l.Document_No)))).catch(() => new Map());
+    return {
+      compras: lineas.map((l) => {
+        const c: any = (cab as Map<string, any>).get(l.Document_No);
+        return {
+          pedido: l.Document_No,
+          fecha: fecha(c?.orderDate),
+          proveedor: c?.vendorName || l.Buy_from_Vendor_Name || c?.vendorNo || null,
+          cantidad: l.Quantity,
+          precio_unitario_eur: l.Quantity ? redondear((l.Line_Amount / l.Quantity) * 1000) / 1000 : null,
+          proyecto: l.Job_No || null,
+        };
+      }),
+      nota: 'Precio unitario = importe de la línea sin IVA / cantidad.',
     };
   }
 
@@ -226,7 +279,7 @@ export async function ejecutarHerramienta(
     const { data: p } = await admin
       .from('pedidos')
       .select(
-        'id, usuario_id, proyecto_id, responsable_id, numero_app, estado_general, requiere_aprobacion, aprobado, fecha_requerida, proyectos(bc_job_no, descripcion), pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, rechazada_por_aprobador, productos(nombre, unidad_medida), proveedores(nombre))'
+        'id, usuario_id, proyecto_id, responsable_id, numero_app, estado_general, requiere_aprobacion, aprobado, fecha_requerida, proyectos(bc_job_no, descripcion), pedido_items(cantidad, precio_unitario, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_recepcion, rechazada_por_aprobador, productos(nombre, unidad_medida, precio), proveedores(nombre))'
       )
       .eq('numero_app', numero)
       .maybeSingle();
@@ -248,6 +301,12 @@ export async function ejecutarHerramienta(
         unidad: i.productos?.unidad_medida || null,
         pedido_compra: i.numero_tecmelec || 'aún sin pedido de compra',
         proveedor: i.proveedores?.nombre || null,
+        ...(VE_PRECIOS.includes(ctx.rol)
+          ? {
+              precio_unitario_eur: Number(i.precio_unitario ?? i.productos?.precio ?? 0),
+              importe_eur: redondear(Number(i.precio_unitario ?? i.productos?.precio ?? 0) * Number(i.cantidad)),
+            }
+          : {}),
         fecha_estimada_entrega: fecha(i.fecha_estimada_entrega) || 'por definir',
         confirmada_por_proveedor: !!i.fecha_estimada_entrega_confirmada_en,
         recepcion: i.rechazada_por_aprobador ? 'rechazada por el aprobador' : i.estado_recepcion || 'Pendiente de recibir',
