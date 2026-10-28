@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { aprobarSolicitudConCambios, responderAprobacion } from '@/app/actions/pedidos';
-import { anadirArticuloAprobador, buscarArticulosParaAnadir, guardarComentarioAprobador } from '@/app/actions/aprobacion-extras';
+import { anadirArticuloAprobador, guardarComentarioAprobador } from '@/app/actions/aprobacion-extras';
+import { buscarArticulosParaAlta } from '@/app/actions/alta-articulos';
+import { datosArticuloParaAsignar } from '@/app/actions/lista-foto';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
 
@@ -340,38 +342,90 @@ export default function RevisionAprobacion({
 }
 
 
-// Buscar en la tienda y añadir artículos a la solicitud (solo el aprobador, pendiente).
+// Añadir artículos de BC a la solicitud (solo el aprobador, pendiente). Mismo buscador
+// que "Asignar artículo" de las listas: por código o por descripción en el catálogo de BC.
+type ArticuloBC = { No: string; Description: string };
+type DatosArticulo = { bc_item_no: string; descripcion: string; unidad: string; multiplo: number; en_tienda: boolean };
+
 function AnadirArticulo({ pedidoId, onCerrar }: { pedidoId: string; onCerrar: () => void }) {
   const router = useRouter();
-  const [texto, setTexto] = useState('');
-  const [resultados, setResultados] = useState<any[]>([]);
+  const [codigo, setCodigo] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [campoActivo, setCampoActivo] = useState<'codigo' | 'descripcion' | null>(null);
+  const [resultados, setResultados] = useState<ArticuloBC[]>([]);
   const [buscando, setBuscando] = useState(false);
-  const [cantidades, setCantidades] = useState<Record<string, string>>({});
-  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [datos, setDatos] = useState<DatosArticulo | null>(null);
+  const [cargando, setCargando] = useState(false);
+  const [cantidad, setCantidad] = useState('');
+  const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
+  const contador = useRef(0);
 
-  async function buscar() {
-    if (texto.trim().length < 2) return;
+  useEffect(() => {
+    if (datos || !campoActivo) return;
+    const t0 = campoActivo === 'codigo' ? codigo : descripcion;
+    if (t0.trim().length < 2) {
+      setResultados([]);
+      return;
+    }
+    const id = ++contador.current;
     setBuscando(true);
+    const t = setTimeout(async () => {
+      const r = await buscarArticulosParaAlta(t0, campoActivo);
+      if (id !== contador.current) return;
+      setBuscando(false);
+      if (r.error) setMensaje({ ok: false, texto: r.error });
+      setResultados((r.articulos as ArticuloBC[]) || []);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [codigo, descripcion, campoActivo, datos]);
+
+  async function elegir(a: ArticuloBC) {
+    setCodigo(a.No);
+    setDescripcion(a.Description);
+    setResultados([]);
     setMensaje(null);
-    const r = await buscarArticulosParaAnadir(texto);
-    setBuscando(false);
-    setResultados(r.articulos || []);
-    if ('error' in r && r.error) setMensaje({ ok: false, texto: r.error });
+    setCargando(true);
+    const r = await datosArticuloParaAsignar(a.No);
+    setCargando(false);
+    if (r.error || !r.articulo) {
+      setMensaje({ ok: false, texto: r.error || 'No se pudo leer el artículo.' });
+      return;
+    }
+    setDatos(r.articulo as DatosArticulo);
+    setCantidad(String(r.articulo.multiplo || 1));
   }
 
-  async function anadir(a: any) {
-    const m = a.multiplo_compra || 1;
-    const n = Number((cantidades[a.id] ?? String(m)).replace(',', '.'));
-    setOcupado(a.id);
+  function limpiar() {
+    setDatos(null);
+    setCodigo('');
+    setDescripcion('');
+    setCantidad('');
+    setResultados([]);
+    setCampoActivo(null);
+  }
+
+  const n = Number(cantidad.replace(',', '.'));
+  const errorCantidad = !datos
+    ? null
+    : !(n > 0)
+      ? 'Indica una cantidad.'
+      : datos.multiplo > 1 && Math.abs(n / datos.multiplo - Math.round(n / datos.multiplo)) > 1e-9
+        ? `Debe ser múltiplo de ${datos.multiplo}.`
+        : null;
+
+  async function anadir() {
+    if (!datos || errorCantidad) return;
+    setGuardando(true);
     setMensaje(null);
-    const r = await anadirArticuloAprobador(pedidoId, a.id, n);
-    setOcupado(null);
+    const r = await anadirArticuloAprobador(pedidoId, datos.bc_item_no, n);
+    setGuardando(false);
     if (r.error) {
       setMensaje({ ok: false, texto: r.error });
       return;
     }
-    setMensaje({ ok: true, texto: `Añadido: ${n} ${a.unidad_medida || 'ud.'} de ${a.nombre}` });
+    setMensaje({ ok: true, texto: `Añadido: ${cantidad} ${datos.unidad} de ${datos.descripcion}` });
+    limpiar();
     router.refresh();
   }
 
@@ -381,62 +435,89 @@ function AnadirArticulo({ pedidoId, onCerrar }: { pedidoId: string; onCerrar: ()
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
             <h3 className="text-lg font-semibold text-grafito">Añadir artículo a la solicitud</h3>
-            <p className="text-xs text-slate">Busca en la tienda por nombre, referencia o categoría.</p>
+            <p className="text-xs text-slate">Busca en el catálogo de Business Central por código o por descripción.</p>
           </div>
           <button onClick={onCerrar} className="text-slate hover:text-grafito text-xl leading-none px-2" aria-label="Cerrar">
             ×
           </button>
         </div>
-        <div className="flex gap-2 mb-3">
+
+        <div className="grid gap-2 sm:grid-cols-[10rem_1fr]">
           <input
-            autoFocus
-            className="input flex-1"
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') buscar();
-              if (e.key === 'Escape') onCerrar();
+            className="input font-mono"
+            placeholder="Código BC"
+            value={codigo}
+            disabled={!!datos}
+            onFocus={() => setCampoActivo('codigo')}
+            onChange={(e) => {
+              setCodigo(e.target.value);
+              setCampoActivo('codigo');
             }}
-            placeholder="Ej.: cinta aislante azul, GPQM0061…"
           />
-          <button onClick={buscar} disabled={buscando || texto.trim().length < 2} className="btn-primary disabled:opacity-60">
-            {buscando ? 'Buscando…' : 'Buscar'}
-          </button>
+          <input
+            className="input"
+            placeholder="Descripción (p. ej. cinta aislante azul)"
+            value={descripcion}
+            disabled={!!datos}
+            onFocus={() => setCampoActivo('descripcion')}
+            onChange={(e) => {
+              setDescripcion(e.target.value);
+              setCampoActivo('descripcion');
+            }}
+            onKeyDown={(e) => e.key === 'Escape' && onCerrar()}
+          />
         </div>
-        {mensaje && (
-          <p className={`text-sm mb-2 ${mensaje.ok ? 'text-[#047857]' : 'text-rojo'}`}>{mensaje.ok ? '✓ ' : ''}{mensaje.texto}</p>
-        )}
-        <ul className="divide-y divide-borde border border-borde rounded-md max-h-[55vh] overflow-y-auto">
-          {resultados.length === 0 && !buscando && <li className="p-3 text-sm text-slate">Escribe y pulsa Buscar.</li>}
-          {resultados.map((a) => {
-            const m = a.multiplo_compra || 1;
-            return (
-              <li key={a.id} className="p-2.5 flex flex-wrap items-center gap-2">
-                <span className="flex-1 min-w-[12rem] text-sm">
-                  <span className="text-grafito">{a.nombre}</span>
-                  <span className="block text-xs text-slate font-mono">
-                    {a.bc_item_no}
-                    {m > 1 ? ` · múltiplo de ${m}` : ''}
-                  </span>
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  step={m > 1 ? m : 'any'}
-                  value={cantidades[a.id] ?? String(m)}
-                  onChange={(e) => setCantidades((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                  style={{ width: '6rem' }}
-                  className="border border-borde rounded-md px-2 py-1.5 text-sm text-right font-mono"
-                />
-                <span className="text-xs text-slate w-8">{a.unidad_medida || 'ud'}</span>
-                <button onClick={() => anadir(a)} disabled={ocupado === a.id} className="btn-primary text-sm py-1.5 disabled:opacity-60">
-                  {ocupado === a.id ? 'Añadiendo…' : 'Añadir'}
+        {buscando && !datos && <p className="text-xs text-slate mt-2">Buscando en Business Central…</p>}
+        {!datos && resultados.length > 0 && (
+          <ul className="mt-2 border border-borde rounded-md divide-y divide-borde max-h-64 overflow-y-auto">
+            {resultados.map((a) => (
+              <li key={a.No}>
+                <button type="button" onClick={() => elegir(a)} className="w-full text-left px-3 py-2 text-sm hover:bg-fondo">
+                  <span className="font-mono text-xs text-slate mr-2">{a.No}</span>
+                  {a.Description}
                 </button>
               </li>
-            );
-          })}
-        </ul>
-        <div className="flex justify-end mt-3">
+            ))}
+          </ul>
+        )}
+        {cargando && <p className="text-xs text-slate mt-2">Leyendo el artículo…</p>}
+
+        {datos && (
+          <div className="mt-3 border border-borde rounded-md p-3">
+            <p className="text-sm text-grafito">
+              <span className="font-mono text-xs text-slate mr-2">{datos.bc_item_no}</span>
+              {datos.descripcion}
+            </p>
+            {!datos.en_tienda && <p className="text-xs text-slate mt-0.5">No está en la tienda: se dará de alta en la app al añadirlo.</p>}
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="text-sm text-slate">Cantidad</span>
+              <input
+                type="number"
+                min={0}
+                step={datos.multiplo > 1 ? datos.multiplo : 'any'}
+                value={cantidad}
+                onChange={(e) => setCantidad(e.target.value)}
+                style={{ width: '7rem' }}
+                className="border border-borde rounded-md px-2 py-1.5 text-sm text-right font-mono"
+              />
+              <span className="text-sm text-slate">
+                {datos.unidad}
+                {datos.multiplo > 1 ? ` · múltiplo de ${datos.multiplo}` : ''}
+              </span>
+              <button onClick={anadir} disabled={guardando || !!errorCantidad} className="btn-primary text-sm py-1.5 ml-auto disabled:opacity-60">
+                {guardando ? 'Añadiendo…' : 'Añadir a la solicitud'}
+              </button>
+              <button onClick={limpiar} disabled={guardando} className="btn-secondary text-sm py-1.5">
+                Otro artículo
+              </button>
+            </div>
+            {errorCantidad && <p className="text-xs text-rojo mt-1">{errorCantidad}</p>}
+          </div>
+        )}
+
+        {mensaje && <p className={`text-sm mt-3 ${mensaje.ok ? 'text-[#047857]' : 'text-rojo'}`}>{mensaje.ok ? '✓ ' : ''}{mensaje.texto}</p>}
+
+        <div className="flex justify-end mt-4">
           <button onClick={onCerrar} className="btn-secondary">
             Cerrar
           </button>

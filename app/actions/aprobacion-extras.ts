@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { idsEfectivos } from '@/lib/pedidos-utils';
 import { esCantidadValida, esMultiploDe } from '@/lib/cantidad';
+import { productoDesdeBC } from '@/lib/producto-desde-bc';
 
 // Lo que el aprobador puede hacer en la solicitud antes de aprobarla: comentarios al
 // comprador y añadir artículos (los documentos van por documentos-solicitud.ts).
@@ -52,38 +53,25 @@ export async function guardarComentarioAprobador(pedidoId: string, texto: string
   return { success: true };
 }
 
-export async function buscarArticulosParaAnadir(texto: string) {
-  const supabase = createClient();
-  const palabras = texto
-    .replace(/[%,()]/g, ' ')
-    .split(/\s+/)
-    .filter((p) => p.length >= 2)
-    .slice(0, 5);
-  if (palabras.length === 0) return { articulos: [] };
-  let q = supabase
-    .from('productos')
-    .select('id, nombre, bc_item_no, unidad_medida, multiplo_compra, precio, imagen_url')
-    .eq('visible', true)
-    .order('nombre')
-    .limit(20);
-  for (const p of palabras) q = q.or(`nombre.ilike.%${p}%,bc_item_no.ilike.%${p}%,categoria.ilike.%${p}%`);
-  const { data, error } = await q;
-  if (error) return { error: error.message, articulos: [] };
-  return { articulos: (data || []) as any[] };
-}
-
-export async function anadirArticuloAprobador(pedidoId: string, productoId: string, cantidad: number) {
+// Añade a la solicitud un artículo de BC (igual que "Asignar artículo" de las listas: se
+// busca en el catálogo de BC y, si no existe en la app, se da de alta oculto).
+export async function anadirArticuloAprobador(pedidoId: string, bcItemNo: string, cantidad: number) {
   const q = await aprobadorDeSolicitud(pedidoId);
   if (!q) return { error: 'Solo el aprobador puede añadir artículos mientras la solicitud está pendiente.' };
   const admin = createAdminClient();
-  const { data: producto } = await admin
-    .from('productos')
-    .select('id, nombre, multiplo_compra, proveedor_predeterminado_id, visible')
-    .eq('id', productoId)
-    .maybeSingle();
-  if (!producto || !producto.visible) return { error: 'Artículo no encontrado.' };
+  const r = await productoDesdeBC(bcItemNo);
+  if ('error' in r) return { error: r.error };
+  const producto = r.producto;
+  const { data: yaEsta } = await admin
+    .from('pedido_items')
+    .select('id')
+    .eq('pedido_id', pedidoId)
+    .eq('producto_id', producto.id)
+    .eq('rechazada_por_aprobador', false)
+    .limit(1);
+  if (yaEsta && yaEsta.length > 0) return { error: 'Ese artículo ya está en la solicitud: cambia su cantidad en lugar de añadirlo otra vez.' };
   const n = Number(cantidad);
-  const m = producto.multiplo_compra || 1;
+  const m = producto.multiplo_compra > 1 ? producto.multiplo_compra : 1;
   if (!esCantidadValida(n)) return { error: 'Cantidad no válida (máx. 3 decimales).' };
   if (!esMultiploDe(n, m)) return { error: `La cantidad de "${producto.nombre}" debe ser múltiplo de ${m}.` };
 
