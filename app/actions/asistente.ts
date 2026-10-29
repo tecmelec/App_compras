@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GUIA_APP, RUTAS_PERMITIDAS } from '@/lib/asistente/guia';
 import { visitasParaRol } from '@/lib/asistente/visitas';
-import { HERRAMIENTAS, ejecutarHerramienta, type AccionAsistente } from '@/lib/asistente/herramientas';
+import { herramientasParaRol, ROLES_CATALOGO_BC, ejecutarHerramienta, type AccionAsistente } from '@/lib/asistente/herramientas';
 
 // Asistente de la app (fase 1): responde dudas de uso con la guía, según el perfil y la
 // pantalla, y propone botones para ir a cada sitio ([[Texto|/ruta]]).
@@ -37,6 +37,8 @@ export async function preguntarAsistente(mensajes: MensajeAsistente[], ruta: str
   const rutas = RUTAS_PERMITIDAS.filter((r) => r.roles.includes(perfil.rol)).map((r) => r.ruta);
   const visitas = visitasParaRol(perfil.rol);
   const destinos = [...rutas, ...visitas.map((v) => `tour:${v.id}`)];
+  const herramientas = herramientasParaRol(perfil.rol);
+  const catalogoBC = ROLES_CATALOGO_BC.includes(perfil.rol);
   const system = `Eres el asistente de ayuda de la app de compras de Tecmelec (empresa de instalaciones eléctricas en España). Ayudas a las personas a usar la app, paso a paso y en español sencillo, tuteando.
 
 Quién pregunta: ${perfil.nombre_completo || 'un usuario'}, perfil ${ROLES[perfil.rol] || perfil.rol}.
@@ -49,7 +51,12 @@ Reglas:
 - Cuando indiques ir a una pantalla, añade un botón con la sintaxis [[Texto del botón|/ruta]] en su propia línea. Solo puedes usar estas rutas: ${rutas.join(', ')}.
 - Usa los nombres exactos de los botones y pantallas entre comillas, como aparecen en la app.
 - Visitas guiadas: la app puede enseñar un proceso resaltando en pantalla cada botón, paso a paso. Cuando expliques uno de estos procesos, ofrécela al final con un botón [[▶ Ver visita guiada|tour:ID]] (solo estas): ${visitas.map((v) => `tour:${v.id} = "${v.titulo}"`).join('; ')}.
-- Herramientas: puedes buscar artículos en la tienda (buscar_articulos), proponer añadirlos al carrito (proponer_carrito: se muestra una tarjeta y es el usuario quien confirma; nunca digas que ya están en el carrito), ver sus últimas solicitudes (mis_solicitudes), buscar en las líneas de compra que puede ver por artículo y/o proyecto (buscar_lineas_compra, p. ej. "¿se ha pedido arena para Robledo?" o "¿cuánto se ha gastado en cinta aislante en la obra X?"; si el perfil ve precios devuelve precios, importes y totales), consultar las últimas compras de un artículo en BC con su precio (ultimas_compras_bc) y el detalle de una solicitud (detalle_solicitud: artículos, pedido, fecha estimada y recepción). Úsalas cuando ayuden; si buscar_articulos no encuentra nada, sugiere "Crear carrito desde foto/lista/REF.".
+- Herramientas: puedes buscar artículos en la tienda (buscar_articulos), proponer añadirlos al carrito (proponer_carrito: se muestra una tarjeta y es el usuario quien confirma; nunca digas que ya están en el carrito), ver sus últimas solicitudes (mis_solicitudes), buscar en las líneas de compra que puede ver por artículo y/o proyecto (buscar_lineas_compra, p. ej. "¿se ha pedido arena para Robledo?" o "¿cuánto se ha gastado en cinta aislante en la obra X?"; si el perfil ve precios devuelve precios, importes y totales), consultar las últimas compras de un artículo en BC con su precio (ultimas_compras_bc) y el detalle de una solicitud (detalle_solicitud: artículos, pedido, fecha estimada y recepción). Úsalas cuando ayuden.${
+    catalogoBC
+      ? `
+- Si buscar_articulos no encuentra el artículo en la tienda, búscalo tú mismo en el catálogo completo de BC con buscar_articulos_bc (prueba también variantes: p. ej. "5G10", "5x10", el tipo de cable o la marca). Si aparece, enséñale las opciones (código y descripción), confirma el artículo exacto y la cantidad y propónlo con proponer_carrito usando codigo_bc; avísale de que esa solicitud pasará por el aprobador. Ofrece además el botón [[Crear desde artículos de BC|/carrito/articulos-bc]] por si prefiere buscarlo él. Solo si tampoco está en BC, sugiere "Crear carrito desde lista/REF./foto" o "Solicitar alta de artículos".`
+      : ' Si buscar_articulos no encuentra nada, sugiere "Crear carrito desde foto/lista/REF.".'
+  }
 - Para pedir material: busca, confirma con el usuario el artículo exacto si hay dudas (varios parecidos) y la cantidad, y entonces propón el carrito. Recuérdale que después debe enviar la solicitud desde el carrito ("Solicitar materiales").
 - Al dar el estado de una solicitud, resume por artículo: pedido de compra, fecha estimada (y si está confirmada) y recepción. Puedes añadir un botón al detalle con [[Ver en Líns. compras|ENLACE]] usando el enlace que devuelve la herramienta.
 - Precios e importes: solo puedes darlos si las herramientas los devuelven. El perfil usuario NO puede ver precios ni importes: si los pide, dile que su perfil no tiene acceso a esa información. Los importes son sin IVA; indica si hay líneas sin precio (0 €) que no suman.
@@ -67,7 +74,7 @@ ${GUIA_APP}`;
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: HERRAMIENTAS, messages: conversacion }),
+        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: herramientas, messages: conversacion }),
       });
       if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
       const cuerpo = await r.json();
@@ -100,7 +107,7 @@ ${GUIA_APP}`;
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: HERRAMIENTAS, tool_choice: { type: 'none' }, messages: mensajesFinal }),
+        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: herramientas, tool_choice: { type: 'none' }, messages: mensajesFinal }),
       });
       if (r.ok) {
         const cuerpo = await r.json();

@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { visibilidadLineas, puedeVerSolicitud } from '@/lib/visibilidad-lineas';
 import { esMultiploDe } from '@/lib/cantidad';
 import { obtenerProveedorPedidosCompraBC, obtenerUltimasComprasArticuloBC } from '@/lib/business-central';
+import { buscarCatalogoBC } from '@/lib/catalogo-bc';
+import { productoOcultoPorCodigo } from '@/lib/lista-foto';
 
 // Asistente, fase 3: herramientas que el modelo puede usar. Todas consultan con los
 // permisos de quien pregunta y NINGUNA modifica datos: añadir al carrito solo se propone
@@ -17,6 +19,9 @@ export type ArticuloPropuesto = {
   multiplo_compra: number;
   precio: number | null;
   cantidad: number;
+  // Artículo del catálogo completo de BC (no publicado en la tienda): la solicitud
+  // requiere aprobación siempre, igual que con "Crear desde artículos de BC".
+  desde_bc?: boolean;
 };
 export type AccionAsistente = { tipo: 'carrito'; items: ArticuloPropuesto[] };
 
@@ -32,9 +37,19 @@ export const HERRAMIENTAS = [
     },
   },
   {
+    name: 'buscar_articulos_bc',
+    description:
+      'Busca en el catálogo COMPLETO de artículos de Business Central (incluye los que no están publicados en la tienda), como "Crear desde artículos de BC". Cada palabra debe aparecer en el código, la descripción, la categoría o el fabricante. Devuelve hasta 15 con código de BC, descripción, categoría, fabricante, unidad y si ya está en la tienda. Úsala cuando buscar_articulos no encuentre lo que se pide.',
+    input_schema: {
+      type: 'object',
+      properties: { texto: { type: 'string', description: 'Palabras de búsqueda, p. ej. "5G10", "manguera 5x10" o "RZ1 5G10".' } },
+      required: ['texto'],
+    },
+  },
+  {
     name: 'proponer_carrito',
     description:
-      'Propone al usuario añadir artículos al carrito. Se le muestra una tarjeta para que revise cantidades y confirme; tú NO añades nada. Usa solo ids devueltos por buscar_articulos y respeta el múltiplo de compra.',
+      'Propone al usuario añadir artículos al carrito. Se le muestra una tarjeta para que revise cantidades y confirme; tú NO añades nada. Para artículos de la tienda usa producto_id (de buscar_articulos); para artículos del catálogo de BC usa codigo_bc (de buscar_articulos_bc). Respeta el múltiplo de compra.',
     input_schema: {
       type: 'object',
       properties: {
@@ -42,8 +57,12 @@ export const HERRAMIENTAS = [
           type: 'array',
           items: {
             type: 'object',
-            properties: { producto_id: { type: 'string' }, cantidad: { type: 'number' } },
-            required: ['producto_id', 'cantidad'],
+            properties: {
+              producto_id: { type: 'string', description: 'Id de buscar_articulos (tienda).' },
+              codigo_bc: { type: 'string', description: 'Código de BC de buscar_articulos_bc (catálogo de BC).' },
+              cantidad: { type: 'number' },
+            },
+            required: ['cantidad'],
           },
         },
       },
@@ -80,6 +99,14 @@ export const HERRAMIENTAS = [
     input_schema: { type: 'object', properties: { numero: { type: 'string', description: 'Número de solicitud, p. ej. APP-2600054' } }, required: ['numero'] },
   },
 ];
+
+// Catálogo completo de BC: los mismos perfiles que "Crear desde artículos de BC".
+export const ROLES_CATALOGO_BC = ['admin', 'comprador', 'responsable', 'integral'];
+
+// Herramientas que se ofrecen al modelo según el perfil.
+export function herramientasParaRol(rol: string) {
+  return HERRAMIENTAS.filter((h) => h.name !== 'buscar_articulos_bc' || ROLES_CATALOGO_BC.includes(rol));
+}
 
 // Precios e importes: solo para quien los ve en Líns. compras (no el perfil usuario).
 const VE_PRECIOS = ['comprador', 'responsable', 'admin', 'integral'];
@@ -120,28 +147,82 @@ export async function ejecutarHerramienta(
         multiplo_compra: p.multiplo_compra || 1,
         precio: p.precio,
       })),
-      nota: (data || []).length === 0 ? 'Sin resultados. Prueba otras palabras o sugiere "Crear carrito desde foto/lista/REF.".' : undefined,
+      nota:
+        (data || []).length === 0
+          ? ROLES_CATALOGO_BC.includes(ctx.rol)
+            ? 'Sin resultados en la tienda. Busca ahora en el catálogo completo de BC con buscar_articulos_bc.'
+            : 'Sin resultados. Prueba otras palabras o sugiere "Crear carrito desde foto/lista/REF.".'
+          : undefined,
+    };
+  }
+
+  if (nombre === 'buscar_articulos_bc') {
+    if (!ROLES_CATALOGO_BC.includes(ctx.rol)) return { error: 'Tu perfil no tiene acceso al catálogo completo de BC.' };
+    const texto = String(entrada?.texto || '').trim().slice(0, 100);
+    if (!texto) return { error: 'Falta el texto de búsqueda.' };
+    const articulos = await buscarCatalogoBC(texto, 0, 15);
+    const nos = articulos.map((a) => a.no);
+    const { data: enTienda } = nos.length
+      ? await createAdminClient().from('productos').select('id, bc_item_no').in('bc_item_no', nos).eq('visible', true)
+      : { data: [] as any[] };
+    const idTienda = new Map((enTienda || []).map((p: any) => [p.bc_item_no, p.id]));
+    return {
+      resultados: articulos.map((a) => ({
+        codigo_bc: a.no,
+        descripcion: a.descripcion,
+        categoria: a.categoria,
+        fabricante: a.fabricante,
+        unidad: a.unidad,
+        en_tienda: idTienda.has(a.no),
+        ...(idTienda.has(a.no) ? { producto_id: idTienda.get(a.no) } : {}),
+      })),
+      nota:
+        articulos.length === 0
+          ? 'Tampoco está en el catálogo de BC. Prueba otras palabras (p. ej. solo la sección "5G10" o el tipo de cable) o sugiere "Crear carrito desde lista/REF." o "Solicitar alta de artículos".'
+          : 'Los artículos de BC que no están en la tienda hacen que la solicitud pase siempre por el aprobador. Confirma con el usuario el artículo exacto antes de proponerlo.',
     };
   }
 
   if (nombre === 'proponer_carrito') {
     const pedidos = (Array.isArray(entrada?.items) ? entrada.items : []).slice(0, 20);
     if (pedidos.length === 0) return { error: 'No hay artículos.' };
-    const { data } = await supabase
-      .from('productos')
-      .select('id, nombre, bc_item_no, imagen_url, unidad_medida, multiplo_compra, precio')
-      .eq('visible', true)
-      .in(
-        'id',
-        pedidos.map((i: any) => String(i.producto_id))
-      );
+    const ids = pedidos.map((i: any) => String(i.producto_id || '')).filter(Boolean);
+    const codigos = pedidos.map((i: any) => String(i.codigo_bc || '').trim().toUpperCase()).filter(Boolean);
+    const columnas = 'id, nombre, bc_item_no, imagen_url, unidad_medida, multiplo_compra, precio';
+    const { data } = ids.length ? await supabase.from('productos').select(columnas).eq('visible', true).in('id', ids) : { data: [] as any[] };
+    const { data: publicadosBC } = codigos.length
+      ? await supabase.from('productos').select(columnas).eq('visible', true).in('bc_item_no', codigos)
+      : { data: [] as any[] };
     const porId = new Map((data || []).map((p: any) => [p.id, p]));
+    const porCodigo = new Map((publicadosBC || []).map((p: any) => [p.bc_item_no, p]));
     const items: ArticuloPropuesto[] = [];
     const avisos: string[] = [];
     for (const i of pedidos) {
-      const p: any = porId.get(String(i.producto_id));
+      let p: any = null;
+      let desdeBC = false;
+      const codigo = String(i.codigo_bc || '').trim().toUpperCase();
+      if (i.producto_id) p = porId.get(String(i.producto_id));
+      else if (codigo) {
+        if (!ROLES_CATALOGO_BC.includes(ctx.rol)) {
+          avisos.push(`${codigo}: tu perfil no puede pedir artículos del catálogo de BC.`);
+          continue;
+        }
+        p = porCodigo.get(codigo);
+        if (!p) {
+          // No publicado en la tienda: producto oculto con los datos de su ficha de BC
+          // (lo mismo que hace "Crear desde artículos de BC").
+          try {
+            const o = await productoOcultoPorCodigo(codigo);
+            if (o) p = { id: o.id, nombre: o.nombre, bc_item_no: o.bc_item_no, imagen_url: o.imagen_url, unidad_medida: o.unidad_medida, multiplo_compra: o.multiplo_compra, precio: null };
+          } catch (e: any) {
+            avisos.push(`${codigo}: ${e?.message || 'no se pudo preparar'}.`);
+            continue;
+          }
+          desdeBC = true;
+        }
+      }
       if (!p) {
-        avisos.push(`Artículo ${i.producto_id} no encontrado en la tienda.`);
+        avisos.push(`Artículo ${i.producto_id || codigo || '?'} no encontrado.`);
         continue;
       }
       const m = p.multiplo_compra || 1;
@@ -150,10 +231,26 @@ export async function ejecutarHerramienta(
         cantidad = Math.ceil(cantidad / m) * m;
         avisos.push(`${p.nombre}: se ajusta a ${cantidad} (múltiplo de ${m}).`);
       }
-      items.push({ producto_id: p.id, nombre: p.nombre, ref: p.bc_item_no, imagen_url: p.imagen_url, unidad_medida: p.unidad_medida, multiplo_compra: m, precio: p.precio, cantidad });
+      items.push({
+        producto_id: p.id,
+        nombre: p.nombre,
+        ref: p.bc_item_no,
+        imagen_url: p.imagen_url,
+        unidad_medida: p.unidad_medida,
+        multiplo_compra: m,
+        precio: p.precio,
+        cantidad,
+        ...(desdeBC ? { desde_bc: true } : {}),
+      });
     }
     if (items.length) ctx.acciones.push({ tipo: 'carrito', items });
-    return { propuesto: items.length, avisos, nota: 'Se ha mostrado una tarjeta al usuario para que confirme. No digas que ya está en el carrito.' };
+    return {
+      propuesto: items.length,
+      avisos,
+      nota:
+        'Se ha mostrado una tarjeta al usuario para que confirme. No digas que ya está en el carrito.' +
+        (items.some((x) => x.desde_bc) ? ' Avísale de que, al llevar artículos del catálogo de BC, la solicitud pasará por el aprobador.' : ''),
+    };
   }
 
   if (nombre === 'mis_solicitudes') {

@@ -86,6 +86,7 @@ function PropuestaCarrito({ items }: { items: ArticuloPropuesto[] }) {
                   <span className="block text-slate">
                     {i.ref || ''}
                     {i.multiplo_compra > 1 ? ` · múltiplo de ${i.multiplo_compra}` : ''}
+                    {i.desde_bc ? ' · catálogo BC (requiere aprobación)' : ''}
                   </span>
                 </span>
               </label>
@@ -114,7 +115,14 @@ function PropuestaCarrito({ items }: { items: ArticuloPropuesto[] }) {
           for (const i of items) {
             if (!elegidos.has(i.producto_id)) continue;
             addItem(
-              { producto_id: i.producto_id, nombre: i.nombre, imagen_url: i.imagen_url, multiplo_compra: i.multiplo_compra, unidad_medida: i.unidad_medida },
+              {
+                producto_id: i.producto_id,
+                nombre: i.nombre,
+                imagen_url: i.imagen_url,
+                multiplo_compra: i.multiplo_compra,
+                unidad_medida: i.unidad_medida,
+                ...(i.desde_bc ? { desde_bc: true } : {}),
+              },
               leerCantidad(cantidades[i.producto_id])
             );
           }
