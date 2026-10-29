@@ -14,6 +14,7 @@ import RevisionAprobacion from './RevisionAprobacion';
 import { numerosTecmelecTexto, fechasEstimadasTexto } from '@/lib/pedidos-utils';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 import { formatoCantidad } from '@/lib/cantidad';
+import { disponibilidadTienda } from '@/lib/tienda-proyecto';
 
 export default async function DetalleResponsablePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -21,7 +22,7 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, numero_app, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, precio_unitario, productos(nombre, precio, unidad_medida, multiplo_compra))'
+      'id, numero_app, proyecto_id, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, estado_general, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, producto_id, cantidad, cantidad_original, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, precio_unitario, productos(nombre, precio, unidad_medida, multiplo_compra))'
     )
     .eq('id', params.id)
     .single();
@@ -40,6 +41,24 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
     adminExtras.from('pedidos').select('*').eq('id', params.id).maybeSingle(),
     adminExtras.from('pedido_items').select('*').eq('pedido_id', params.id),
   ]);
+
+  // Tienda por proyecto: lo que queda de cada artículo sin contar esta solicitud, para
+  // que el aprobador vea si se supera y pueda reducir la cantidad o aprobar la ampliación.
+  let tienda: Record<string, { disponible: number; limite: number; unidad: string }> = {};
+  if (pendiente && p.proyecto_id) {
+    try {
+      const disp = await disponibilidadTienda(
+        p.proyecto_id,
+        (p.pedido_items || []).map((i: any) => i.producto_id),
+        p.id
+      );
+      disp.forEach((d, productoId) => {
+        tienda[productoId] = { disponible: d.disponible, limite: d.limite, unidad: d.unidad };
+      });
+    } catch (e) {
+      console.error('[responsable] No se pudo leer la tienda del proyecto', e);
+    }
+  }
 
   return (
     <div className="p-8 max-w-2xl">
@@ -99,8 +118,10 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
           lineasListaSinResolver={sinResolver.length}
           comentarioInicial={(extras as any)?.comentarios_aprobador || ''}
           anadidas={(itemsExtras || []).filter((x: any) => x.anadida_por_aprobador).map((x: any) => x.id)}
+          tienda={tienda}
           lineas={p.pedido_items.map((item: any) => ({
             id: item.id,
+            productoId: item.producto_id,
             nombre: item.productos?.nombre || 'Producto no disponible',
             cantidad: item.cantidad,
             precio: Number(item.precio_unitario ?? item.productos?.precio ?? 0),

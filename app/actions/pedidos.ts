@@ -10,7 +10,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { obtenerJefeObraProyectoBC } from '@/lib/business-central';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import { aprobadoresElegibles } from '@/app/actions/aprobadores-proyecto';
-import { esCantidadValida, esMultiploDe } from '@/lib/cantidad';
+import { esCantidadValida, esMultiploDe, formatoCantidad } from '@/lib/cantidad';
+import { comprobarExcesosTienda, puedeAutorizarAmpliacion, registrarAmpliacion, type ExcesoTienda } from '@/lib/tienda-proyecto';
 
 type ItemInput = { producto_id: string; nombre: string; cantidad: number; desde_bc?: boolean };
 
@@ -28,6 +29,9 @@ type DatosSolicitud = {
   // "Asignar líneas de planificación manualmente": producto_id → Nº tarea proyecto
   tareas_planificacion?: Record<string, string>;
   aprobador_id?: string | null;
+  // Tienda por proyecto: artículos (producto_id) cuya ampliación autoriza quien pide
+  // (admin o responsable del proyecto), con un comentario opcional.
+  ampliaciones_tienda?: Record<string, { comentario?: string | null }>;
 };
 
 export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
@@ -278,6 +282,36 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
     requiereAprobacion = true;
   }
 
+  // Tienda por proyecto: artículos que superan lo autorizado. Quien puede autorizar la
+  // ampliación (admin o responsable del proyecto) debe hacerlo al pedir; si no, la
+  // solicitud sigue adelante pero pasa por el aprobador, que reducirá la cantidad o
+  // aprobará la ampliación.
+  let excesosTienda: ExcesoTienda[] = [];
+  let autorizaAmpliacion = false;
+  try {
+    excesosTienda = await comprobarExcesosTienda(datos.proyecto_id, items);
+  } catch (e: any) {
+    return { error: e?.message || 'No se pudo comprobar la tienda del proyecto.' };
+  }
+  if (excesosTienda.length > 0) {
+    autorizaAmpliacion = await puedeAutorizarAmpliacion(user.id, perfil.rol, datos.proyecto_id);
+    if (autorizaAmpliacion) {
+      const sinAutorizar = excesosTienda.filter((x) => !datos.ampliaciones_tienda?.[x.producto_id]);
+      if (sinAutorizar.length > 0) {
+        return {
+          error: `Supera lo autorizado en la tienda del proyecto: ${sinAutorizar
+            .map((x) => `"${x.nombre}" (quedan ${formatoCantidad(x.disponible)} ${x.unidad})`)
+            .join(', ')}. Autoriza la ampliación o reduce la cantidad.`,
+        };
+      }
+    } else {
+      if (!responsableBase) {
+        return { error: 'Supera lo autorizado en la tienda del proyecto y no hay ningún aprobador para autorizar la ampliación.' };
+      }
+      requiereAprobacion = true;
+    }
+  }
+
   // Solo proyectos de tipo Obra (si el tipo es conocido).
   {
     const { data: proy } = await createAdminClient().from('proyectos').select('*').eq('id', datos.proyecto_id).maybeSingle();
@@ -332,6 +366,34 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
   if (errorItems) {
     return { error: 'El pedido se creó pero hubo un problema guardando los artículos.' };
+  }
+
+  // Tienda por proyecto: ampliaciones autorizadas al pedir, o exceso pendiente de aprobar.
+  if (excesosTienda.length > 0) {
+    const adminTienda = createAdminClient();
+    const { data: lineasCreadas } = await adminTienda
+      .from('pedido_items')
+      .select('id, producto_id')
+      .eq('pedido_id', pedido.id)
+      .in('producto_id', excesosTienda.map((x) => x.producto_id));
+    for (const x of excesosTienda) {
+      const linea = (lineasCreadas || []).find((l: any) => l.producto_id === x.producto_id);
+      if (autorizaAmpliacion) {
+        const r = await registrarAmpliacion({
+          articuloId: x.articulo_id,
+          cantidad: x.exceso,
+          usuarioId: user.id,
+          usuarioNombre: perfil.nombre_completo,
+          comentario: datos.ampliaciones_tienda?.[x.producto_id]?.comentario || null,
+          pedidoId: pedido.id,
+          numeroApp: pedido.numero_app,
+        });
+        if (r.error) console.error('[crearPedido] Ampliación de la tienda del proyecto:', r.error);
+        if (linea) await adminTienda.from('pedido_items').update({ ampliacion_tienda: x.exceso }).eq('id', linea.id);
+      } else if (linea) {
+        await adminTienda.from('pedido_items').update({ ampliacion_tienda_pendiente: x.exceso }).eq('id', linea.id);
+      }
+    }
   }
 
   // Carrito desde foto: vincula la(s) lista(s) en foto a la solicitud para su informe.
@@ -582,7 +644,9 @@ export async function actualizarLineasTecmelec(
 // solicitud queda rechazada.
 export async function aprobarSolicitudConCambios(
   pedidoId: string,
-  lineas: { id: string; cantidad?: number; rechazada?: boolean }[]
+  lineas: { id: string; cantidad?: number; rechazada?: boolean }[],
+  // Tienda por proyecto: artículos (producto_id) cuya ampliación aprueba el aprobador.
+  ampliacionesTienda: string[] = []
 ) {
   const supabase = createClient();
   const {
@@ -613,12 +677,71 @@ export async function aprobarSolicitudConCambios(
     }
   }
 
+  // Tienda por proyecto: con las cantidades finales, lo que siga superando lo autorizado
+  // necesita que el aprobador apruebe la ampliación.
+  let excesosTienda: ExcesoTienda[] = [];
+  let pedidoTienda: { proyecto_id: string | null; numero_app: string } | null = null;
+  if (!rechazaTodo) {
+    const adminTienda = createAdminClient();
+    const [{ data: ped }, { data: actuales }] = await Promise.all([
+      adminTienda.from('pedidos').select('proyecto_id, numero_app').eq('id', pedidoId).single(),
+      adminTienda.from('pedido_items').select('id, producto_id, cantidad, rechazada_por_aprobador').eq('pedido_id', pedidoId),
+    ]);
+    pedidoTienda = ped as any;
+    if (ped?.proyecto_id) {
+      const cambios = new Map(lineas.map((l) => [l.id, l]));
+      const finales = (actuales || [])
+        .filter((l: any) => !l.rechazada_por_aprobador && !cambios.get(l.id)?.rechazada)
+        .map((l: any) => ({ producto_id: l.producto_id, cantidad: Number(cambios.get(l.id)?.cantidad ?? l.cantidad) }));
+      try {
+        excesosTienda = await comprobarExcesosTienda(ped.proyecto_id, finales, pedidoId);
+      } catch (e: any) {
+        return { error: e?.message || 'No se pudo comprobar la tienda del proyecto.' };
+      }
+      const sinAprobar = excesosTienda.filter((x) => !ampliacionesTienda.includes(x.producto_id));
+      if (sinAprobar.length > 0) {
+        return {
+          error: `Supera lo autorizado en la tienda del proyecto: ${sinAprobar
+            .map((x) => `"${x.nombre}" (quedan ${formatoCantidad(x.disponible)} ${x.unidad}, se piden ${formatoCantidad(x.pedido)})`)
+            .join(', ')}. Reduce la cantidad o aprueba la ampliación.`,
+        };
+      }
+    }
+  }
+
   const { data, error } = await supabase.rpc('aprobar_solicitud_con_cambios', {
     p_pedido_id: pedidoId,
     p_lineas: lineas,
   });
 
   if (error) return { error: error.message || 'No se pudo registrar la decisión.' };
+
+  if (data === 'aprobada' && pedidoTienda) {
+    const adminTienda = createAdminClient();
+    await adminTienda.from('pedido_items').update({ ampliacion_tienda_pendiente: null }).eq('pedido_id', pedidoId);
+    if (excesosTienda.length > 0) {
+      const { data: aprobador } = await adminTienda.from('profiles').select('nombre_completo').eq('id', user.id).single();
+      const { data: lineasPedido } = await adminTienda
+        .from('pedido_items')
+        .select('id, producto_id')
+        .eq('pedido_id', pedidoId)
+        .eq('rechazada_por_aprobador', false);
+      for (const x of excesosTienda) {
+        const r = await registrarAmpliacion({
+          articuloId: x.articulo_id,
+          cantidad: x.exceso,
+          usuarioId: user.id,
+          usuarioNombre: aprobador?.nombre_completo || '',
+          comentario: 'Aprobada al aprobar la solicitud.',
+          pedidoId,
+          numeroApp: pedidoTienda.numero_app,
+        });
+        if (r.error) console.error('[aprobarSolicitudConCambios] Ampliación de la tienda del proyecto:', r.error);
+        const linea = (lineasPedido || []).find((l: any) => l.producto_id === x.producto_id);
+        if (linea) await adminTienda.from('pedido_items').update({ ampliacion_tienda: x.exceso }).eq('id', linea.id);
+      }
+    }
+  }
 
   await recalcularEstadoGeneral(supabase, pedidoId);
   revalidatePath(`/responsable/${pedidoId}`);
@@ -653,6 +776,20 @@ export async function responderAprobacion(pedidoId: string, aprobado: boolean) {
       return {
         error: `Antes de aprobar, asigna un artículo o rechaza las líneas pendientes de la lista de materiales: ${sinResolver.join(', ')}.`,
       };
+    }
+    // Tienda por proyecto: si algo supera lo autorizado, hay que aprobarlo desde la revisión.
+    const adminTienda = createAdminClient();
+    const { data: ped } = await adminTienda.from('pedidos').select('proyecto_id').eq('id', pedidoId).single();
+    if (ped?.proyecto_id) {
+      const { data: actuales } = await adminTienda
+        .from('pedido_items')
+        .select('producto_id, cantidad')
+        .eq('pedido_id', pedidoId)
+        .eq('rechazada_por_aprobador', false);
+      const excesos = await comprobarExcesosTienda(ped.proyecto_id, (actuales || []) as any, pedidoId).catch(() => []);
+      if (excesos.length > 0) {
+        return { error: 'Supera lo autorizado en la tienda del proyecto: reduce la cantidad o aprueba la ampliación desde la revisión de la solicitud.' };
+      }
     }
   }
 

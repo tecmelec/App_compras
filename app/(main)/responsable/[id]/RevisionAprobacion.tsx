@@ -7,10 +7,11 @@ import { anadirArticuloAprobador, guardarComentarioAprobador } from '@/app/actio
 import { buscarArticulosParaAlta } from '@/app/actions/alta-articulos';
 import { datosArticuloParaAsignar } from '@/app/actions/lista-foto';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
-import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
+import { esCantidadValida, esMultiploDe, formatoCantidad, leerCantidad, pasoCantidad } from '@/lib/cantidad';
 
 export type LineaRevision = {
   id: string;
+  productoId?: string;
   nombre: string;
   cantidad: number;
   precio: number;
@@ -30,6 +31,7 @@ export default function RevisionAprobacion({
   lineasListaSinResolver = 0,
   comentarioInicial = '',
   anadidas = [],
+  tienda = {},
 }: {
   pedidoId: string;
   lineas: LineaRevision[];
@@ -37,6 +39,8 @@ export default function RevisionAprobacion({
   lineasListaSinResolver?: number;
   comentarioInicial?: string;
   anadidas?: string[];
+  // Tienda por proyecto: lo que queda de cada artículo (producto_id) sin esta solicitud.
+  tienda?: Record<string, { disponible: number; limite: number; unidad: string }>;
 }) {
   const router = useRouter();
   const [cambios, setCambios] = useState<Record<string, Cambio>>(() =>
@@ -80,6 +84,29 @@ export default function RevisionAprobacion({
   // Solicitud de lista de materiales sin ningún artículo (todo pendiente o rechazado)
   const sinArticulos = lineas.length === 0;
 
+  // Tienda por proyecto: artículos que, con las cantidades a aprobar, superan lo que queda.
+  const [ampliacionesOk, setAmpliacionesOk] = useState<Record<string, boolean>>({});
+  const excesosTienda = useMemo(() => {
+    const porProducto = new Map<string, { nombre: string; cantidad: number }>();
+    for (const l of lineas) {
+      const c = cambioDe(l);
+      if (!l.productoId || c.rechazada || !tienda[l.productoId]) continue;
+      const n = Number(c.cantidad);
+      const prev = porProducto.get(l.productoId) || { nombre: l.nombre, cantidad: 0 };
+      porProducto.set(l.productoId, { nombre: prev.nombre, cantidad: prev.cantidad + (Number.isFinite(n) ? n : 0) });
+    }
+    const lista: { productoId: string; nombre: string; pedido: number; disponible: number; limite: number; unidad: string; exceso: number }[] = [];
+    porProducto.forEach((v, productoId) => {
+      const t = tienda[productoId];
+      if (v.cantidad > t.disponible + 1e-9) {
+        lista.push({ productoId, nombre: v.nombre, pedido: v.cantidad, ...t, exceso: Math.round((v.cantidad - t.disponible) * 1000) / 1000 });
+      }
+    });
+    return lista;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cambios, lineas, tienda]);
+  const faltanAmpliaciones = excesosTienda.some((x) => !ampliacionesOk[x.productoId]);
+
   const total = useMemo(
     () =>
       lineas.reduce((suma, l) => {
@@ -121,7 +148,11 @@ export default function RevisionAprobacion({
       })
       .filter(Boolean) as { id: string; cantidad?: number; rechazada?: boolean }[];
 
-    const r = await aprobarSolicitudConCambios(pedidoId, payload);
+    const r = await aprobarSolicitudConCambios(
+      pedidoId,
+      payload,
+      excesosTienda.filter((x) => ampliacionesOk[x.productoId]).map((x) => x.productoId)
+    );
     setEnviando(false);
     if (r.error) {
       setError(r.error);
@@ -242,6 +273,12 @@ export default function RevisionAprobacion({
                 </p>
               )}
               {err && <p className="text-xs text-rojo mt-1.5">{err}</p>}
+              {!c.rechazada && l.productoId && excesosTienda.some((x) => x.productoId === l.productoId) && (
+                <p className="text-xs text-rojo mt-1.5">
+                  Supera la tienda del proyecto: quedan {formatoCantidad(tienda[l.productoId]?.disponible)} {tienda[l.productoId]?.unidad}{' '}
+                  de {formatoCantidad(tienda[l.productoId]?.limite)}. Reduce la cantidad o aprueba la ampliación (abajo).
+                </p>
+              )}
             </div>
           );
         })}
@@ -251,6 +288,32 @@ export default function RevisionAprobacion({
         <span className="text-slate mr-2">Total {hayCambios ? 'tras tus cambios' : 'estimado'}:</span>
         <span className="font-mono text-grafito">{formatoImporte(total)} €</span>
       </div>
+
+      {excesosTienda.length > 0 && !todasRechazadas && (
+        <div className="bg-[#FBF3F3] border border-[#E7C7C7] rounded-lg p-4 mb-4">
+          <h2 className="font-medium text-rojo mb-1">Supera lo autorizado en la tienda del proyecto</h2>
+          <p className="text-xs text-slate mb-3">Reduce la cantidad de estas líneas o aprueba la ampliación para poder aprobar la solicitud.</p>
+          <div className="space-y-2">
+            {excesosTienda.map((x) => (
+              <label key={x.productoId} className="flex items-start gap-2 bg-white border border-borde rounded-md p-2.5 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={!!ampliacionesOk[x.productoId]}
+                  onChange={(e) => setAmpliacionesOk((prev) => ({ ...prev, [x.productoId]: e.target.checked }))}
+                />
+                <span>
+                  <span className="text-grafito">{x.nombre}</span>
+                  <span className="block text-xs text-slate">
+                    Se piden {formatoCantidad(x.pedido)} {x.unidad} · quedan {formatoCantidad(x.disponible)} de {formatoCantidad(x.limite)} {x.unidad} ·{' '}
+                    <b className="text-grafito">Aprobar ampliación de {formatoCantidad(x.exceso)} {x.unidad}</b>
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white border border-borde rounded-lg p-5">
         <h2 className="font-medium text-grafito mb-1">Esta solicitud requiere tu aprobación</h2>
@@ -320,7 +383,13 @@ export default function RevisionAprobacion({
             )}
             <button
               onClick={aprobar}
-              disabled={enviando || hayErrores || sinArticulos || (lineasListaSinResolver > 0 && !todasRechazadas)}
+              disabled={
+                enviando ||
+                hayErrores ||
+                sinArticulos ||
+                (lineasListaSinResolver > 0 && !todasRechazadas) ||
+                (faltanAmpliaciones && !todasRechazadas)
+              }
               className="btn-aprobar"
             >
               {enviando

@@ -41,7 +41,7 @@ export type ArchivoPresupuesto = { data: string; mediaType: string };
 // que se extraen las líneas aquí (columnas separadas por " | ") y a Claude solo se le
 // pasan la cabecera y las líneas de artículo relevantes para esta solicitud.
 
-async function lineasDePDF(base64: string): Promise<string[] | null> {
+export async function lineasDePDF(base64: string): Promise<string[] | null> {
   try {
     const { getDocumentProxy } = await import('unpdf');
     const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(base64, 'base64')));
@@ -72,7 +72,7 @@ async function lineasDePDF(base64: string): Promise<string[] | null> {
   }
 }
 
-const pareceLineaArticulo = (l: string) => l.split(' | ').length >= 3 && /\d+[.,]\d{2}(?!\d)/.test(l);
+export const pareceLineaArticulo = (l: string) => l.split(' | ').length >= 3 && /\d+[.,]\d{2}(?!\d)/.test(l);
 
 const palabras = (s: string) =>
   (s || '')

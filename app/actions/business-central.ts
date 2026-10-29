@@ -297,7 +297,7 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
 
   const { data: items } = await supabase
     .from('pedido_items')
-    .select('id, numero_tecmelec, estado_id, estado_recepcion, cantidad, cantidad_original, cantidad_antes_bc, eliminada_en_bc, productos(bc_item_no)')
+    .select('*, productos(bc_item_no)')
     .eq('pedido_id', pedidoId);
 
   let actualizados = 0;
@@ -398,6 +398,12 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
             cambios.cantidad = Math.round(lineaBC.Quantity * 1000) / 1000;
             if (item.cantidad_antes_bc == null) cambios.cantidad_antes_bc = item.cantidad;
             if (item.cantidad_original == null) cambios.cantidad_original = item.cantidad;
+          }
+
+          // Cantidad recibida (tienda por proyecto); solo si la columna ya existe.
+          if ('cantidad_recibida' in item) {
+            const recibida = Math.round((Number(lineaBC.Quantity_Received) || 0) * 1000) / 1000;
+            if (item.cantidad_recibida == null || Number(item.cantidad_recibida) !== recibida) cambios.cantidad_recibida = recibida;
           }
 
           const recepcionNueva = calcularEstadoRecepcion(lineaBC.Quantity, lineaBC.Quantity_Received);

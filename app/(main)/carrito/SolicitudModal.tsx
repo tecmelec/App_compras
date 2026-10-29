@@ -7,6 +7,9 @@ import { useCart } from '@/context/CartContext';
 import TareasPlanificacionModal from './TareasPlanificacionModal';
 import { crearDireccion, actualizarDireccion, eliminarDireccion } from '@/app/actions/direcciones';
 import { crearContactoEntrega, eliminarContactoEntrega } from '@/app/actions/contactos';
+import { comprobarTiendaProyectoCarrito } from '@/app/actions/tienda-proyecto';
+import type { ExcesoTienda } from '@/lib/tienda-proyecto';
+import { formatoCantidad } from '@/lib/cantidad';
 
 type ContactoEntrega = { id: string; nombre: string; telefono: string };
 
@@ -106,6 +109,7 @@ export default function SolicitudModal({
     seguir_pedido: boolean;
     aprobador_id: string | null;
     tareas_planificacion: Record<string, string>;
+    ampliaciones_tienda: Record<string, { comentario?: string | null }>;
   }) => void;
   enviando: boolean;
 }) {
@@ -180,6 +184,38 @@ export default function SolicitudModal({
     };
   }, [proyectoId]);
   const [busquedaProyecto, setBusquedaProyecto] = useState('');
+
+  // Tienda por proyecto: artículos del carrito que superan lo autorizado para la obra.
+  // Quien puede autorizar la ampliación (admin o responsable del proyecto) lo hace aquí;
+  // si no, puede seguir y el aprobador decidirá.
+  const [excesosTienda, setExcesosTienda] = useState<ExcesoTienda[]>([]);
+  const [puedeAutorizarTienda, setPuedeAutorizarTienda] = useState(false);
+  const [comprobandoTienda, setComprobandoTienda] = useState(false);
+  const [autorizaciones, setAutorizaciones] = useState<Record<string, { ok: boolean; comentario: string }>>({});
+  useEffect(() => {
+    setExcesosTienda([]);
+    setPuedeAutorizarTienda(false);
+    setAutorizaciones({});
+    if (!proyectoId || itemsCarrito.length === 0) return;
+    let vigente = true;
+    setComprobandoTienda(true);
+    comprobarTiendaProyectoCarrito(
+      proyectoId,
+      itemsCarrito.map((i) => ({ producto_id: i.producto_id, cantidad: i.cantidad }))
+    )
+      .then((r) => {
+        if (!vigente) return;
+        setExcesosTienda(r.excesos || []);
+        setPuedeAutorizarTienda(!!r.puedeAutorizar);
+      })
+      .finally(() => {
+        if (vigente) setComprobandoTienda(false);
+      });
+    return () => {
+      vigente = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proyectoId]);
 
   const [pasoIndex, setPasoIndex] = useState(0);
   const paso = PASOS[pasoIndex];
@@ -269,6 +305,10 @@ export default function SolicitudModal({
       if (!proyectoId) return 'Selecciona el proyecto.';
       if (cargandoAprobadores) return 'Comprobando los aprobadores del proyecto…';
       if (aprobadores.length > 0 && !aprobadorId) return 'Selecciona el aprobador para esta solicitud.';
+      if (comprobandoTienda) return 'Comprobando la tienda del proyecto…';
+      if (excesosTienda.length > 0 && puedeAutorizarTienda && excesosTienda.some((x) => !autorizaciones[x.producto_id]?.ok)) {
+        return 'Hay artículos que superan lo autorizado en la tienda del proyecto: autoriza la ampliación o reduce la cantidad en el carrito.';
+      }
     }
 
     if (paso === 'direccion') {
@@ -338,6 +378,13 @@ export default function SolicitudModal({
       seguir_pedido: seguirPedido,
       aprobador_id: aprobadores.length > 0 ? aprobadorId : null,
       tareas_planificacion: rol !== 'usuario' && asignarTareas ? tareasPlan : {},
+      ampliaciones_tienda: puedeAutorizarTienda
+        ? Object.fromEntries(
+            excesosTienda
+              .filter((x) => autorizaciones[x.producto_id]?.ok)
+              .map((x) => [x.producto_id, { comentario: autorizaciones[x.producto_id]?.comentario || null }])
+          )
+        : {},
     });
   }
 
@@ -502,6 +549,71 @@ export default function SolicitudModal({
                       </div>
                     )}
                     {cargandoAprobadores && <p className="text-xs text-slate mt-2">Comprobando los aprobadores del proyecto…</p>}
+                    {comprobandoTienda && <p className="text-xs text-slate mt-2">Comprobando la tienda del proyecto…</p>}
+                    {excesosTienda.length > 0 && (
+                      <div
+                        className={`mt-4 rounded-lg p-3 border ${
+                          puedeAutorizarTienda ? 'border-[#E7C7C7] bg-[#FBF3F3]' : 'border-[#F2D9AE] bg-[#FDF2E3]'
+                        }`}
+                      >
+                        <p className={`text-sm font-medium mb-1 ${puedeAutorizarTienda ? 'text-rojo' : 'text-[#8A5A15]'}`}>
+                          Supera lo autorizado en la tienda del proyecto
+                        </p>
+                        <p className="text-xs text-slate mb-2">
+                          {puedeAutorizarTienda
+                            ? 'Para continuar, autoriza la ampliación de cada artículo o vuelve al carrito y reduce la cantidad.'
+                            : 'Puedes continuar con la solicitud: el aprobador tendrá que ajustar la cantidad o aprobar la ampliación.'}
+                        </p>
+                        <div className="space-y-2">
+                          {excesosTienda.map((x) => {
+                            const a = autorizaciones[x.producto_id];
+                            return (
+                              <div key={x.producto_id} className="bg-white border border-borde rounded-md p-2.5">
+                                <p className="text-sm text-grafito">{x.nombre}</p>
+                                <p className="text-xs text-slate">
+                                  Pides {formatoCantidad(x.pedido)} {x.unidad} · quedan {formatoCantidad(x.disponible)} {x.unidad} de{' '}
+                                  {formatoCantidad(x.limite)} {x.unidad} ·{' '}
+                                  <span className="text-rojo font-medium">
+                                    exceso {formatoCantidad(x.exceso)} {x.unidad}
+                                  </span>
+                                </p>
+                                {puedeAutorizarTienda && (
+                                  <>
+                                    <label className="flex items-center gap-2 text-sm text-grafito mt-1.5 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!a?.ok}
+                                        onChange={(e) =>
+                                          setAutorizaciones((prev) => ({
+                                            ...prev,
+                                            [x.producto_id]: { ok: e.target.checked, comentario: prev[x.producto_id]?.comentario || '' },
+                                          }))
+                                        }
+                                      />
+                                      Autorizo una ampliación de {formatoCantidad(x.exceso)} {x.unidad}
+                                    </label>
+                                    {a?.ok && (
+                                      <input
+                                        className="input py-1 text-sm mt-1.5"
+                                        maxLength={1000}
+                                        placeholder="Comentario de la ampliación (opcional)"
+                                        value={a.comentario}
+                                        onChange={(e) =>
+                                          setAutorizaciones((prev) => ({
+                                            ...prev,
+                                            [x.producto_id]: { ok: true, comentario: e.target.value },
+                                          }))
+                                        }
+                                      />
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>

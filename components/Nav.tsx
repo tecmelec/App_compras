@@ -55,6 +55,8 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
       badge: pendientesAprobacion,
     },
     { href: '/proyectos-equipo', label: 'Proyectos de equipo', roles: ['admin', 'responsable', 'integral'] },
+    // Tienda por proyecto: de momento solo admin (lib/tienda-proyecto.ts, ROLES_TIENDA_PROYECTO).
+    { href: '/tienda-proyecto', label: 'Tienda por proyecto', roles: ['admin'] },
     { href: '/alta-articulos', label: 'Solicitar alta de artículos', roles: ['admin', 'comprador', 'responsable', 'integral'] },
     { href: '/admin/pedidos', label: 'Todas las solicitudes', roles: ['admin'] },
     { href: '/admin', label: 'Administración', roles: ['admin'] },
@@ -136,7 +138,7 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
               }}
               className={clsx(
                 'flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium',
-                pathname.startsWith(l.href) ? 'bg-marca text-white' : 'text-white/80 hover:bg-white/10'
+                pathname === l.href || pathname.startsWith(l.href + '/') ? 'bg-marca text-white' : 'text-white/80 hover:bg-white/10'
               )}
             >
               <span>{l.label}</span>
