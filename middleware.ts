@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptionsWithName } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { COOKIE_RECORDAR, opcionesCookieSesion, recordarSesion } from '@/lib/supabase/sesion';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptionsWithName };
 
@@ -9,6 +10,8 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-pathname', request.nextUrl.pathname);
   let response = NextResponse.next({ request: { headers: requestHeaders } });
+
+  const recordar = recordarSesion(request.cookies.get(COOKIE_RECORDAR)?.value);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +25,7 @@ export async function middleware(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request: { headers: requestHeaders } });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, opcionesCookieSesion(name, value, options, recordar))
           );
         },
       },

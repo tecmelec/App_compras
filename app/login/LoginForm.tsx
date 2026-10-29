@@ -1,10 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { login } from './actions';
 
 export default function LoginForm({ error }: { error?: string }) {
   const [mostrarPassword, setMostrarPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [recordar, setRecordar] = useState(true);
+
+  // Con "Recuérdame" se guarda el usuario en este dispositivo para no volver a escribirlo.
+  useEffect(() => {
+    try {
+      const guardado = window.localStorage.getItem('tm_login_email');
+      if (guardado) setEmail(guardado);
+      if (window.localStorage.getItem('tm_login_recordar') === '0') setRecordar(false);
+    } catch {
+      /* sin almacenamiento */
+    }
+  }, []);
+
+  function alEnviar() {
+    try {
+      window.localStorage.setItem('tm_login_recordar', recordar ? '1' : '0');
+      if (recordar) window.localStorage.setItem('tm_login_email', email.trim());
+      else window.localStorage.removeItem('tm_login_email');
+    } catch {
+      /* nada */
+    }
+  }
 
   return (
     <div>
@@ -13,7 +36,7 @@ export default function LoginForm({ error }: { error?: string }) {
         Introduce tus credenciales para acceder al portal de solicitudes de material.
       </p>
 
-      <form action={login} className="space-y-4">
+      <form action={login} onSubmit={alEnviar} className="space-y-4">
         {error && (
           <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2">
             {error}
@@ -34,6 +57,9 @@ export default function LoginForm({ error }: { error?: string }) {
               name="email"
               type="email"
               required
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="input input-icon-left"
               placeholder="nombre@tecmelec.com"
             />
@@ -54,6 +80,7 @@ export default function LoginForm({ error }: { error?: string }) {
               name="password"
               type={mostrarPassword ? 'text' : 'password'}
               required
+              autoComplete="current-password"
               className="input input-icon-left input-icon-right"
               placeholder="Introduce tu contraseña"
             />
@@ -77,6 +104,17 @@ export default function LoginForm({ error }: { error?: string }) {
             </button>
           </div>
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-grafito cursor-pointer select-none">
+          <input
+            type="checkbox"
+            name="recordar"
+            checked={recordar}
+            onChange={(e) => setRecordar(e.target.checked)}
+            className="w-4 h-4 accent-[#178A4C]"
+          />
+          Recuérdame en este dispositivo
+        </label>
 
         <button type="submit" className="btn-primary w-full flex items-center justify-center gap-2">
           Entrar
