@@ -99,6 +99,8 @@ export default async function LineasCompraPage() {
   const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
     (p.pedido_items || []).map((item: any) => ({
       numero_app: p.numero_app,
+      item_id: item.id,
+      pedido_id: p.id,
       // Las solicitudes propias se abren en "Mis solicitudes" (vista completa del solicitante).
       pedido_href: p.usuario_id === user!.id ? `/mis-pedidos/${p.id}` : `${base}/${p.id}`,
       numero_tecmelec: item.numero_tecmelec,
@@ -149,6 +151,7 @@ export default async function LineasCompraPage() {
           filas={filas}
           fotosPorPedido={fotosPorPedido}
           mostrarPrecios={['comprador', 'responsable', 'admin', 'integral'].includes(perfil?.rol || '')}
+          puedeEditarFechas={perfil?.rol === 'seguidor_ia'}
         />
       )}
     </div>

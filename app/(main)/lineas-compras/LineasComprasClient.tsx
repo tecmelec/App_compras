@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { confirmarFechasSeguidorIA, guardarFechasSeguidorIA } from '@/app/actions/seguidor-ia';
 import { useFiltrosEnSesion } from '@/lib/filtros-sesion';
 import Link from 'next/link';
 import ColumnaFiltroOrden from '@/components/ColumnaFiltroOrden';
@@ -21,6 +23,8 @@ import {
 } from '@/components/FechaEntregaIndicadores';
 
 export type LineaFila = {
+  item_id?: string; // id de la línea (para editar la fecha estimada: perfil Seguidor IA)
+  pedido_id?: string;
   numero_app: string;
   pedido_href: string;
   numero_tecmelec: string | null;
@@ -113,12 +117,15 @@ export default function LineasComprasClient({
   filas,
   mostrarPrecios = false,
   fotosPorPedido = {},
+  puedeEditarFechas = false,
 }: {
   filas: LineaFila[];
   // Fotos de albaranes por Nº Pedido Tecmelec (en mayúsculas).
   fotosPorPedido?: Record<string, FotoAlbaran[]>;
   // Precio unitario e importe: solo para comprador, responsable y admin.
   mostrarPrecios?: boolean;
+  // Perfil Seguidor IA: la fecha estimada de entrega se edita (y confirma) en la propia tabla.
+  puedeEditarFechas?: boolean;
 }) {
   const fotosDe = (numero: string | null | undefined) => fotosPorPedido[(numero || '').trim().toUpperCase()] || [];
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS);
@@ -713,7 +720,9 @@ export default function LineasComprasClient({
                       : '—'}
                   </td>
                   <td className="px-4 py-3 text-slate">
-                    {f.fecha_estimada_entrega ? (
+                    {puedeEditarFechas && f.item_id && f.pedido_id ? (
+                      <FechaEditable f={f} />
+                    ) : f.fecha_estimada_entrega ? (
                       <span className="inline-flex items-center gap-1 whitespace-nowrap">
                         <RetrasoAviso dias={diasRetraso(f.fecha_estimada_entrega, f.estado_recepcion)} />
                         {new Date(f.fecha_estimada_entrega).toLocaleDateString('es-ES')}
@@ -768,3 +777,103 @@ export default function LineasComprasClient({
   );
 }
 
+
+
+// Fecha estimada de entrega editable en la tabla (perfil Seguidor IA): cambiar la fecha y
+// "Guardar", o "Confirmar fecha" para dejarla como está (no se ofrece si ya la confirmó el
+// proveedor). Queda el check azul "Confirmada por el Seguidor IA" con fecha y hora.
+function FechaEditable({ f }: { f: LineaFila }) {
+  const router = useRouter();
+  const original = (f.fecha_estimada_entrega || '').slice(0, 10);
+  const [valor, setValor] = useState(original);
+  const [ocupado, setOcupado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  // Tras guardar, la página se recarga con la fecha nueva.
+  useEffect(() => {
+    setValor(original);
+  }, [original]);
+
+  const cambiada = !!valor && valor !== original;
+  const conf = original ? quienConfirmoFecha(f.fecha_confirmada_en, f.fecha_seguidor_en) : null;
+  const confirmable = !!original && !cambiada && !f.fecha_confirmada_en;
+
+  function terminado(texto: string) {
+    setOk(texto);
+    setTimeout(() => setOk(null), 3000);
+    router.refresh();
+  }
+
+  async function guardar() {
+    if (!cambiada || ocupado) return;
+    setOcupado(true);
+    setError(null);
+    const r = await guardarFechasSeguidorIA(f.pedido_id!, [{ itemId: f.item_id!, fecha: valor }]);
+    setOcupado(false);
+    if ('error' in r && r.error) setError(r.error);
+    else terminado('Guardada ✓');
+  }
+
+  async function confirmar() {
+    if (!confirmable || ocupado) return;
+    setOcupado(true);
+    setError(null);
+    const r = await confirmarFechasSeguidorIA(f.pedido_id!, [{ itemId: f.item_id!, fecha: original }]);
+    setOcupado(false);
+    if ('error' in r && r.error) setError(r.error);
+    else if ((r as any).confirmadas > 0) terminado('Confirmada ✓');
+    else setError((r as any).delProveedor ? 'Ya la confirmó el proveedor.' : 'La fecha ha cambiado: recarga la página.');
+  }
+
+  return (
+    <div className="min-w-[10.5rem]">
+      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+        <RetrasoAviso dias={cambiada ? 0 : diasRetraso(original || null, f.estado_recepcion)} />
+        <input
+          type="date"
+          aria-label={`Fecha estimada de entrega de ${f.articulo}`}
+          className="input py-1 text-sm"
+          style={{ width: '9.5rem' }}
+          value={valor}
+          disabled={ocupado}
+          onChange={(e) => {
+            setOk(null);
+            setError(null);
+            setValor(e.target.value);
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && guardar()}
+        />
+        {!cambiada &&
+          conf &&
+          (conf.quien === 'seguidor' ? <ConfirmacionSeguidorCheck confirmadaEn={conf.en} /> : <ConfirmacionProveedorCheck confirmadaEn={conf.en} />)}
+      </span>
+      <div className="flex items-center gap-2 mt-1 text-xs min-h-[1.25rem]">
+        {cambiada && (
+          <>
+            <button type="button" onClick={guardar} disabled={ocupado} className="btn-primary text-xs py-0.5 px-2 disabled:opacity-60">
+              {ocupado ? 'Guardando…' : 'Guardar'}
+            </button>
+            <button type="button" onClick={() => setValor(original)} disabled={ocupado} className="text-slate hover:underline">
+              Cancelar
+            </button>
+          </>
+        )}
+        {confirmable && (
+          <button
+            type="button"
+            onClick={confirmar}
+            disabled={ocupado}
+            className="text-[#1D4ED8] hover:underline disabled:opacity-60"
+            title="La fecha sigue siendo válida: confirmarla sin modificarla"
+          >
+            {ocupado ? 'Confirmando…' : conf?.quien === 'seguidor' ? 'Reconfirmar' : 'Confirmar fecha'}
+          </button>
+        )}
+        {original && f.fecha_confirmada_en && !cambiada && <span className="text-slate">Confirmada por el proveedor</span>}
+        {ok && <span className="text-[#047857]">{ok}</span>}
+      </div>
+      {error && <p className="text-[11px] text-rojo max-w-[12rem] whitespace-normal">{error}</p>}
+    </div>
+  );
+}
