@@ -112,6 +112,44 @@ export function ConfirmacionProveedorCheck({ confirmadaEn }: { confirmadaEn: str
   );
 }
 
+// Quién confirmó la fecha estimada: el Seguidor IA (check azul) si lo hizo después del
+// proveedor (o el proveedor no la confirmó); si no, el proveedor (check verde).
+export function quienConfirmoFecha(
+  proveedorEn: string | null | undefined,
+  seguidorEn: string | null | undefined
+): { quien: 'seguidor' | 'proveedor'; en: string } | null {
+  if (seguidorEn && (!proveedorEn || new Date(seguidorEn) >= new Date(proveedorEn))) return { quien: 'seguidor', en: seguidorEn };
+  if (proveedorEn) return { quien: 'proveedor', en: proveedorEn };
+  return null;
+}
+
+// Check AZUL: la fecha la modificó el Seguidor IA.
+export function ConfirmacionSeguidorCheck({ confirmadaEn }: { confirmadaEn: string | null }) {
+  if (!confirmadaEn) return null;
+  return (
+    <Popover
+      alinear="derecha"
+      claseBorde="border-[#BFDBFE]"
+      boton={(abrir) => (
+        <button
+          type="button"
+          onClick={abrir}
+          aria-label="Fecha confirmada por el Seguidor IA"
+          title="Confirmada por el Seguidor IA"
+          className="w-5 h-5 rounded-full bg-[#2563EB] text-white flex items-center justify-center shrink-0 hover:opacity-80"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </button>
+      )}
+    >
+      <span className="block font-medium text-[#1D4ED8] mb-0.5">Confirmada por el Seguidor IA</span>
+      <span className="block">Modificada: {formatearConfirmacion(confirmadaEn)}</span>
+    </Popover>
+  );
+}
+
 export function RetrasoAviso({ dias }: { dias: number }) {
   if (dias <= 0) return null;
   return (

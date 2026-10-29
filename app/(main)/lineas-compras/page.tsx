@@ -27,7 +27,8 @@ export default async function LineasCompraPage() {
   // La RLS no les deja leer esas solicitudes, así que la consulta se hace con el cliente
   // admin y el filtro se aplica aquí.
   const rol = perfil?.rol;
-  const restringido = rol === 'usuario' || rol === 'responsable' || rol === 'integral';
+  // (el Seguidor IA ve todas las líneas, pero se leen con el cliente admin: solo tiene lectura en RLS)
+  const restringido = rol === 'usuario' || rol === 'responsable' || rol === 'integral' || rol === 'seguidor_ia';
   const visibilidad = restringido ? await visibilidadLineas(user!.id, rol) : null;
   const db = restringido ? createAdminClient() : supabase;
 
@@ -64,6 +65,7 @@ export default async function LineasCompraPage() {
     comprador: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     responsable: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
     admin: '/lineas-compras', // detalle de consulta con el seguimiento de cada Pedido Tecmelec
+    seguidor_ia: '/lineas-compras',
   };
   const base = rutaDetalle[perfil?.rol || 'usuario'] || '/mis-pedidos';
 
@@ -80,6 +82,18 @@ export default async function LineasCompraPage() {
     ]);
     for (const c of cabs || []) if ((c.comentario || '').trim()) comentariosCabecera.set(c.numero_tecmelec, c.comentario.trim());
     for (const l of lins || []) if (((l as any).comentario_pdf || '').trim()) comentariosLinea.set((l as any).id, (l as any).comentario_pdf.trim());
+  }
+
+  // Líneas cuya fecha estimada ha modificado el Seguidor IA (check azul). Consulta aparte:
+  // si la migración 20261029120000 no está aplicada, no hay ninguna.
+  const seguidorEn = new Map<string, string>();
+  {
+    const { data: conSeguidor } = await createAdminClient()
+      .from('pedido_items')
+      .select('id, fecha_estimada_entrega_seguidor_en')
+      .not('fecha_estimada_entrega_seguidor_en', 'is', null)
+      .limit(5000);
+    for (const x of conSeguidor || []) seguidorEn.set((x as any).id, (x as any).fecha_estimada_entrega_seguidor_en);
   }
 
   const filas: LineaFila[] = (pedidos || []).flatMap((p: any) =>
@@ -106,6 +120,7 @@ export default async function LineasCompraPage() {
       fecha_requerida: p.fecha_requerida,
       fecha_estimada_entrega: item.fecha_estimada_entrega,
       fecha_confirmada_en: item.fecha_estimada_entrega_confirmada_en || null,
+      fecha_seguidor_en: seguidorEn.get(item.id) || null,
       // "Anulado" si la línea la rechazó el aprobador, la anuló el comprador o se anuló/rechazó la solicitud.
       estado_recepcion: estadoLineaParaMostrar(item, {
         idEstadoAnulado,

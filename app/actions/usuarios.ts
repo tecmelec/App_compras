@@ -25,7 +25,7 @@ export async function crearUsuario(datos: {
   password: string;
   telefono: string;
   bc_user_id?: string;
-  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
+  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral' | 'seguidor_ia';
   comprador_id: string | null;
   responsable_id: string | null;
   sustituto_id: string | null;
@@ -77,7 +77,7 @@ export async function actualizarUsuario(
     nombre_completo: string;
     telefono: string;
     bc_user_id?: string;
-    rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
+    rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral' | 'seguidor_ia';
     comprador_id: string | null;
     responsable_id: string | null;
     sustituto_id: string | null;

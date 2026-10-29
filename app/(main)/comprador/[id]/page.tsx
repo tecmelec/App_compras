@@ -54,7 +54,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     } = await supabase.auth.getUser();
     const { data: miPerfil } = yo ? await supabase.from('profiles').select('rol').eq('id', yo.id).single() : { data: null };
     const rolYo = miPerfil?.rol || '';
-    if (!['comprador', 'admin', 'integral'].includes(rolYo)) notFound();
+    if (!['comprador', 'admin', 'integral', 'seguidor_ia'].includes(rolYo)) notFound();
     if (rolYo === 'integral' && (pedido as any).usuario_id !== yo!.id && (pedido as any).comprador_id !== yo!.id) notFound();
   }
 
@@ -76,6 +76,16 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
     ? await supabase.from('profiles').select('rol').eq('id', quienMira.id).single()
     : { data: null };
   const adminPuedeAprobar = perfilQuienMira?.rol === 'admin' && p.requiere_aprobacion && p.aprobado == null;
+  // Seguidor IA: vista de solo lectura salvo la "Fecha estimada de entrega".
+  const soloFechas = perfilQuienMira?.rol === 'seguidor_ia';
+  // Líneas cuya fecha confirmó el Seguidor IA (consulta aparte: si la migración
+  // 20261029120000 no está aplicada, no se marca nada).
+  const { data: conSeguidor } = await createAdminClient()
+    .from('pedido_items')
+    .select('id, fecha_estimada_entrega_seguidor_en')
+    .eq('pedido_id', p.id)
+    .not('fecha_estimada_entrega_seguidor_en', 'is', null);
+  const seguidorPorItem = new Map<string, string>((conSeguidor || []).map((x: any) => [x.id, x.fecha_estimada_entrega_seguidor_en]));
 
   // Quién tiene que aprobar la solicitud (para el aviso del botón "Crear pedido en BC").
   let pendienteDeAprobar: string | null = null;
@@ -200,6 +210,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <p className="font-mono text-sm text-marca">{p.numero_app}</p>
           <h1 className="text-2xl font-semibold text-grafito mb-1">Solicitud de {p.profiles?.nombre_completo}</h1>
         </div>
+        {!soloFechas && (
         <div className="flex flex-wrap items-start justify-end gap-2">
         {adminPuedeAprobar && (
           <a href={`/responsable/${p.id}`} className="btn-secondary whitespace-nowrap" title="Como administrador puedes aprobar esta solicitud">
@@ -218,7 +229,11 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           }
         />
         </div>
+        )}
       </div>
+      {soloFechas && (
+        <p className="text-xs text-slate mb-3">Perfil Seguidor IA: solo puedes modificar la «Fecha estimada de entrega» de cada línea y guardar.</p>
+      )}
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="flex items-start gap-3">
@@ -277,7 +292,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <div>
             <p className="text-xs text-slate mb-0.5 flex items-center gap-2">
               Contacto
-              <EditarEntregaBoton pedidoId={p.id} actual={datosEntrega} />
+              {!soloFechas && <EditarEntregaBoton pedidoId={p.id} actual={datosEntrega} />}
             </p>
             <p className="text-sm text-grafito">
               {p.nombre_contacto} — {p.telefono_contacto}
@@ -295,7 +310,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           <div>
             <p className="text-xs text-slate mb-0.5 flex items-center gap-2">
               Dirección de entrega
-              <EditarEntregaBoton pedidoId={p.id} actual={datosEntrega} />
+              {!soloFechas && <EditarEntregaBoton pedidoId={p.id} actual={datosEntrega} />}
             </p>
             <p className="text-sm text-grafito">
               {p.direcciones
@@ -337,6 +352,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         )}
       </div>
 
+      {!soloFechas && (
       <div className="flex flex-wrap items-start gap-3">
         <SincronizarPedidoBCBoton pedidoId={p.id} />
         <div className="mb-4">
@@ -356,8 +372,11 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           />
         </div>
       </div>
+      )}
       <ComentariosSolicitud pedidoId={p.id} />
       <DocumentosSolicitud pedidoId={p.id} />
+      {!soloFechas && (
+      <>
       <PeticionesOfertaSolicitud
         pedidoId={p.id}
         proveedores={(proveedores as any[]) || []}
@@ -372,12 +391,15 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
       />
 
       <GestionPedidosBC pedidos={pedidosBC} />
+      </>
+      )}
 
       <FormularioComprador
+        soloFechas={soloFechas}
         // Si se añade una línea (p. ej. al asignar un artículo de la lista en foto), el
         // formulario se vuelve a montar para incluirla en su estado.
         key={(p.pedido_items as any[])
-          .map((i) => `${i.id}:${i.precio_unitario ?? ''}:${i.proveedor_id ?? ''}:${i.precio_presupuesto_id ?? ''}:${propuestaPorItem.get(i.id) ?? ''}`)
+          .map((i) => `${i.id}:${i.precio_unitario ?? ''}:${i.proveedor_id ?? ''}:${i.precio_presupuesto_id ?? ''}:${propuestaPorItem.get(i.id) ?? ''}:${seguidorPorItem.get(i.id) ?? ''}`)
           .join(',')}
         pedidoId={p.id}
         proyectoSolicitud={p.proyectos?.bc_job_no ?? null}
@@ -406,6 +428,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           numeroTecmelec: item.numero_tecmelec || '',
           fechaEstimada: item.fecha_estimada_entrega || '',
           fechaConfirmadaEn: item.fecha_estimada_entrega_confirmada_en || null,
+          fechaSeguidorEn: seguidorPorItem.get(item.id) || null,
           estadoId: item.estado_id,
           estadoRecepcion: item.estado_recepcion,
           proveedorId: item.proveedor_id || (!item.numero_tecmelec ? item.productos?.proveedor_predeterminado_id || '' : ''),

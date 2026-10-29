@@ -13,9 +13,11 @@ import ExportarExcelBoton, { type ColumnaExcel } from '@/components/ExportarExce
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 import {
   ConfirmacionProveedorCheck,
+  ConfirmacionSeguidorCheck,
   RetrasoAviso,
   diasRetraso,
   formatearConfirmacion,
+  quienConfirmoFecha,
 } from '@/components/FechaEntregaIndicadores';
 
 export type LineaFila = {
@@ -33,6 +35,7 @@ export type LineaFila = {
   fecha_requerida: string | null;
   fecha_estimada_entrega: string | null;
   fecha_confirmada_en: string | null; // el proveedor confirmó la fecha estimada (null si no)
+  fecha_seguidor_en?: string | null; // el Seguidor IA modificó la fecha estimada (check azul)
   estado_recepcion: string | null;
   comentario_cabecera?: string | null; // comentario de encabezado del PDF del pedido Tecmelec
   comentario_linea?: string | null; // comentario del artículo en el PDF
@@ -209,7 +212,7 @@ export default function LineasComprasClient({
     if (filtros.entregaSituacion.length > 0) {
       const sit: string[] = [];
       if (!f.fecha_estimada_entrega) sit.push(SIT_POR_DEFINIR);
-      else sit.push(f.fecha_confirmada_en ? SIT_CONFIRMADA : SIT_SIN_CONFIRMAR);
+      else sit.push(f.fecha_confirmada_en || f.fecha_seguidor_en ? SIT_CONFIRMADA : SIT_SIN_CONFIRMAR);
       if (diasRetraso(f.fecha_estimada_entrega, f.estado_recepcion) > 0) sit.push(SIT_RETRASO);
       if (!filtros.entregaSituacion.some((x) => sit.includes(x))) return false;
     }
@@ -305,13 +308,24 @@ export default function LineasComprasClient({
             { titulo: 'Fecha requerida', valor: (f) => f.fecha_requerida, formato: 'fecha', ancho: 15 },
             { titulo: 'Fecha estimada de entrega', valor: (f) => f.fecha_estimada_entrega, formato: 'fecha', ancho: 22 },
             {
-              titulo: 'Fecha confirmada por el proveedor',
-              valor: (f) => (f.fecha_estimada_entrega && f.fecha_confirmada_en ? 'Sí' : 'No'),
-              ancho: 18,
+              titulo: 'Fecha confirmada',
+              valor: (f) => (f.fecha_estimada_entrega && quienConfirmoFecha(f.fecha_confirmada_en, f.fecha_seguidor_en) ? 'Sí' : 'No'),
+              ancho: 16,
             },
             {
-              titulo: 'Últ. actualización proveedor',
-              valor: (f) => (f.fecha_estimada_entrega && f.fecha_confirmada_en ? formatearConfirmacion(f.fecha_confirmada_en) : ''),
+              titulo: 'Confirmada por',
+              valor: (f) => {
+                const c = f.fecha_estimada_entrega ? quienConfirmoFecha(f.fecha_confirmada_en, f.fecha_seguidor_en) : null;
+                return c ? (c.quien === 'seguidor' ? 'Seguidor IA' : 'Proveedor') : '';
+              },
+              ancho: 16,
+            },
+            {
+              titulo: 'Últ. actualización',
+              valor: (f) => {
+                const c = f.fecha_estimada_entrega ? quienConfirmoFecha(f.fecha_confirmada_en, f.fecha_seguidor_en) : null;
+                return c ? formatearConfirmacion(c.en) : '';
+              },
               ancho: 22,
             },
             {
@@ -703,7 +717,15 @@ export default function LineasComprasClient({
                       <span className="inline-flex items-center gap-1 whitespace-nowrap">
                         <RetrasoAviso dias={diasRetraso(f.fecha_estimada_entrega, f.estado_recepcion)} />
                         {new Date(f.fecha_estimada_entrega).toLocaleDateString('es-ES')}
-                        <ConfirmacionProveedorCheck confirmadaEn={f.fecha_confirmada_en} />
+                        {(() => {
+                          const c = quienConfirmoFecha(f.fecha_confirmada_en, f.fecha_seguidor_en);
+                          if (!c) return null;
+                          return c.quien === 'seguidor' ? (
+                            <ConfirmacionSeguidorCheck confirmadaEn={c.en} />
+                          ) : (
+                            <ConfirmacionProveedorCheck confirmadaEn={c.en} />
+                          );
+                        })()}
                       </span>
                     ) : (
                       'Por definir'

@@ -33,18 +33,23 @@ export default async function DetalleSolicitudLineasPage({ params }: { params: {
     accesoPorProyecto = ped.usuario_id !== user!.id;
   }
 
+  // Seguidor IA: ve cualquier solicitud (lectura con el cliente admin) y desde aquí pasa a la
+  // vista de compras para actualizar las fechas estimadas.
+  const esSeguidor = perfil?.rol === 'seguidor_ia';
+  if (esSeguidor) accesoPorProyecto = true;
+
   // El enlace a la vista de aprobación solo si la solicitud es de las que aprueba.
   // Enlace a la gestión: comprador/admin → vista de compras; responsable → aprobación (si
   // la aprueba); integral → vista de compras si es suya, o aprobación si la aprueba.
   const enlaceGestion =
-    perfil?.rol === 'comprador' || (perfil?.rol === 'integral' && propia)
+    perfil?.rol === 'comprador' || esSeguidor || (perfil?.rol === 'integral' && propia)
       ? `/comprador/${params.id}`
       : perfil?.rol === 'admin'
         ? `/admin/pedidos/${params.id}`
         : (perfil?.rol === 'responsable' || perfil?.rol === 'integral') && aprueba
           ? `/responsable/${params.id}`
           : undefined;
-  const textoGestion = enlaceGestion?.startsWith('/responsable') ? 'Ver aprobación' : 'Gestionar solicitud';
+  const textoGestion = enlaceGestion?.startsWith('/responsable') ? 'Ver aprobación' : esSeguidor ? 'Actualizar fechas' : 'Gestionar solicitud';
 
   return (
     <DetalleSolicitud

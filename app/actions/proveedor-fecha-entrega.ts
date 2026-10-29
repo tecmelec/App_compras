@@ -187,6 +187,14 @@ export async function guardarFechaEntregaProveedor(
       .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
+    // La confirmación del proveedor sustituye a la del Seguidor IA (si la hubiera).
+    await supabase
+      .from('pedido_items')
+      .update({ fecha_estimada_entrega_seguidor_en: null })
+      .in(
+        'id',
+        itemsGrupo.map((it: any) => it.id)
+      );
 
     await sincronizarFechasConBC(
       supabase,
@@ -217,6 +225,7 @@ export async function guardarFechaEntregaProveedor(
       .eq('numero_tecmelec', numeroTecmelec);
 
     if (error) return { error: error.message };
+    await supabase.from('pedido_items').update({ fecha_estimada_entrega_seguidor_en: null }).eq('id', f.itemId);
   }
 
   await sincronizarFechasConBC(supabase, numeroTecmelec, fechasValidas);

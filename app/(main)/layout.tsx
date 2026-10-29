@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { RUTAS_SEGUIDOR_IA } from '@/lib/roles';
 import { Suspense } from 'react';
 import { CartProvider } from '@/context/CartContext';
 import Nav from '@/components/Nav';
@@ -25,6 +27,13 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   // Cuenta sin perfil en la Tienda (p. ej. solo usuario del CRM) o desactivada: no tiene acceso.
   if (!profile || profile.activo === false) redirect('/sin-acceso');
+
+  // Seguidor IA: solo Líns. compras y Solicitudes por comprar (con su detalle).
+  const esSeguidor = profile.rol === 'seguidor_ia';
+  if (esSeguidor) {
+    const ruta = headers().get('x-pathname') || '';
+    if (!RUTAS_SEGUIDOR_IA.some((r) => ruta === r || ruta.startsWith(r + '/'))) redirect('/lineas-compras');
+  }
 
   const comprador = profile.rol === 'usuario' ? await obtenerContactoComprador(supabase, user.id) : null;
 
@@ -78,8 +87,8 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           {children}
         </main>
       </div>
-      <AsistenteChat rol={profile.rol} nombre={profile.nombre_completo || ''} />
-      <VisitaGuiada rol={profile.rol} />
+      {!esSeguidor && <AsistenteChat rol={profile.rol} nombre={profile.nombre_completo || ''} />}
+      {!esSeguidor && <VisitaGuiada rol={profile.rol} />}
     </CartProvider>
   );
 }

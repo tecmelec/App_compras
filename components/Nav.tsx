@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import Image from 'next/image';
 
 type Props = {
-  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
+  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral' | 'seguidor_ia';
   pendientesAprobacion?: number;
   pendientesTramitar?: number;
   comprador?: { nombre_completo: string; email: string; telefono: string | null } | null;
@@ -41,11 +41,11 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
   const links: NavLink[] = [
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
     { href: '/mis-pedidos', label: 'Mis solicitudes', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
-    { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
+    { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral', 'seguidor_ia'] },
     {
       href: '/comprador',
       label: 'Solicitudes por comprar',
-      roles: ['admin', 'comprador', 'integral'],
+      roles: ['admin', 'comprador', 'integral', 'seguidor_ia'],
       badge: pendientesTramitar,
     },
     {
@@ -150,6 +150,7 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
           )}
         </div>
 
+        {rol !== 'seguidor_ia' && (
         <div className="p-4">
           <div className="rounded-xl border border-white/15 bg-white/5 p-4">
             <div className="flex items-start gap-3 mb-3">
@@ -228,6 +229,7 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
             )}
           </div>
         </div>
+        )}
       </nav>
     </>
   );

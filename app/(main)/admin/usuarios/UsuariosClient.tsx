@@ -19,7 +19,7 @@ type Usuario = {
   email: string;
   telefono: string | null;
   bc_user_id: string | null;
-  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral';
+  rol: 'admin' | 'usuario' | 'comprador' | 'responsable' | 'integral' | 'seguidor_ia';
   comprador_id: string | null;
   responsable_id: string | null;
   sustituto_id: string | null;
@@ -32,6 +32,7 @@ const ROLES = [
   { value: 'comprador', label: 'Comprador' },
   { value: 'responsable', label: 'Responsable' },
   { value: 'integral', label: 'Integral (responsable + comprador de lo suyo)' },
+  { value: 'seguidor_ia', label: 'Seguidor IA (solo actualiza fechas estimadas de entrega)' },
   { value: 'admin', label: 'Administrador' },
 ];
 

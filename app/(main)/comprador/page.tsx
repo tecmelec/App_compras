@@ -17,7 +17,7 @@ export default async function CompradorPage() {
 
   const ids = await idsEfectivos(supabase, user!.id);
   const { data: miPerfil } = await supabase.from('profiles').select('rol').eq('id', user!.id).single();
-  if (!['comprador', 'admin', 'integral'].includes(miPerfil?.rol || '')) redirect('/tienda');
+  if (!['comprador', 'admin', 'integral', 'seguidor_ia'].includes(miPerfil?.rol || '')) redirect('/tienda');
   // El perfil integral solo ve sus propias solicitudes (las que crea o tiene como comprador).
   const soloPropias = miPerfil?.rol === 'integral';
 
@@ -136,7 +136,11 @@ export default async function CompradorPage() {
         Solicitudes de material de todos los usuarios. Puedes ver solo las que te han asignado o seguir las de ciertos usuarios u obras.
       </p>
 
-      <SincronizarTodasBCBoton ultima={textoUltimaSincronizacion} />
+      {miPerfil?.rol === 'seguidor_ia' ? (
+        <p className="text-xs text-slate mb-4">{textoUltimaSincronizacion}</p>
+      ) : (
+        <SincronizarTodasBCBoton ultima={textoUltimaSincronizacion} />
+      )}
 
       {filas.length === 0 ? (
         <p className="text-slate text-sm">No hay solicitudes.</p>

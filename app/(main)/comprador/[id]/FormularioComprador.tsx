@@ -9,13 +9,15 @@ import ComboboxProveedor from '@/components/ComboboxProveedor';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
 import UltimasComprasBoton from './UltimasComprasBoton';
+import FormularioSoloFechas from './FormularioSoloFechas';
+import { quienConfirmoFecha } from '@/components/FechaEntregaIndicadores';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import { formatoPrecioUnitario, formatoImporte } from '@/lib/formato';
 import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad, formatoCantidad } from '@/lib/cantidad';
 
 type Estado = { id: number; nombre: string };
 type Proveedor = { id: string; bc_proveedor_no: string; nombre: string | null };
-type ItemForm = {
+export type ItemForm = {
   id: string;
   nombre: string;
   imagenUrl: string | null;
@@ -38,6 +40,7 @@ type ItemForm = {
   numeroTecmelec: string;
   fechaEstimada: string;
   fechaConfirmadaEn: string | null;
+  fechaSeguidorEn?: string | null;
   estadoId: number;
   estadoRecepcion: string;
   proveedorId: string;
@@ -82,7 +85,13 @@ function SelectPildora({
   );
 }
 
-export default function FormularioComprador({
+// Perfil Seguidor IA: solo ve las líneas y puede cambiar la fecha estimada de entrega.
+export default function FormularioComprador(props: React.ComponentProps<typeof FormularioCompradorCompleto> & { soloFechas?: boolean }) {
+  if (props.soloFechas) return <FormularioSoloFechas pedidoId={props.pedidoId} items={props.items} proveedores={props.proveedores} />;
+  return <FormularioCompradorCompleto {...props} />;
+}
+
+function FormularioCompradorCompleto({
   pedidoId,
   items,
   totalEstimado,
@@ -428,6 +437,8 @@ function ItemFila({
   // pero se avisa de que el próximo sync lo puede sobrescribir.
   const gestionadoPorBC = !!numeroTecmelec.trim();
 
+  const confirmacion = quienConfirmoFecha(item.fechaConfirmadaEn, item.fechaSeguidorEn);
+
   return (
     <div className="p-4">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-3">
@@ -502,13 +513,15 @@ function ItemFila({
             <p className="text-xs text-slate mb-1">Fecha estimada de entrega</p>
             <div className="flex items-center gap-1.5">
               <input type="date" className="input w-40 py-1" value={fecha} onChange={(e) => onFecha(e.target.value)} />
-              {item.fechaConfirmadaEn && fecha === item.fechaEstimada && (
+              {confirmacion && fecha === item.fechaEstimada && (
                 <span
-                  title={`Confirmada por el proveedor el ${new Date(item.fechaConfirmadaEn).toLocaleString('es-ES', {
+                  title={`${confirmacion.quien === 'seguidor' ? 'Confirmada por el Seguidor IA' : 'Confirmada por el proveedor'} el ${new Date(confirmacion.en).toLocaleString('es-ES', {
                     dateStyle: 'short',
                     timeStyle: 'short',
                   })}`}
-                  className="w-5 h-5 rounded-full bg-marcaClaro text-marca flex items-center justify-center shrink-0"
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                    confirmacion.quien === 'seguidor' ? 'bg-[#DBEAFE] text-[#1D4ED8]' : 'bg-marcaClaro text-marca'
+                  }`}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
@@ -516,10 +529,10 @@ function ItemFila({
                 </span>
               )}
             </div>
-            {item.fechaConfirmadaEn && fecha === item.fechaEstimada && (
-              <p className="text-[11px] text-slate mt-1">
-                Últ. actualización:{' '}
-                {new Date(item.fechaConfirmadaEn).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
+            {confirmacion && fecha === item.fechaEstimada && (
+              <p className={`text-[11px] mt-1 ${confirmacion.quien === 'seguidor' ? 'text-[#1D4ED8]' : 'text-slate'}`}>
+                {confirmacion.quien === 'seguidor' ? 'Confirmada por el Seguidor IA · ' : 'Últ. actualización: '}
+                {new Date(confirmacion.en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
               </p>
             )}
           </div>

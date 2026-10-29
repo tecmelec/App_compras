@@ -10,6 +10,7 @@ const ETIQUETAS_ROL: Record<string, string> = {
   comprador: 'Comprador',
   responsable: 'Responsable',
   integral: 'Integral',
+  seguidor_ia: 'Seguidor IA',
 };
 
 export default function CuentaMenu({ nombre, rol }: { nombre: string; rol: string }) {

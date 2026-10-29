@@ -534,6 +534,11 @@ export async function actualizarLineasTecmelec(
     if (error) {
       return { error: 'No se pudo guardar los datos de una de las líneas.' };
     }
+    // Si cambia la fecha a mano, deja de valer la confirmación del Seguidor IA (aparte: si la
+    // columna aún no existe, se ignora).
+    if (fechaCambio) {
+      await supabase.from('pedido_items').update({ fecha_estimada_entrega_seguidor_en: null }).eq('id', item.id);
+    }
     // Ídem con la "Propuesta automática" (aparte: si la columna aún no existe, se ignora).
     if (Number(precioActualPorId.get(item.id) ?? NaN) !== Number(item.precio_unitario)) {
       await supabase.from('pedido_items').update({ propuesta_compra_id: null }).eq('id', item.id);
