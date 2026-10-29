@@ -232,7 +232,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
         )}
       </div>
       {soloFechas && (
-        <p className="text-xs text-slate mb-3">Perfil Seguidor IA: solo puedes modificar la «Fecha estimada de entrega» de cada línea y guardar.</p>
+        <p className="text-xs text-slate mb-3">Perfil Seguidor IA: solo puedes modificar o confirmar la «Fecha estimada de entrega» de cada línea (no se puede confirmar una fecha ya confirmada por el proveedor).</p>
       )}
 
       <div className="bg-white border border-borde rounded-xl p-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-6">

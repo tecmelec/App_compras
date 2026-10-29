@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { guardarFechasSeguidorIA } from '@/app/actions/seguidor-ia';
+import { confirmarFechasSeguidorIA, guardarFechasSeguidorIA } from '@/app/actions/seguidor-ia';
 import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import { formatoCantidad } from '@/lib/cantidad';
 import { quienConfirmoFecha } from '@/components/FechaEntregaIndicadores';
@@ -24,6 +24,7 @@ export default function FormularioSoloFechas({
   const router = useRouter();
   const [fechas, setFechas] = useState<Record<string, string>>(Object.fromEntries(items.map((i) => [i.id, i.fechaEstimada || ''])));
   const [guardando, setGuardando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
   const [mensaje, setMensaje] = useState<{ ok: boolean; texto: string } | null>(null);
   const nombreProveedor = (id: string) => {
     const p = proveedores.find((x) => x.id === id);
@@ -55,6 +56,35 @@ export default function FormularioSoloFechas({
     router.refresh();
   }
 
+  // Confirmar la fecha tal como está (sin modificarla). No se ofrece si el proveedor ya la
+  // confirmó ni si la fecha tiene cambios sin guardar.
+  const confirmable = (i: ItemForm) => !!i.fechaEstimada && fechas[i.id] === i.fechaEstimada && !i.fechaConfirmadaEn;
+
+  async function confirmar(lista: ItemForm[]) {
+    const aConfirmar = lista.filter(confirmable);
+    if (aConfirmar.length === 0) return;
+    setConfirmando(true);
+    setMensaje(null);
+    const r = await confirmarFechasSeguidorIA(
+      pedidoId,
+      aConfirmar.map((i) => ({ itemId: i.id, fecha: i.fechaEstimada }))
+    );
+    setConfirmando(false);
+    if ('error' in r && r.error) {
+      setMensaje({ ok: false, texto: r.error });
+      return;
+    }
+    const d = r as { confirmadas: number; delProveedor: number; desactualizadas: number };
+    setMensaje({
+      ok: true,
+      texto:
+        `Confirmadas ✓ (${d.confirmadas} fecha(s))` +
+        (d.delProveedor ? ` · ${d.delProveedor} ya estaban confirmadas por el proveedor` : '') +
+        (d.desactualizadas ? ` · ${d.desactualizadas} habían cambiado: recarga la página` : ''),
+    });
+    router.refresh();
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="font-medium text-grafito">Artículos solicitados</h2>
@@ -71,7 +101,20 @@ export default function FormularioSoloFechas({
                 'Sin pedido de compra'
               )}
             </span>
-            <span className="text-xs text-slate">{lista.length} artículo(s)</span>
+            <span className="flex items-center gap-3">
+              <span className="text-xs text-slate">{lista.length} artículo(s)</span>
+              {lista.filter(confirmable).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => confirmar(lista)}
+                  disabled={confirmando || guardando}
+                  className="btn-secondary text-xs py-1 disabled:opacity-60"
+                  title="Confirma las fechas actuales de las líneas de este pedido sin modificarlas (excepto las ya confirmadas por el proveedor)"
+                >
+                  {confirmando ? 'Confirmando…' : `Confirmar fechas del pedido (${lista.filter(confirmable).length})`}
+                </button>
+              )}
+            </span>
           </div>
           <ul className="divide-y divide-borde">
             {lista.map((i) => {
@@ -124,6 +167,17 @@ export default function FormularioSoloFechas({
                         {conf.quien === 'seguidor' ? 'Confirmada por el Seguidor IA · ' : 'Confirmada por el proveedor · '}
                         {new Date(conf.en).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}
                       </p>
+                    )}
+                    {confirmable(i) && (
+                      <button
+                        type="button"
+                        onClick={() => confirmar([i])}
+                        disabled={confirmando || guardando}
+                        className="mt-1 text-xs text-[#1D4ED8] hover:underline disabled:opacity-60"
+                        title="La fecha sigue siendo válida: confirmarla sin modificarla"
+                      >
+                        {conf?.quien === 'seguidor' ? 'Reconfirmar fecha' : 'Confirmar fecha'}
+                      </button>
                     )}
                   </div>
                 </li>

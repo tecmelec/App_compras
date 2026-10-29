@@ -145,7 +145,7 @@ export function ConfirmacionSeguidorCheck({ confirmadaEn }: { confirmadaEn: stri
       )}
     >
       <span className="block font-medium text-[#1D4ED8] mb-0.5">Confirmada por el Seguidor IA</span>
-      <span className="block">Modificada: {formatearConfirmacion(confirmadaEn)}</span>
+      <span className="block">{formatearConfirmacion(confirmadaEn)}</span>
     </Popover>
   );
 }
