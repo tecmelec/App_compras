@@ -12,6 +12,7 @@ import {
 } from '@/app/actions/tienda-proyecto';
 import type { ConsumoArticulo, FueraPresupuesto } from '@/lib/tienda-proyecto';
 import { useCart } from '@/context/CartContext';
+import { coincideBusqueda } from '@/lib/busqueda';
 import { esMultiploDe, formatoCantidad, leerCantidad, pasoCantidad, redondearCantidad } from '@/lib/cantidad';
 import TarjetaConsumo, { BarraConsumo, BotonInfo, COLOR_TRAMO, EstadoConsumoBadge, unidadDe } from './TarjetaConsumo';
 import { HistorialModal, Modal, ModificarModal } from './ModalesTiendaProyecto';
@@ -107,9 +108,7 @@ export default function TiendaProyectoCliente() {
   const visibles = articulos.filter((a) => {
     if (filtro === 'alerta' && a.estado !== 'alerta') return false;
     if (filtro === 'agotados' && a.estado !== 'agotado' && a.estado !== 'excedido') return false;
-    const t = busqueda.trim().toLowerCase();
-    if (!t) return true;
-    return a.producto.nombre.toLowerCase().includes(t) || (a.producto.bc_item_no || '').toLowerCase().includes(t);
+    return coincideBusqueda(busqueda, [a.producto.nombre, a.producto.bc_item_no]);
   });
 
   async function quitar(a: ConsumoArticulo) {
@@ -330,9 +329,8 @@ function SelectorProyecto({
   }, []);
   const elegido = proyectos?.find((p) => p.id === valor);
   const favoritos = (proyectos || []).filter((p) => p.favorito).sort((a, b) => a.bc_job_no.localeCompare(b.bc_job_no));
-  const t = texto.trim().toLowerCase();
   const lista = (proyectos || [])
-    .filter((p) => !t || p.bc_job_no.toLowerCase().includes(t) || (p.descripcion || '').toLowerCase().includes(t))
+    .filter((p) => coincideBusqueda(texto, [p.bc_job_no, p.descripcion]))
     .sort(
       (a, b) =>
         Number(b.favorito) - Number(a.favorito) ||
@@ -656,14 +654,7 @@ function FueraDePresupuesto({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
-  const t = busqueda.trim().toLowerCase();
-  const filtrados = fuera.filter(
-    (f) =>
-      !t ||
-      f.producto.nombre.toLowerCase().includes(t) ||
-      (f.producto.bc_item_no || '').toLowerCase().includes(t) ||
-      f.solicitudes.some((n) => n.toLowerCase().includes(t))
-  );
+  const filtrados = fuera.filter((f) => coincideBusqueda(busqueda, [f.producto.nombre, f.producto.bc_item_no, ...f.solicitudes]));
 
   async function darDeAlta(f: FueraPresupuesto) {
     setError(null);
