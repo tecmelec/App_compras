@@ -184,7 +184,7 @@ export async function ejecutarHerramienta(
   }
 
   if (nombre === 'proponer_carrito') {
-    const pedidos = (Array.isArray(entrada?.items) ? entrada.items : []).slice(0, 20);
+    const pedidos = (Array.isArray(entrada?.items) ? entrada.items : []).slice(0, 60);
     if (pedidos.length === 0) return { error: 'No hay artículos.' };
     const ids = pedidos.map((i: any) => String(i.producto_id || '')).filter(Boolean);
     const codigos = pedidos.map((i: any) => String(i.codigo_bc || '').trim().toUpperCase()).filter(Boolean);

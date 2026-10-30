@@ -8,10 +8,21 @@ import { visitasParaRol } from '@/lib/asistente/visitas';
 import type { AccionAsistente, ArticuloPropuesto } from '@/lib/asistente/herramientas';
 import { useCart } from '@/context/CartContext';
 import { esCantidadValida, esMultiploDe, leerCantidad, pasoCantidad } from '@/lib/cantidad';
+import { reducirFoto } from '@/lib/reducir-foto';
+import type { AdjuntoAsistente } from '@/lib/asistente/adjuntos';
 
 // Asistente de la app (fase 1). Se abre con el botón flotante "?" o desde el recuadro
 // "¿Necesitas ayuda?" del menú (evento "abrir-asistente").
-type Msg = MensajeAsistente & { id?: string | null; valoracion?: 1 | -1; acciones?: AccionAsistente[] };
+type Msg = MensajeAsistente & {
+  id?: string | null;
+  valoracion?: 1 | -1;
+  acciones?: AccionAsistente[];
+  // Miniaturas (URL locales) y nombres de los archivos adjuntos, solo para mostrarlos.
+  fotos?: string[];
+  pdfs?: string[];
+};
+
+const MAX_ADJUNTOS = 4;
 
 const SUGERENCIAS: Record<string, string[]> = {
   usuario: ['Necesito 200 m de hilo de 1,5 azul', '¿Cómo van mis solicitudes?', 'No encuentro un artículo en la tienda'],
@@ -250,6 +261,18 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
   const [mensajes, setMensajes] = useState<Msg[]>([]);
   const [texto, setTexto] = useState('');
   const [pensando, setPensando] = useState(false);
+  const [leyendo, setLeyendo] = useState(false);
+  const [adjuntos, setAdjuntos] = useState<File[]>([]);
+  const archivoRef = useRef<HTMLInputElement>(null);
+  function elegirAdjuntos(lista: FileList | null) {
+    const validos = Array.from(lista || []).filter((f) => /^image\//.test(f.type) || f.type === 'application/pdf');
+    if (validos.length < (lista?.length || 0)) setError('Solo se pueden adjuntar fotos o PDF.');
+    setAdjuntos((prev) => {
+      const todos = [...prev, ...validos];
+      if (todos.length > MAX_ADJUNTOS) setError(`Como máximo ${MAX_ADJUNTOS} archivos por mensaje.`);
+      return todos.slice(0, MAX_ADJUNTOS);
+    });
+  }
   const [error, setError] = useState<string | null>(null);
   const finRef = useRef<HTMLDivElement>(null);
   const [burbuja, setBurbuja] = useState(false);
@@ -324,14 +347,48 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
 
   async function enviar(pregunta?: string) {
     const t = (pregunta ?? texto).trim();
-    if (!t || pensando) return;
-    const nuevos: Msg[] = [...mensajes, { rol: 'user', texto: t }];
+    const conAdjuntos = pregunta === undefined ? adjuntos : [];
+    if ((!t && conAdjuntos.length === 0) || pensando) return;
+    const nuevo: Msg = {
+      rol: 'user',
+      texto: t,
+      fotos: conAdjuntos.filter((a) => a.type !== 'application/pdf').map((a) => URL.createObjectURL(a)),
+      pdfs: conAdjuntos.filter((a) => a.type === 'application/pdf').map((a) => a.name),
+    };
+    let nuevos: Msg[] = [...mensajes, nuevo];
     setMensajes(nuevos);
     setTexto('');
+    setAdjuntos([]);
     setError(null);
     setPensando(true);
+
+    // 1. Adjuntos: se analizan aparte (petición propia por el límite de tiempo del servidor).
+    if (conAdjuntos.length > 0) {
+      setLeyendo(true);
+      try {
+        const form = new FormData();
+        const varias = conAdjuntos.length > 1;
+        for (const a of conAdjuntos) {
+          if (a.type === 'application/pdf') form.append('archivo', a, a.name);
+          else form.append('archivo', await reducirFoto(a, varias ? 1600 : 2000, varias ? 0.8 : 0.85), 'foto.jpg');
+        }
+        const resp = await fetch('/api/asistente/adjuntos', { method: 'POST', body: form });
+        const datos = await resp.json().catch(() => ({ error: `Error ${resp.status} leyendo el adjunto.` }));
+        if (!resp.ok || datos.error) throw new Error(datos.error || `Error ${resp.status} leyendo el adjunto.`);
+        const adjunto = datos.adjunto as AdjuntoAsistente;
+        nuevos = nuevos.map((m) => (m === nuevo ? { ...m, adjunto } : m));
+        setMensajes(nuevos);
+      } catch (e: any) {
+        setLeyendo(false);
+        setPensando(false);
+        setError(e?.message || 'No se ha podido leer el adjunto.');
+        return;
+      }
+      setLeyendo(false);
+    }
+
     const r = await preguntarAsistente(
-      nuevos.map(({ rol, texto }) => ({ rol, texto })),
+      nuevos.map(({ rol, texto, adjunto }) => ({ rol, texto, ...(adjunto ? { adjunto } : {}) })),
       ruta || ''
     );
     setPensando(false);
@@ -520,8 +577,21 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
             )}
             {mensajes.map((m, k) =>
               m.rol === 'user' ? (
-                <div key={k} className="flex justify-end">
-                  <div className="max-w-[85%] bg-marca text-white rounded-lg rounded-br-sm px-3 py-2 whitespace-pre-line">{m.texto}</div>
+                <div key={k} className="flex flex-col items-end gap-1">
+                  {((m.fotos && m.fotos.length > 0) || (m.pdfs && m.pdfs.length > 0)) && (
+                    <div className="flex flex-wrap justify-end gap-1 max-w-[85%]">
+                      {(m.fotos || []).map((f, j) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={j} src={f} alt="Foto adjunta" className="w-20 h-20 object-cover rounded-lg border border-borde" />
+                      ))}
+                      {(m.pdfs || []).map((n, j) => (
+                        <span key={j} className="inline-flex items-center gap-1 text-xs bg-fondo border border-borde rounded-lg px-2 py-1 text-grafito">
+                          📄 {n}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {m.texto && <div className="max-w-[85%] bg-marca text-white rounded-lg rounded-br-sm px-3 py-2 whitespace-pre-line">{m.texto}</div>}
                 </div>
               ) : (
                 <div key={k} className="max-w-[94%] flex items-start gap-2 asistente-aparecer">
@@ -555,6 +625,7 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
             {pensando && (
               <div className="flex items-center gap-2">
                 <Mascota tam={28} className="asistente-pensando" />
+                {leyendo && <span className="text-xs text-slate">Leyendo el adjunto… (puede tardar hasta un minuto)</span>}
                 <span className="inline-flex gap-1 bg-fondo rounded-lg px-3 py-2.5 text-slate">
                   <span className="asistente-punto" />
                   <span className="asistente-punto" style={{ animationDelay: '.15s' }} />
@@ -566,7 +637,47 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
             <div ref={finRef} />
           </div>
 
+          {adjuntos.length > 0 && (
+            <div className="border-t border-borde px-2 pt-2 flex flex-wrap gap-1.5">
+              {adjuntos.map((a, j) => (
+                <span key={j} className="inline-flex items-center gap-1 text-xs bg-fondo border border-borde rounded-full pl-2 pr-1 py-0.5 text-grafito max-w-[12rem]">
+                  <span className="truncate">{a.type === 'application/pdf' ? '📄' : '🖼️'} {a.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAdjuntos((prev) => prev.filter((_, i) => i !== j))}
+                    className="text-slate hover:text-rojo px-1 leading-none"
+                    aria-label="Quitar adjunto"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="border-t border-borde p-2 flex items-end gap-2">
+            <input
+              ref={archivoRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                elegirAdjuntos(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => archivoRef.current?.click()}
+              disabled={pensando || adjuntos.length >= MAX_ADJUNTOS}
+              className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-md border border-borde text-slate hover:text-marca hover:border-marca disabled:opacity-50"
+              title="Adjuntar foto o PDF (lista de materiales o foto del material)"
+              aria-label="Adjuntar foto o PDF"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+              </svg>
+            </button>
             <textarea
               ref={inputRef}
               value={texto}
@@ -579,13 +690,13 @@ export default function AsistenteChat({ rol, nombre }: { rol: string; nombre: st
               }}
               rows={1}
               maxLength={1500}
-              placeholder="Escribe tu pregunta…"
+              placeholder={adjuntos.length ? 'Añade un comentario (opcional)…' : 'Escribe tu pregunta…'}
               className={`input flex-1 resize-none max-h-28 ${['text-sm', 'text-base', 'text-lg'][letra]}`}
             />
             <button
               type="button"
               onClick={() => enviar()}
-              disabled={!texto.trim() || pensando}
+              disabled={(!texto.trim() && adjuntos.length === 0) || pensando}
               className="btn-primary px-3 py-2 disabled:opacity-60"
               aria-label="Enviar"
             >

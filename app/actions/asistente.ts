@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { GUIA_APP, RUTAS_PERMITIDAS } from '@/lib/asistente/guia';
 import { visitasParaRol } from '@/lib/asistente/visitas';
 import { herramientasParaRol, ROLES_CATALOGO_BC, ejecutarHerramienta, type AccionAsistente } from '@/lib/asistente/herramientas';
+import { sanearAdjunto, textoAdjunto, type AdjuntoAsistente } from '@/lib/asistente/adjuntos';
 
 // Asistente de la app (fase 1): responde dudas de uso con la guía, según el perfil y la
 // pantalla, y propone botones para ir a cada sitio ([[Texto|/ruta]]).
@@ -12,7 +13,7 @@ import { herramientasParaRol, ROLES_CATALOGO_BC, ejecutarHerramienta, type Accio
 const MODELO = process.env.ANTHROPIC_MODEL_ASISTENTE || 'claude-haiku-5-5';
 const ROLES: Record<string, string> = { usuario: 'Usuario', responsable: 'Responsable', comprador: 'Comprador', admin: 'Admin', integral: 'Integral' };
 
-export type MensajeAsistente = { rol: 'user' | 'assistant'; texto: string };
+export type MensajeAsistente = { rol: 'user' | 'assistant'; texto: string; adjunto?: AdjuntoAsistente | null };
 
 export async function preguntarAsistente(mensajes: MensajeAsistente[], ruta: string) {
   const supabase = createClient();
@@ -29,7 +30,10 @@ export async function preguntarAsistente(mensajes: MensajeAsistente[], ruta: str
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return { error: 'El asistente no está configurado (falta ANTHROPIC_API_KEY).' };
 
-  const historial = mensajes.filter((m) => m.texto.trim()).slice(-12);
+  const historial = mensajes
+    .filter((m) => m.texto.trim() || m.adjunto)
+    .slice(-12)
+    .map((m) => ({ rol: m.rol, texto: m.texto || '', adjunto: m.rol === 'user' ? sanearAdjunto(m.adjunto) : null }));
   const ultima = historial[historial.length - 1];
   if (!ultima || ultima.rol !== 'user') return { error: 'Escribe tu pregunta.' };
   if (ultima.texto.length > 1500) return { error: 'La pregunta es demasiado larga.' };
@@ -57,6 +61,10 @@ Reglas:
 - Si buscar_articulos no encuentra el artículo en la tienda, búscalo tú mismo en el catálogo completo de BC con buscar_articulos_bc (prueba también variantes: p. ej. "5G10", "5x10", el tipo de cable o la marca). Si aparece, enséñale las opciones (código y descripción), confirma el artículo exacto y la cantidad y propónlo con proponer_carrito usando codigo_bc; avísale de que esa solicitud pasará por el aprobador. Ofrece además el botón [[Crear desde artículos de BC|/carrito/articulos-bc]] por si prefiere buscarlo él. Solo si tampoco está en BC, sugiere "Crear carrito desde lista/REF./foto" o "Solicitar alta de artículos".`
       : ' Si buscar_articulos no encuentra nada, sugiere "Crear carrito desde foto/lista/REF.".'
   }
+- Adjuntos: el usuario puede adjuntar fotos o un PDF; la app los analiza y te pasa el resultado en un bloque "[Adjunto: …]" al final de su mensaje (tú no ves la imagen).
+  · Lista de materiales: las líneas de "Ya mostradas en la tarjeta de carrito" ya se le han propuesto en una tarjeta debajo de tu respuesta: díselo en una frase (puede revisar cantidades y desmarcar lo que no quiera) y no las repitas una a una. Para cada línea "Sin resolver", enséñale de forma breve sus candidatos (nombre y código) y pregúntale cuál quiere; cuando elija, propónlo con proponer_carrito (producto_id del candidato). Si no tiene candidatos, búscalo con buscar_articulos${catalogoBC ? ' y, si no aparece, con buscar_articulos_bc' : ''}. Si la lista es larga o hay muchas líneas sin resolver, ofrécele también [[Crear carrito desde foto|/carrito/foto]].
+  · Foto de un material: busca cada material identificado con buscar_articulos usando las búsquedas sugeridas (y la referencia)${catalogoBC ? ', y si no aparece con buscar_articulos_bc' : ''}; enséñale las opciones, pregunta la cantidad si no la ha dicho y propón el carrito.
+  · Si no se ha reconocido nada, díselo y pídele una foto más cercana y nítida, o que escriba lo que necesita.
 - Para pedir material: busca, confirma con el usuario el artículo exacto si hay dudas (varios parecidos) y la cantidad, y entonces propón el carrito. Recuérdale que después debe enviar la solicitud desde el carrito ("Solicitar materiales").
 - Al dar el estado de una solicitud, resume por artículo: pedido de compra, fecha estimada (y si está confirmada) y recepción. Puedes añadir un botón al detalle con [[Ver en Líns. compras|ENLACE]] usando el enlace que devuelve la herramienta.
 - Precios e importes: solo puedes darlos si las herramientas los devuelven. El perfil usuario NO puede ver precios ni importes: si los pide, dile que su perfil no tiene acceso a esa información. Los importes son sin IVA; indica si hay líneas sin precio (0 €) que no suman.
@@ -67,14 +75,63 @@ ${GUIA_APP}`;
 
   let texto = '';
   const acciones: AccionAsistente[] = [];
+
+  // Adjunto de la pregunta actual con una lista de materiales: las líneas que el análisis
+  // ha resuelto se proponen directamente en la tarjeta del carrito (con las mismas
+  // comprobaciones que proponer_carrito) y al modelo se le pasa el resto para que ayude.
+  const adjuntoActual = ultima.adjunto;
+  let propuestosAdjunto: Set<string> | null = null;
+  if (adjuntoActual?.tipo === 'lista' && adjuntoActual.lineas?.length) {
+    propuestosAdjunto = new Set();
+    const resueltas = adjuntoActual.lineas.filter((l) => l.propuesto && l.confianza !== 'baja');
+    const ids = Array.from(new Set(resueltas.map((l) => l.propuesto!)));
+    const { data: prods } = ids.length
+      ? await admin.from('productos').select('id, bc_item_no, visible').in('id', ids)
+      : { data: [] as any[] };
+    const porId = new Map((prods || []).map((p: any) => [p.id, p]));
+    const items: { producto_id?: string; codigo_bc?: string; cantidad: number }[] = [];
+    const usados: string[] = [];
+    for (const l of resueltas) {
+      const p: any = porId.get(l.propuesto!);
+      if (!p) continue;
+      const cand = l.candidatos.find((c) => c.id === p.id);
+      const cantidad = l.cantidad && l.cantidad > 0 ? l.cantidad : cand?.multiplo || 1;
+      // El mismo artículo en varias líneas: se suman las cantidades.
+      const previo = usados.indexOf(p.id);
+      if (previo >= 0) {
+        items[previo].cantidad += cantidad;
+        continue;
+      }
+      if (p.visible) items.push({ producto_id: p.id, cantidad });
+      // No publicado en la tienda: solo los perfiles con catálogo de BC (requiere aprobación).
+      else if (catalogoBC && p.bc_item_no) items.push({ codigo_bc: p.bc_item_no, cantidad });
+      else continue;
+      usados.push(p.id);
+    }
+    if (items.length) {
+      try {
+        await ejecutarHerramienta('proponer_carrito', { items }, { userId: user.id, rol: perfil.rol, acciones });
+        for (const a of acciones) for (const i of a.items) propuestosAdjunto.add(i.producto_id);
+      } catch (e) {
+        console.error('[asistente] propuesta desde adjunto', e);
+      }
+    }
+  }
+
+  const contenidoMensaje = (m: (typeof historial)[number], esUltima: boolean) => {
+    if (!m.adjunto) return m.texto;
+    const pregunta = m.texto.trim() || 'Quiero pedir este material (te adjunto la foto).';
+    return `${pregunta}\n\n${textoAdjunto(m.adjunto, esUltima ? propuestosAdjunto || new Set() : null)}`;
+  };
+
   try {
     // Bucle de herramientas (máx. 5 rondas)
-    const conversacion: any[] = historial.map((m) => ({ role: m.rol, content: m.texto }));
+    const conversacion: any[] = historial.map((m, i) => ({ role: m.rol, content: contenidoMensaje(m, i === historial.length - 1) }));
     for (let ronda = 0; ronda < 5; ronda++) {
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: herramientas, messages: conversacion }),
+        body: JSON.stringify({ model: MODELO, max_tokens: adjuntoActual ? 1600 : 900, system, tools: herramientas, messages: conversacion }),
       });
       if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
       const cuerpo = await r.json();
@@ -107,7 +164,7 @@ ${GUIA_APP}`;
       const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: MODELO, max_tokens: 900, system, tools: herramientas, tool_choice: { type: 'none' }, messages: mensajesFinal }),
+        body: JSON.stringify({ model: MODELO, max_tokens: adjuntoActual ? 1600 : 900, system, tools: herramientas, tool_choice: { type: 'none' }, messages: mensajesFinal }),
       });
       if (r.ok) {
         const cuerpo = await r.json();
@@ -133,7 +190,17 @@ ${GUIA_APP}`;
       usuario_id: user.id,
       rol: perfil.rol,
       ruta: ruta?.slice(0, 200) || null,
-      pregunta: ultima.texto.slice(0, 1500),
+      pregunta:
+        (ultima.texto.slice(0, 1500) || '(sin texto)') +
+        (adjuntoActual
+          ? ` [${adjuntoActual.archivos} adjunto(s): ${
+              adjuntoActual.tipo === 'lista'
+                ? `lista de ${adjuntoActual.lineas?.length || 0} línea(s)`
+                : adjuntoActual.tipo === 'producto'
+                  ? `material: ${(adjuntoActual.productos || []).map((p) => p.descripcion).join('; ')}`
+                  : 'no reconocido'
+            }]`
+          : ''),
       respuesta: texto + (acciones.length ? `\n\n[Propuesta de carrito: ${acciones.flatMap((a) => a.items.map((i) => `${i.cantidad} × ${i.nombre}`)).join('; ')}]` : ''),
     })
     .select('id')
