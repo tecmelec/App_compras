@@ -142,7 +142,10 @@ export default function TiendaProyectoCliente() {
               >
                 {v === 'tienda' ? 'Artículos' : 'Ver consumos'}
                 {v === 'consumos' && resumen.alerta + resumen.agotados > 0 && (
-                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-rojo text-white text-[11px] font-semibold">
+                  <span
+                    title={`${resumen.alerta} por encima del 80 % y ${resumen.agotados} agotados o excedidos`}
+                    className="ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-rojo text-white text-[11px] font-semibold"
+                  >
                     {resumen.alerta + resumen.agotados}
                   </span>
                 )}
@@ -261,8 +264,10 @@ export default function TiendaProyectoCliente() {
           a={modificando.a}
           modo={modificando.modo}
           onCerrar={() => setModificando(null)}
-          onGuardado={() => {
+          onGuardado={(aviso) => {
             setModificando(null);
+            setError(aviso || null);
+            setMensaje(aviso ? null : 'Cambios guardados.');
             cargar();
           }}
         />
@@ -567,7 +572,7 @@ function FichaArticulo({
         <div className="flex items-baseline justify-between text-xs mb-1">
           <span className="text-slate">
             Máx. {formatoCantidad(a.limite)} {u}
-            {a.cantidad_ampliada > 0 && <span className="text-[#5B3E8C]"> (ampliado)</span>}
+            {a.cantidad_ampliada !== 0 && <span className="text-[#5B3E8C]"> ({a.cantidad_ampliada > 0 ? 'ampliado' : 'reducido'})</span>}
           </span>
           <span className={a.estado === 'ok' ? 'text-marca font-semibold' : a.estado === 'alerta' ? 'text-[#B7791F] font-semibold' : 'text-rojo font-semibold'}>
             {formatoCantidad(a.disponible)} {u} disponibles

@@ -60,7 +60,9 @@ export function HistorialModal({ a, onCerrar }: { a: ConsumoArticulo; onCerrar: 
       case 'cantidad_inicial':
         return `Cantidad inicial: ${c(h.valor_anterior)} → ${c(h.valor_nuevo)}`;
       case 'ampliacion':
-        return `Ampliación de ${c(h.cantidad)} (autorizado: ${c(h.valor_anterior)} → ${c(h.valor_nuevo)})`;
+        return (h.cantidad ?? 0) < 0
+          ? `Reducción de ${c(Math.abs(h.cantidad ?? 0))} (autorizado: ${c(h.valor_anterior)} → ${c(h.valor_nuevo)})`
+          : `Ampliación de ${c(h.cantidad)} (autorizado: ${c(h.valor_anterior)} → ${c(h.valor_nuevo)})`;
     }
   }
 
@@ -116,7 +118,7 @@ export function ModificarModal({
   a: ConsumoArticulo;
   modo: 'cantidades' | 'ampliacion';
   onCerrar: () => void;
-  onGuardado: () => void;
+  onGuardado: (aviso?: string) => void;
 }) {
   const u = a.producto.unidad_medida || 'ud.';
   const [maxima, setMaxima] = useState(String(a.cantidad_maxima));
@@ -142,10 +144,23 @@ export function ModificarModal({
       setError(r.error);
       return;
     }
-    onGuardado();
+    onGuardado(
+      excesoTras > 0
+        ? `Atención: "${a.producto.nombre}" queda excedido en ${formatoCantidad(excesoTras)} ${u} (consumido ${formatoCantidad(
+            a.consumido
+          )} ${u} de ${formatoCantidad(limiteTras)} ${u} autorizados).`
+        : undefined
+    );
   }
 
   const nuevaAmpliacion = leerCantidad(ampliacion) || 0;
+  // Límite y consumo tras el cambio, para avisar si el artículo queda excedido.
+  const limiteTras =
+    modo === 'cantidades'
+      ? (leerCantidad(maxima) || 0) + a.cantidad_ampliada
+      : a.limite + nuevaAmpliacion;
+  const consumidoTras = modo === 'cantidades' ? a.solicitado + (leerCantidad(inicial || '0') || 0) : a.consumido;
+  const excesoTras = Math.round((consumidoTras - limiteTras) * 1000) / 1000;
   return (
     <Modal titulo={modo === 'cantidades' ? 'Modificar cantidades' : 'Ampliación'} subtitulo={a.producto.nombre} onCerrar={onCerrar}>
       {modo === 'cantidades' ? (
@@ -153,8 +168,11 @@ export function ModificarModal({
           <label className="text-sm text-grafito">
             Cantidad máxima ({u})
             <input type="number" min={0} step="any" value={maxima} onChange={(e) => setMaxima(e.target.value)} className="input mt-1 font-mono" />
-            {a.cantidad_ampliada > 0 && (
-              <span className="text-[11px] text-slate">Sin contar las ampliaciones (+{formatoCantidad(a.cantidad_ampliada)} {u}).</span>
+            {a.cantidad_ampliada !== 0 && (
+              <span className="text-[11px] text-slate">
+                Sin contar las ampliaciones ({a.cantidad_ampliada > 0 ? '+' : '−'}
+                {formatoCantidad(Math.abs(a.cantidad_ampliada))} {u}).
+              </span>
             )}
           </label>
           <label className="text-sm text-grafito">
@@ -170,13 +188,14 @@ export function ModificarModal({
             {a.excedido > 0 && <span className="text-rojo"> · excedido en {formatoCantidad(a.excedido)} {u}</span>}
           </p>
           <label className="text-sm text-grafito">
-            Ampliar en ({u})
-            <input type="number" min={0} step="any" value={ampliacion} onChange={(e) => setAmpliacion(e.target.value)} className="input mt-1 font-mono" autoFocus />
+            Ampliar en ({u}) <span className="text-xs text-slate">· en negativo para reducir lo autorizado</span>
+            <input type="number" step="any" value={ampliacion} onChange={(e) => setAmpliacion(e.target.value)} className="input mt-1 font-mono" autoFocus />
           </label>
-          {nuevaAmpliacion > 0 && (
+          {nuevaAmpliacion !== 0 && (
             <p className="text-xs text-slate mt-1">
-              Quedará autorizado: {formatoCantidad(a.limite + nuevaAmpliacion)} {u} ({formatoCantidad(a.cantidad_maxima)} iniciales +{' '}
-              {formatoCantidad(a.cantidad_ampliada + nuevaAmpliacion)} de ampliaciones).
+              Quedará autorizado: {formatoCantidad(a.limite + nuevaAmpliacion)} {u} ({formatoCantidad(a.cantidad_maxima)} de cantidad máxima{' '}
+              {a.cantidad_ampliada + nuevaAmpliacion >= 0 ? '+' : '−'} {formatoCantidad(Math.abs(a.cantidad_ampliada + nuevaAmpliacion))} de
+              ampliaciones).
             </p>
           )}
         </div>
@@ -193,13 +212,27 @@ export function ModificarModal({
         className="input resize-y mb-3"
         placeholder={modo === 'ampliacion' ? 'Motivo de la ampliación…' : 'Motivo del cambio…'}
       />
+      {excesoTras > 0 && limiteTras > 0 && (
+        <p className="text-sm text-rojo bg-[#F6E9E9] border border-[#E7C7C7] rounded-md px-3 py-2 mb-3">
+          Con este cambio el artículo quedará <b>excedido en {formatoCantidad(excesoTras)} {u}</b>: consumido{' '}
+          {formatoCantidad(consumidoTras)} {u} de {formatoCantidad(limiteTras)} {u} autorizados.
+        </p>
+      )}
       {error && <p className="text-sm text-rojo mb-3">{error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCerrar} className="btn-secondary" disabled={guardando}>
           Cancelar
         </button>
         <button type="button" onClick={guardar} className="btn-primary" disabled={guardando}>
-          {guardando ? 'Guardando…' : modo === 'ampliacion' ? 'Autorizar ampliación' : 'Guardar'}
+          {guardando
+            ? 'Guardando…'
+            : excesoTras > 0
+              ? 'Guardar igualmente'
+              : modo === 'ampliacion'
+                ? nuevaAmpliacion < 0
+                  ? 'Reducir lo autorizado'
+                  : 'Autorizar ampliación'
+                : 'Guardar'}
         </button>
       </div>
     </Modal>

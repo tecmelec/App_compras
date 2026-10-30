@@ -287,7 +287,11 @@ export async function ampliarArticuloTiendaProyecto(articuloId: string, cantidad
   if (!art) return { error: 'No se encontró el artículo.' };
   const permitido = ROLES_TIENDA_PROYECTO.includes(yo.rol) || (await puedeAutorizarAmpliacion(yo.id, yo.rol, art.proyecto_id));
   if (!permitido) return { error: 'No puedes ampliar la tienda de este proyecto.' };
-  if (!cantidadValida(Number(cantidad))) return { error: 'La ampliación debe ser mayor que 0 (máx. 3 decimales).' };
+  const n = Number(cantidad);
+  // Admite negativos (reducir lo autorizado), pero no 0 ni más de 3 decimales.
+  if (!Number.isFinite(n) || n === 0 || !cantidadValida(Math.abs(n))) {
+    return { error: 'Indica una ampliación distinta de 0 (puede ser negativa, máx. 3 decimales).' };
+  }
   return registrarAmpliacion({ articuloId, cantidad: Number(cantidad), usuarioId: yo.id, usuarioNombre: yo.nombre, comentario });
 }
 

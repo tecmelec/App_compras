@@ -338,7 +338,7 @@ export async function registrarAmpliacion(datos: {
   numeroApp?: string | null;
 }): Promise<{ error?: string }> {
   const cantidad = redondearCantidad(Number(datos.cantidad) || 0);
-  if (!(cantidad > 0)) return { error: 'La ampliación debe ser mayor que 0.' };
+  if (cantidad === 0) return { error: 'La ampliación no puede ser 0.' };
   const admin = createAdminClient();
   const { data: art, error: e1 } = await admin
     .from('tienda_proyecto_articulos')
@@ -347,6 +347,10 @@ export async function registrarAmpliacion(datos: {
     .single();
   if (e1 || !art) return { error: 'No se encontró el artículo en la tienda del proyecto.' };
   const anterior = redondearCantidad((Number(art.cantidad_maxima) || 0) + (Number(art.cantidad_ampliada) || 0));
+  // Ampliación negativa (reducción): lo autorizado tiene que seguir siendo mayor que 0.
+  if (redondearCantidad(anterior + cantidad) <= 0) {
+    return { error: `No se puede reducir tanto: lo autorizado (${anterior}) quedaría en ${redondearCantidad(anterior + cantidad)}.` };
+  }
   const { error: e2 } = await admin
     .from('tienda_proyecto_articulos')
     .update({

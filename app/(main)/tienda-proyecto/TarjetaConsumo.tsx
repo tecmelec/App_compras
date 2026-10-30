@@ -145,9 +145,10 @@ export default function TarjetaConsumo({
           </p>
           <div className="flex flex-wrap gap-1.5 mt-2">
             <EstadoConsumoBadge a={a} />
-            {a.cantidad_ampliada > 0 && (
+            {a.cantidad_ampliada !== 0 && (
               <span className="rounded-full bg-[#EEE8F7] text-[#5B3E8C] border border-[#DCD0EE] px-2 py-0.5 text-[11px] font-medium">
-                Ampliación +{formatoCantidad(a.cantidad_ampliada)} {u}
+                Ampliación {a.cantidad_ampliada > 0 ? '+' : '−'}
+                {formatoCantidad(Math.abs(a.cantidad_ampliada))} {u}
               </span>
             )}
             {a.ampliacion_pendiente > 0 && (
@@ -169,9 +170,9 @@ export default function TarjetaConsumo({
         </span>
         <span className="text-right">
           {formatoCantidad(a.limite)} {u} autorizados
-          {a.cantidad_ampliada > 0 && (
+          {a.cantidad_ampliada !== 0 && (
             <span className="block text-[11px]">
-              {formatoCantidad(a.cantidad_maxima)} + {formatoCantidad(a.cantidad_ampliada)} ampliación
+              {formatoCantidad(a.cantidad_maxima)} {a.cantidad_ampliada > 0 ? '+' : '−'} {formatoCantidad(Math.abs(a.cantidad_ampliada))} ampliación
             </span>
           )}
         </span>
