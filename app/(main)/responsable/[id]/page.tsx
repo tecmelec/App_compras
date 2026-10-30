@@ -4,6 +4,7 @@ import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import { quienRechazo } from '@/lib/rechazo';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
+import AmpliacionTiendaBadge from '@/components/AmpliacionTiendaBadge';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
@@ -150,6 +151,16 @@ export default async function DetalleResponsablePage({ params }: { params: { id:
                       {item.productos?.nombre || 'Producto no disponible'}
                     </p>
                     {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-0.5" />}
+                    {(() => {
+                      const x = (itemsExtras || []).find((e: any) => e.id === item.id) as any;
+                      return x ? (
+                        <AmpliacionTiendaBadge
+                          className="mt-0.5"
+                          ampliada={x.ampliacion_tienda != null ? Number(x.ampliacion_tienda) : null}
+                          unidad={item.productos?.unidad_medida}
+                        />
+                      ) : null;
+                    })()}
                     {item.rechazada_por_aprobador && (
                       <p className="text-xs text-rojo mt-0.5">
                         Rechazada por {quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre)}

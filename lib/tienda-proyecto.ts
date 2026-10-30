@@ -370,3 +370,18 @@ export async function registrarAmpliacion(datos: {
   if (e3) console.error('[tienda-proyecto] No se pudo anotar la ampliación en el historial', e3);
   return {};
 }
+
+// Ampliaciones de las líneas de una solicitud (id de línea → autorizada / pendiente).
+// Con '*' para no fallar si la migración aún no está aplicada.
+export async function ampliacionesLineasSolicitud(
+  pedidoId: string
+): Promise<Map<string, { ampliada: number | null; pendiente: number | null }>> {
+  const mapa = new Map<string, { ampliada: number | null; pendiente: number | null }>();
+  const { data } = await createAdminClient().from('pedido_items').select('*').eq('pedido_id', pedidoId);
+  for (const l of (data || []) as any[]) {
+    const ampliada = l.ampliacion_tienda != null ? Number(l.ampliacion_tienda) : null;
+    const pendiente = l.ampliacion_tienda_pendiente != null ? Number(l.ampliacion_tienda_pendiente) : null;
+    if ((ampliada && ampliada > 0) || (pendiente && pendiente > 0)) mapa.set(l.id, { ampliada, pendiente });
+  }
+  return mapa;
+}

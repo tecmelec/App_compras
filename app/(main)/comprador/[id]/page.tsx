@@ -19,6 +19,7 @@ import GestionPedidosBC from './GestionPedidosBC';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 import { rangoFechasEstimadas, puedeCrearPedidoBC, MENSAJE_CREAR_PEDIDO_BC_BLOQUEADO } from '@/lib/pedidos-utils';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
+import { ampliacionesLineasSolicitud } from '@/lib/tienda-proyecto';
 
 function IconoDato({ children }: { children: React.ReactNode }) {
   return (
@@ -59,6 +60,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   }
 
   const p = pedido as any;
+  const ampliacionesTienda = await ampliacionesLineasSolicitud(p.id);
   // Líneas con proveedor/precio aplicados desde "Proponer compra" (si la migración
   // 20261022140000 no está aplicada, la consulta falla y no se marca nada).
   const { data: conPropuesta } = await createAdminClient()
@@ -414,6 +416,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
           modificadaPorComprador: !!item.cantidad_modificada_por_comprador,
           cantidadAntesBC: item.cantidad_antes_bc ?? null,
           anadidaEnBC: !!item.anadida_en_bc,
+          ampliacionTienda: ampliacionesTienda.get(item.id) || null,
           eliminadaEnBC: !!item.eliminada_en_bc,
           bcItemNo: item.productos?.bc_item_no ?? null,
           precioDesdePresupuesto: !!item.precio_presupuesto_id,

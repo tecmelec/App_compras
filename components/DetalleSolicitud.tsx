@@ -14,6 +14,8 @@ import ContactarComprasBoton from '@/components/ContactarComprasBoton';
 import SeguirPedidoToggle from '@/components/SeguirPedidoToggle';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
+import AmpliacionTiendaBadge from '@/components/AmpliacionTiendaBadge';
+import { ampliacionesLineasSolicitud } from '@/lib/tienda-proyecto';
 import VerAlbaranBoton from '@/components/VerAlbaranBoton';
 import { obtenerFotosAlbaranes } from '@/lib/fotos-albaranes';
 import { rangoFechasEstimadas, obtenerContactoComprador } from '@/lib/pedidos-utils';
@@ -62,7 +64,7 @@ export default async function DetalleSolicitud({
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, usuario_id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, aprobado_por, responsable_id, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
+      'id, usuario_id, numero_app, fecha_requerida, nombre_contacto, profiles!pedidos_usuario_id_fkey(nombre_completo), telefono_contacto, requiere_aprobacion, aprobado, aprobado_por, responsable_id, seguir_pedido, created_at, direcciones(alias, direccion, codigo_postal, ciudad), proyectos(bc_job_no, descripcion), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, estado_id, estado_recepcion, proveedores(nombre), productos(nombre, descripcion, imagen_url, unidad_medida))'
     )
     .eq('id', params.id)
     .single();
@@ -91,6 +93,7 @@ export default async function DetalleSolicitud({
   const { data: estados } = await supabase.from('estados_pedido').select('id, nombre, orden').order('orden');
 
   const p = pedido as any;
+  const ampliaciones = await ampliacionesLineasSolicitud(p.id);
 
   // Quién aprueba la solicitud (debajo de "Solicitud aprobada"): "Automático" si no
   // requería aprobación; si no, el aprobador, también mientras está pendiente (así se
@@ -430,6 +433,14 @@ export default async function DetalleSolicitud({
                       <p className="text-xs text-slate mt-0.5">{item.productos.descripcion}</p>
                     )}
                     {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-1" />}
+                    {ampliaciones.get(item.id) && (
+                      <AmpliacionTiendaBadge
+                        className="mt-1"
+                        ampliada={ampliaciones.get(item.id)!.ampliada}
+                        pendiente={ampliaciones.get(item.id)!.pendiente}
+                        unidad={item.productos?.unidad_medida}
+                      />
+                    )}
                     {item.rechazada_por_aprobador && (
                       <p className="text-xs text-rojo mt-0.5">
                         Rechazada por {quienRechazo(item.rechazada_por_rol, item.rechazada_por_nombre)}

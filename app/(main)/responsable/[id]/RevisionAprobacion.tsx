@@ -318,7 +318,9 @@ export default function RevisionAprobacion({
       <div className="bg-white border border-borde rounded-lg p-5">
         <h2 className="font-medium text-grafito mb-1">Esta solicitud requiere tu aprobación</h2>
         <p className="text-sm text-slate mb-4">
-          El monto supera el límite de aprobación automática configurado por el administrador.
+          {excesosTienda.length > 0
+            ? 'Hay artículos que superan la cantidad autorizada en la tienda del proyecto (o el importe supera el límite de aprobación automática).'
+            : 'El monto supera el límite de aprobación automática configurado por el administrador.'}
         </p>
 
         <label className="block text-sm font-medium text-grafito mb-1" htmlFor="comentario-aprobador">

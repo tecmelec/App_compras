@@ -2,6 +2,8 @@ import ComentariosSolicitud from '@/components/ComentariosSolicitud';
 import DocumentosSolicitud from '@/components/DocumentosSolicitud';
 import EliminadaEnBCBadge from '@/components/EliminadaEnBCBadge';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
+import AmpliacionTiendaBadge from '@/components/AmpliacionTiendaBadge';
+import { ampliacionesLineasSolicitud } from '@/lib/tienda-proyecto';
 import ListaFotoInforme from '@/components/ListaFotoInforme';
 import { createClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
@@ -24,7 +26,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
        solicitante:profiles!pedidos_usuario_id_fkey(nombre_completo, email),
        comprador:profiles!pedidos_comprador_id_fkey(nombre_completo, email),
        responsable:profiles!pedidos_responsable_id_fkey(nombre_completo, email),
-       pedido_items(cantidad, numero_tecmelec, fecha_estimada_entrega, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, productos(nombre, precio, unidad_medida))`
+       pedido_items(id, cantidad, numero_tecmelec, fecha_estimada_entrega, anadida_en_bc, eliminada_en_bc, cantidad_antes_bc, productos(nombre, precio, unidad_medida))`
     )
     .eq('id', params.id)
     .single();
@@ -32,6 +34,7 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
   if (!pedido) notFound();
 
   const p = pedido as any;
+  const ampliaciones = await ampliacionesLineasSolicitud(p.id);
 
   return (
     <div className="p-8 max-w-2xl">
@@ -108,6 +111,14 @@ export default async function DetalleAdminPedidoPage({ params }: { params: { id:
             <div>
               <p className="text-grafito">{item.productos?.nombre || 'Producto no disponible'}</p>
               {item.anadida_en_bc && <AnadidaEnBCBadge className="mt-0.5" />}
+              {ampliaciones.get(item.id) && (
+                <AmpliacionTiendaBadge
+                  className="mt-0.5"
+                  ampliada={ampliaciones.get(item.id)!.ampliada}
+                  pendiente={ampliaciones.get(item.id)!.pendiente}
+                  unidad={item.productos?.unidad_medida}
+                />
+              )}
               {item.eliminada_en_bc && (
                 <EliminadaEnBCBadge
                   className="mt-0.5"

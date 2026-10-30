@@ -8,6 +8,7 @@ import EstadoBadge, { claseBadgeEstado } from '@/components/EstadoBadge';
 import ComboboxProveedor from '@/components/ComboboxProveedor';
 import CantidadModificadaAviso from '@/components/CantidadModificadaAviso';
 import AnadidaEnBCBadge from '@/components/AnadidaEnBCBadge';
+import AmpliacionTiendaBadge from '@/components/AmpliacionTiendaBadge';
 import UltimasComprasBoton from './UltimasComprasBoton';
 import FormularioSoloFechas from './FormularioSoloFechas';
 import { quienConfirmoFecha } from '@/components/FechaEntregaIndicadores';
@@ -28,6 +29,7 @@ export type ItemForm = {
   modificadaPorComprador?: boolean;
   cantidadAntesBC?: number | null;
   anadidaEnBC?: boolean;
+  ampliacionTienda?: { ampliada: number | null; pendiente: number | null } | null;
   eliminadaEnBC?: boolean;
   bcItemNo?: string | null;
   precioDesdePresupuesto?: boolean;
@@ -449,6 +451,14 @@ function ItemFila({
           <div>
             <p className="text-sm font-medium text-grafito">{item.nombre}</p>
             {item.anadidaEnBC && <AnadidaEnBCBadge className="mt-0.5" />}
+            {item.ampliacionTienda && (
+              <AmpliacionTiendaBadge
+                className="mt-0.5"
+                ampliada={item.ampliacionTienda.ampliada}
+                pendiente={item.ampliacionTienda.pendiente}
+                unidad={item.unidad}
+              />
+            )}
             {item.eliminadaEnBC && (
               <EliminadaEnBCBadge className="mt-0.5" cantidadSolicitada={item.cantidadAntesBC ?? null} unidad={item.unidad} />
             )}
