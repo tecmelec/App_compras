@@ -38,26 +38,51 @@ function cantidadValida(n: number, { cero = false } = {}): boolean {
   return Math.abs(n - redondearCantidad(n)) < 1e-9;
 }
 
-export type ProyectoTienda = { id: string; bc_job_no: string; descripcion: string | null; num_articulos: number };
+export type ProyectoTienda = { id: string; bc_job_no: string; descripcion: string | null; num_articulos: number; favorito: boolean };
 
 export async function proyectosTiendaProyecto(): Promise<{ proyectos?: ProyectoTienda[]; error?: string }> {
   const yo = await gestor();
   if (!yo) return { error: 'No autorizado.' };
   const admin = createAdminClient();
-  const [{ data: proyectos }, { data: arts }] = await Promise.all([
+  const [{ data: proyectos }, { data: arts }, { data: favs }] = await Promise.all([
     admin.from('proyectos').select('*').eq('estado', 'Open').order('bc_job_no'),
     admin.from('tienda_proyecto_articulos').select('proyecto_id'),
+    // Si la migración de favoritos aún no está aplicada, simplemente no hay favoritos.
+    admin.from('tienda_proyecto_favoritos').select('proyecto_id').eq('usuario_id', yo.id),
   ]);
+  const favoritos = new Set((favs || []).map((f: any) => f.proyecto_id as string));
   const cuenta = new Map<string, number>();
   for (const a of arts || []) cuenta.set((a as any).proyecto_id, (cuenta.get((a as any).proyecto_id) || 0) + 1);
   // Proyectos con tienda aunque ya no estén abiertos, para no perderlos de vista.
   const ids = new Set((proyectos || []).map((p: any) => p.id));
-  const faltan = Array.from(cuenta.keys()).filter((id) => !ids.has(id));
+  const faltan = Array.from(new Set([...Array.from(cuenta.keys()), ...Array.from(favoritos)])).filter((id) => !ids.has(id));
   const { data: extra } = faltan.length ? await admin.from('proyectos').select('*').in('id', faltan) : { data: [] as any[] };
   const lista = [...(proyectos || []), ...(extra || [])]
-    .filter((p: any) => !p.tipo || p.tipo === 'Obra' || cuenta.has(p.id))
-    .map((p: any) => ({ id: p.id, bc_job_no: p.bc_job_no, descripcion: p.descripcion, num_articulos: cuenta.get(p.id) || 0 }));
+    .filter((p: any) => !p.tipo || p.tipo === 'Obra' || cuenta.has(p.id) || favoritos.has(p.id))
+    .map((p: any) => ({
+      id: p.id,
+      bc_job_no: p.bc_job_no,
+      descripcion: p.descripcion,
+      num_articulos: cuenta.get(p.id) || 0,
+      favorito: favoritos.has(p.id),
+    }));
   return { proyectos: lista };
+}
+
+export async function marcarProyectoFavorito(proyectoId: string, favorito: boolean): Promise<{ error?: string }> {
+  const yo = await gestor();
+  if (!yo) return { error: 'No autorizado.' };
+  const admin = createAdminClient();
+  const { error } = favorito
+    ? await admin.from('tienda_proyecto_favoritos').upsert({ usuario_id: yo.id, proyecto_id: proyectoId })
+    : await admin.from('tienda_proyecto_favoritos').delete().eq('usuario_id', yo.id).eq('proyecto_id', proyectoId);
+  if (error) {
+    if (/tienda_proyecto_favoritos/.test(error.message || '')) {
+      return { error: 'Falta aplicar la migración 20261030130000_tienda_proyecto_favoritos.sql.' };
+    }
+    return { error: `No se pudo guardar el favorito: ${error.message}` };
+  }
+  return {};
 }
 
 export async function consumosTiendaProyecto(

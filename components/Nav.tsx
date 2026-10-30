@@ -40,6 +40,8 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
 
   const links: NavLink[] = [
     { href: '/tienda', label: 'Tienda Tecmelec', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
+    // Tienda por proyecto: de momento solo admin (lib/tienda-proyecto.ts, ROLES_TIENDA_PROYECTO).
+    { href: '/tienda-proyecto', label: 'Tienda por proyecto', roles: ['admin'] },
     { href: '/mis-pedidos', label: 'Mis solicitudes', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral'] },
     { href: '/lineas-compras', label: 'Líns. compras', roles: ['admin', 'usuario', 'comprador', 'responsable', 'integral', 'seguidor_ia'] },
     {
@@ -55,8 +57,6 @@ export default function Nav({ rol, pendientesAprobacion = 0, pendientesTramitar 
       badge: pendientesAprobacion,
     },
     { href: '/proyectos-equipo', label: 'Proyectos de equipo', roles: ['admin', 'responsable', 'integral'] },
-    // Tienda por proyecto: de momento solo admin (lib/tienda-proyecto.ts, ROLES_TIENDA_PROYECTO).
-    { href: '/tienda-proyecto', label: 'Tienda por proyecto', roles: ['admin'] },
     { href: '/alta-articulos', label: 'Solicitar alta de artículos', roles: ['admin', 'comprador', 'responsable', 'integral'] },
     { href: '/admin/pedidos', label: 'Todas las solicitudes', roles: ['admin'] },
     { href: '/admin', label: 'Administración', roles: ['admin'] },

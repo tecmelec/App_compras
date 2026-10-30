@@ -6,12 +6,13 @@ import {
   anadirArticulosTiendaProyecto,
   consumosTiendaProyecto,
   eliminarArticuloTiendaProyecto,
+  marcarProyectoFavorito,
   proyectosTiendaProyecto,
   type ProyectoTienda,
 } from '@/app/actions/tienda-proyecto';
 import type { ConsumoArticulo, FueraPresupuesto } from '@/lib/tienda-proyecto';
 import { useCart } from '@/context/CartContext';
-import { esMultiploDe, formatoCantidad, leerCantidad, pasoCantidad } from '@/lib/cantidad';
+import { esMultiploDe, formatoCantidad, leerCantidad, pasoCantidad, redondearCantidad } from '@/lib/cantidad';
 import TarjetaConsumo, { BarraConsumo, BotonInfo, COLOR_TRAMO, EstadoConsumoBadge, unidadDe } from './TarjetaConsumo';
 import { HistorialModal, Modal, ModificarModal } from './ModalesTiendaProyecto';
 import AnadirArticulosModal from './AnadirArticulosModal';
@@ -76,6 +77,15 @@ export default function TiendaProyectoCliente() {
     cambiarUrl(id, vista);
   }
 
+  async function cambiarFavorito(id: string, favorito: boolean) {
+    setProyectos((prev) => prev && prev.map((p) => (p.id === id ? { ...p, favorito } : p)));
+    const r = await marcarProyectoFavorito(id, favorito);
+    if (r.error) {
+      setError(r.error);
+      setProyectos((prev) => prev && prev.map((p) => (p.id === id ? { ...p, favorito: !favorito } : p)));
+    }
+  }
+
   function cambiarVista(v: 'tienda' | 'consumos') {
     setVista(v);
     cambiarUrl(proyectoId, v);
@@ -117,7 +127,7 @@ export default function TiendaProyectoCliente() {
       <h1 className="text-2xl font-semibold text-grafito">Tienda por proyecto</h1>
       <p className="text-sm text-slate mb-5">Materiales autorizados por obra, con su cantidad máxima y lo consumido.</p>
 
-      <SelectorProyecto proyectos={proyectos} valor={proyectoId} onElegir={elegirProyecto} />
+      <SelectorProyecto proyectos={proyectos} valor={proyectoId} onElegir={elegirProyecto} onFavorito={cambiarFavorito} />
 
       {proyecto && (
         <div className="flex flex-wrap items-center justify-between gap-3 mt-5 mb-4">
@@ -277,14 +287,38 @@ export default function TiendaProyectoCliente() {
   );
 }
 
+function Estrella({ activa, onClick, titulo }: { activa: boolean; onClick: () => void; titulo?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      title={titulo || (activa ? 'Quitar de favoritos' : 'Añadir a favoritos')}
+      aria-label={titulo || (activa ? 'Quitar de favoritos' : 'Añadir a favoritos')}
+      aria-pressed={activa}
+      className={`w-7 h-7 inline-flex items-center justify-center rounded-md shrink-0 ${
+        activa ? 'text-ambar hover:text-[#B7791F]' : 'text-[#B9BFC4] hover:text-ambar'
+      }`}
+    >
+      <svg width="17" height="17" viewBox="0 0 24 24" fill={activa ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+        <polygon points="12 2 15.1 8.3 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 8.9 8.3 12 2" />
+      </svg>
+    </button>
+  );
+}
+
 function SelectorProyecto({
   proyectos,
   valor,
   onElegir,
+  onFavorito,
 }: {
   proyectos: ProyectoTienda[] | null;
   valor: string;
   onElegir: (id: string) => void;
+  onFavorito: (id: string, favorito: boolean) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [texto, setTexto] = useState('');
@@ -295,64 +329,97 @@ function SelectorProyecto({
     return () => document.removeEventListener('mousedown', fuera);
   }, []);
   const elegido = proyectos?.find((p) => p.id === valor);
+  const favoritos = (proyectos || []).filter((p) => p.favorito).sort((a, b) => a.bc_job_no.localeCompare(b.bc_job_no));
   const t = texto.trim().toLowerCase();
   const lista = (proyectos || [])
     .filter((p) => !t || p.bc_job_no.toLowerCase().includes(t) || (p.descripcion || '').toLowerCase().includes(t))
-    .sort((a, b) => Number(b.num_articulos > 0) - Number(a.num_articulos > 0) || a.bc_job_no.localeCompare(b.bc_job_no));
+    .sort(
+      (a, b) =>
+        Number(b.favorito) - Number(a.favorito) ||
+        Number(b.num_articulos > 0) - Number(a.num_articulos > 0) ||
+        a.bc_job_no.localeCompare(b.bc_job_no)
+    );
   return (
-    <div ref={ref} className="relative max-w-xl">
-      <label className="block text-sm font-medium text-grafito mb-1">Proyecto</label>
-      <button
-        type="button"
-        onClick={() => setAbierto((v) => !v)}
-        className="input text-left flex items-center justify-between gap-2"
-        aria-expanded={abierto}
-      >
-        <span className={elegido ? 'text-grafito truncate' : 'text-slate'}>
-          {proyectos === null
-            ? 'Cargando proyectos…'
-            : elegido
-              ? `${elegido.bc_job_no} — ${elegido.descripcion || ''}`
-              : 'Selecciona un proyecto'}
-        </span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate shrink-0" aria-hidden>
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-      {abierto && proyectos && (
-        <div className="absolute z-30 mt-1 w-full bg-white border border-borde rounded-lg shadow-lg">
-          <input
-            autoFocus
-            className="input border-0 border-b rounded-b-none"
-            placeholder="Buscar por número o descripción…"
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-          />
-          <div className="max-h-72 overflow-y-auto divide-y divide-borde">
-            {lista.length === 0 && <p className="p-3 text-sm text-slate">Sin resultados.</p>}
-            {lista.slice(0, 200).map((p) => (
+    <div className="max-w-xl">
+      {favoritos.length > 0 && (
+        <div className="mb-3">
+          <p className="text-xs text-slate mb-1.5">Favoritos</p>
+          <div className="flex flex-wrap gap-1.5">
+            {favoritos.map((p) => (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => {
-                  onElegir(p.id);
-                  setAbierto(false);
-                  setTexto('');
-                }}
-                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 ${p.id === valor ? 'bg-marcaClaro' : 'hover:bg-fondo'}`}
+                onClick={() => onElegir(p.id)}
+                title={p.descripcion || p.bc_job_no}
+                className={`inline-flex items-center gap-1.5 max-w-[16rem] rounded-full border px-3 py-1 text-sm ${
+                  p.id === valor ? 'border-marca bg-marcaClaro text-marca' : 'border-borde bg-white text-grafito hover:border-marca'
+                }`}
               >
-                <span className="font-mono text-grafito shrink-0">{p.bc_job_no}</span>
-                <span className="text-slate truncate flex-1">{p.descripcion}</span>
-                {p.num_articulos > 0 && (
-                  <span className="text-[11px] text-marca bg-marcaClaro rounded px-1.5 py-0.5 shrink-0">
-                    {p.num_articulos} art.
-                  </span>
-                )}
+                <span className="text-ambar" aria-hidden>
+                  ★
+                </span>
+                <span className="font-mono">{p.bc_job_no}</span>
+                <span className="text-slate truncate">{p.descripcion}</span>
               </button>
             ))}
           </div>
         </div>
       )}
+      <label className="block text-sm font-medium text-grafito mb-1">Proyecto</label>
+      <div ref={ref} className="relative flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setAbierto((v) => !v)}
+          className="input text-left flex items-center justify-between gap-2"
+          aria-expanded={abierto}
+        >
+          <span className={elegido ? 'text-grafito truncate' : 'text-slate'}>
+            {proyectos === null
+              ? 'Cargando proyectos…'
+              : elegido
+                ? `${elegido.bc_job_no} — ${elegido.descripcion || ''}`
+                : 'Selecciona un proyecto'}
+          </span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate shrink-0" aria-hidden>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+        {elegido && <Estrella activa={elegido.favorito} onClick={() => onFavorito(elegido.id, !elegido.favorito)} />}
+        {abierto && proyectos && (
+          <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white border border-borde rounded-lg shadow-lg">
+            <input
+              autoFocus
+              className="input border-0 border-b rounded-b-none"
+              placeholder="Buscar por número o descripción…"
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+            />
+            <div className="max-h-72 overflow-y-auto divide-y divide-borde">
+              {lista.length === 0 && <p className="p-3 text-sm text-slate">Sin resultados.</p>}
+              {lista.slice(0, 200).map((p) => (
+                <div key={p.id} className={`flex items-center gap-1 pl-1 pr-3 ${p.id === valor ? 'bg-marcaClaro' : 'hover:bg-fondo'}`}>
+                  <Estrella activa={p.favorito} onClick={() => onFavorito(p.id, !p.favorito)} />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onElegir(p.id);
+                      setAbierto(false);
+                      setTexto('');
+                    }}
+                    className="flex-1 min-w-0 text-left py-2 text-sm flex items-center gap-2"
+                  >
+                    <span className="font-mono text-grafito shrink-0">{p.bc_job_no}</span>
+                    <span className="text-slate truncate flex-1">{p.descripcion}</span>
+                    {p.num_articulos > 0 && (
+                      <span className="text-[11px] text-marca bg-marcaClaro rounded px-1.5 py-0.5 shrink-0">{p.num_articulos} art.</span>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -515,18 +582,55 @@ function FichaArticulo({
       </div>
 
       <div className="mt-auto pt-3 flex items-center gap-2">
-        <input
-          type="number"
-          min={m}
-          step={pasoCantidad(m)}
-          value={cantidad}
-          onChange={(e) => setCantidad(e.target.value)}
-          className={`input w-20 py-1.5 text-center font-mono ${errCantidad ? 'border-rojo' : ''}`}
-          aria-label="Cantidad"
-        />
-        <span className="text-xs text-slate w-6">{u}</span>
-        <button type="button" onClick={alCarrito} disabled={!!errCantidad} className="btn-primary flex-1 text-sm py-1.5">
-          {anadido ? '✓ Añadido' : 'Añadir al carrito'}
+        <div className="flex items-center shrink-0">
+          <button
+            type="button"
+            onClick={() => setCantidad(String(redondearCantidad(Math.max(m, (leerCantidad(cantidad) || 0) - m))))}
+            className="btn-stepper"
+            aria-label="Restar"
+          >
+            −
+          </button>
+          <input
+            type="number"
+            min={m}
+            step={pasoCantidad(m)}
+            value={cantidad}
+            onChange={(e) => setCantidad(e.target.value)}
+            onFocus={(e) => e.target.select()}
+            className={`w-10 h-9 text-center border-y text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+              errCantidad ? 'border-rojo' : 'border-borde'
+            }`}
+            aria-label="Cantidad"
+          />
+          <button
+            type="button"
+            onClick={() => setCantidad(String(redondearCantidad((leerCantidad(cantidad) || 0) + m)))}
+            className="btn-stepper"
+            aria-label="Sumar"
+          >
+            +
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={alCarrito}
+          disabled={!!errCantidad}
+          className="btn-primary flex-1 flex items-center justify-center gap-2"
+          aria-label="Añadir al carrito"
+        >
+          {anadido ? (
+            '✓ Añadido'
+          ) : (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              Añadir
+            </>
+          )}
         </button>
       </div>
       {errCantidad && cantidad !== '' && <p className="text-[11px] text-rojo mt-1">{errCantidad}</p>}
@@ -551,6 +655,15 @@ function FueraDePresupuesto({
   const [comentario, setComentario] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const t = busqueda.trim().toLowerCase();
+  const filtrados = fuera.filter(
+    (f) =>
+      !t ||
+      f.producto.nombre.toLowerCase().includes(t) ||
+      (f.producto.bc_item_no || '').toLowerCase().includes(t) ||
+      f.solicitudes.some((n) => n.toLowerCase().includes(t))
+  );
 
   async function darDeAlta(f: FueraPresupuesto) {
     setError(null);
@@ -576,11 +689,21 @@ function FueraDePresupuesto({
     <section id="fuera-presupuesto" className="mt-8">
       <h2 className="text-lg font-semibold text-grafito">Fuera de presupuesto</h2>
       <p className="text-sm text-slate mb-3">Materiales pedidos para esta obra que no están en su tienda.</p>
+      {fuera.length > 0 && (
+        <input
+          className="input mb-3 max-w-sm"
+          placeholder="Buscar por descripción, código o solicitud…"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+        />
+      )}
       {fuera.length === 0 ? (
         <p className="text-sm text-slate bg-white border border-borde rounded-lg p-4">No hay materiales fuera de presupuesto.</p>
+      ) : filtrados.length === 0 ? (
+        <p className="text-sm text-slate bg-white border border-borde rounded-lg p-4">Ningún material coincide con la búsqueda.</p>
       ) : (
         <div className="bg-white border border-[#F2D9AE] rounded-lg divide-y divide-borde">
-          {fuera.map((f) => {
+          {filtrados.map((f) => {
             const u = f.producto.unidad_medida || 'ud.';
             const esteAbierto = abierto === f.producto.id;
             return (
