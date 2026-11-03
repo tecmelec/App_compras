@@ -80,9 +80,14 @@ export async function idsEfectivos(supabase: SupabaseClient, userId: string): Pr
 // "Pedido lanzado" (o más adelante en la barra de progreso, p.ej. Recibido),
 // cuenta como "lanzada"; si todas las líneas están lanzadas -> "Tramitado";
 // si solo algunas -> "Tramitado parcial". No toca pedidos ya "Anulado".
-export async function recalcularEstadoGeneral(supabase: SupabaseClient, pedidoId: string): Promise<void> {
+// Con aunqueAnulado se recalcula también un pedido "Anulado" (al quitar el anulado a mano).
+export async function recalcularEstadoGeneral(
+  supabase: SupabaseClient,
+  pedidoId: string,
+  opciones: { aunqueAnulado?: boolean } = {}
+): Promise<void> {
   const { data: pedido } = await supabase.from('pedidos').select('estado_general').eq('id', pedidoId).single();
-  if (!pedido || pedido.estado_general === 'Anulado') return;
+  if (!pedido || (pedido.estado_general === 'Anulado' && !opciones.aunqueAnulado)) return;
 
   const { data: estados } = await supabase.from('estados_pedido').select('id, orden, nombre');
   const estadoLanzado = (estados || []).find((e: any) => e.nombre === 'Pedido lanzado');

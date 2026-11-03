@@ -217,7 +217,7 @@ function FormularioCompradorCompleto({
     // El Estado general ya se recalculó solo a partir de las líneas (arriba);
     // aquí solo forzamos "Anulado" si el comprador lo ha marcado a mano.
     const resultadoPedido = await actualizarPedido(pedidoId, {
-      ...(anulado ? { estado_general: 'Anulado' } : {}),
+      ...(anulado ? { estado_general: 'Anulado' } : { desanular: true }),
       fecha_estimada_entrega: fecha || null,
       total_estimado: totalCalculado,
     });

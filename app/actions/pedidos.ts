@@ -449,9 +449,17 @@ export async function crearPedido(items: ItemInput[], datos: DatosSolicitud) {
 
 export async function actualizarPedido(
   pedidoId: string,
-  datos: { estado_general?: string; fecha_estimada_entrega: string | null; total_estimado?: number }
+  datos: { estado_general?: string; fecha_estimada_entrega: string | null; total_estimado?: number; desanular?: boolean }
 ) {
   const supabase = createClient();
+
+  // Quitar el "Anulado" marcado a mano: el estado vuelve a calcularse según las líneas
+  // (recalcularEstadoGeneral no toca pedidos anulados, por eso hay que salir antes).
+  let recalcular = false;
+  if (datos.desanular && datos.estado_general === undefined) {
+    const { data: actual } = await supabase.from('pedidos').select('estado_general').eq('id', pedidoId).single();
+    recalcular = actual?.estado_general === 'Anulado';
+  }
 
   const cambios: Record<string, any> = {
     fecha_estimada_entrega: datos.fecha_estimada_entrega || null,
@@ -464,6 +472,14 @@ export async function actualizarPedido(
 
   if (error) {
     return { error: 'No se pudo actualizar el pedido.' };
+  }
+  if (recalcular) {
+    // Un solo cambio de estado (y un solo aviso al solicitante): directamente al calculado.
+    await recalcularEstadoGeneral(supabase, pedidoId, { aunqueAnulado: true });
+    const { data: tras } = await supabase.from('pedidos').select('estado_general').eq('id', pedidoId).single();
+    if (tras?.estado_general === 'Anulado') {
+      await supabase.from('pedidos').update({ estado_general: 'Pendiente de tramitar' }).eq('id', pedidoId);
+    }
   }
 
   await despacharPushPendientes();
