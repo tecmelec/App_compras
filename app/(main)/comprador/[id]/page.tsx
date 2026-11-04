@@ -13,6 +13,8 @@ import PropuestaCompraBoton from './PropuestaCompraBoton';
 import ComparativoBoton from './ComparativoBoton';
 import PeticionesOfertaSolicitud from './PeticionesOfertaSolicitud';
 import EditarEntregaBoton from './EditarEntregaBoton';
+import CambiarProyectoBoton from './CambiarProyectoBoton';
+import { cambiosProyectoSolicitud } from '@/lib/cambio-proyecto';
 import PresupuestosSolicitud from './PresupuestosSolicitud';
 import CrearPedidoBCBoton from './CrearPedidoBCBoton';
 import GestionPedidosBC from './GestionPedidosBC';
@@ -35,7 +37,7 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(
-      'id, usuario_id, comprador_id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, responsable_id, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
+      'id, usuario_id, comprador_id, proyecto_id, numero_app, created_at, estado_general, fecha_estimada_entrega, fecha_requerida, nombre_contacto, telefono_contacto, total_estimado, requiere_aprobacion, aprobado, responsable_id, direcciones(alias, direccion, codigo_postal, ciudad, provincia), proyectos(bc_job_no, descripcion), profiles!pedidos_usuario_id_fkey(nombre_completo), pedido_items(id, cantidad, cantidad_original, cantidad_aprobador, cantidad_modificada_por_comprador, cantidad_antes_bc, anadida_en_bc, eliminada_en_bc, rechazada_por_aprobador, rechazada_por_nombre, rechazada_por_rol, numero_tecmelec, fecha_estimada_entrega, fecha_estimada_entrega_confirmada_en, estado_id, estado_recepcion, proveedor_id, precio_unitario, precio_presupuesto_id, productos(nombre, precio, imagen_url, unidad_medida, multiplo_compra, proveedor_predeterminado_id, bc_item_no))'
     )
     .eq('id', params.id)
     .single();
@@ -80,6 +82,8 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
   const adminPuedeAprobar = perfilQuienMira?.rol === 'admin' && p.requiere_aprobacion && p.aprobado == null;
   // Seguidor IA: vista de solo lectura salvo la "Fecha estimada de entrega".
   const soloFechas = perfilQuienMira?.rol === 'seguidor_ia';
+  const puedeCambiarProyecto = ['admin', 'comprador'].includes(perfilQuienMira?.rol || '');
+  const cambiosProyecto = await cambiosProyectoSolicitud(p.id).catch(() => []);
   // Líneas cuya fecha confirmó el Seguidor IA (consulta aparte: si la migración
   // 20261029120000 no está aplicada, no se marca nada).
   const { data: conSeguidor } = await createAdminClient()
@@ -245,10 +249,31 @@ export default async function DetalleCompradorPage({ params }: { params: { id: s
             </svg>
           </IconoDato>
           <div>
-            <p className="text-xs text-slate mb-0.5">Proyecto</p>
+            <p className="text-xs text-slate mb-0.5 flex items-center gap-2">
+              Proyecto
+              {puedeCambiarProyecto && <CambiarProyectoBoton pedidoId={p.id} proyectoActualId={p.proyecto_id} />}
+            </p>
             <p className="text-sm text-grafito">
               {p.proyectos ? `${p.proyectos.bc_job_no} — ${p.proyectos.descripcion || ''}` : '—'}
             </p>
+            {cambiosProyecto.length > 0 && (
+              <p
+                className="text-[11px] text-slate mt-1"
+                title={cambiosProyecto
+                  .map(
+                    (c) =>
+                      `${new Date(c.created_at).toLocaleString('es-ES')}: ${c.job_no_anterior || '—'} → ${c.job_no_nuevo || '—'} (${
+                        c.origen === 'bc' ? 'desde BC' : c.usuario_nombre || 'manual'
+                      })${c.comentario ? ` — ${c.comentario}` : ''}`
+                  )
+                  .join('\n')}
+              >
+                Cambiado desde {cambiosProyecto[0].job_no_anterior || '—'} ·{' '}
+                {cambiosProyecto[0].origen === 'bc' ? 'al sincronizar con BC' : cambiosProyecto[0].usuario_nombre || ''} ·{' '}
+                {new Date(cambiosProyecto[0].created_at).toLocaleDateString('es-ES')}
+                {cambiosProyecto[0].comentario ? ` · “${cambiosProyecto[0].comentario}”` : ''}
+              </p>
+            )}
           </div>
         </div>
 

@@ -26,7 +26,10 @@ export default function SincronizarPedidoBCBoton({ pedidoId }: { pedidoId: strin
       return;
     }
 
-    setResultado(`Pedido Tecmelec ${r.numeroTecmelec} — ${r.actualizados} línea(s) actualizada(s).`);
+    setResultado(
+      `Pedido Tecmelec ${r.numeroTecmelec} — ${r.actualizados} línea(s) actualizada(s).` +
+        ((r as any).proyectoCambiado ? ` Proyecto actualizado desde BC: ${(r as any).proyectoCambiado}.` : '')
+    );
     setAvisos(r.avisos || []);
     router.refresh();
   }

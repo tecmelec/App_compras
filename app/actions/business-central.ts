@@ -30,6 +30,7 @@ import {
 } from '@/lib/business-central';
 import { revalidatePath } from 'next/cache';
 import { idsEfectivos, recalcularEstadoGeneral } from '@/lib/pedidos-utils';
+import { aplicarCambioProyecto } from '@/lib/cambio-proyecto';
 import { obtenerTodosLosProveedores } from '@/lib/proveedores-utils';
 import { lineasListaFotoSinResolver } from '@/lib/lista-foto';
 import { despacharPushPendientes } from '@/lib/push';
@@ -303,6 +304,9 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
   let actualizados = 0;
   const avisos: string[] = [];
   const numerosTecmelec: string[] = [];
+  // Proyecto (Job_No) de las líneas de artículo de BC: si todas tienen el mismo y no es
+  // el de la solicitud, la solicitud pasa a ese proyecto (se cambió en BC).
+  const proyectosLineasBC = new Set<string>();
 
   for (const pedidoBC of pedidosBC) {
     numerosTecmelec.push(pedidoBC.No);
@@ -352,6 +356,10 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     const lineasArticuloBC = lineasBC
       .map((l, idx) => ({ l, idx }))
       .filter(({ l }) => l.No && l.Quantity > 0 && (!(l as any).Type || (l as any).Type === 'Item'));
+    for (const { l } of lineasArticuloBC) {
+      const job = String((l as any).Job_No || '').trim();
+      if (job) proyectosLineasBC.add(job);
+    }
     const usadas = new Set<number>();
     const pareja = new Map<string, (typeof lineasBC)[number]>();
     for (const item of itemsDeEstePedido) {
@@ -507,6 +515,35 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     }
   }
 
+  // Proyecto cambiado en BC → se cambia también en la app (queda en el registro de cambios).
+  let proyectoCambiado: string | null = null;
+  if (proyectosLineasBC.size > 0) {
+    const admin = createAdminClient();
+    const { data: ped } = await admin.from('pedidos').select('proyecto_id, proyectos(bc_job_no)').eq('id', pedidoId).single();
+    const actual = (ped as any)?.proyectos?.bc_job_no || null;
+    const jobs = Array.from(proyectosLineasBC);
+    if (jobs.length > 1) {
+      avisar(avisos, `Las líneas del pedido en BC tienen proyectos distintos (${jobs.join(', ')}); el proyecto de la solicitud no se cambia.`);
+    } else if (jobs[0] !== actual) {
+      const { data: nuevo } = await admin.from('proyectos').select('id').eq('bc_job_no', jobs[0]).maybeSingle();
+      if (!nuevo) {
+        avisar(avisos, `En BC las líneas son del proyecto ${jobs[0]}, que aún no está en la app (sincroniza los proyectos); la solicitud sigue en ${actual || '—'}.`);
+      } else {
+        const r = await aplicarCambioProyecto({
+          pedidoId,
+          proyectoNuevoId: nuevo.id,
+          origen: 'bc',
+          comentario: 'El proyecto de las líneas del pedido de compra en BC es otro.',
+        });
+        if (r.error) avisar(avisos, `No se pudo cambiar el proyecto a ${jobs[0]}: ${r.error}`);
+        else {
+          proyectoCambiado = `${actual || '—'} → ${jobs[0]}`;
+          console.log(`[sincronizarPedidoConBC ${numeroApp}] Proyecto actualizado desde BC: ${proyectoCambiado}`);
+        }
+      }
+    }
+  }
+
   // Recalcula el total del pedido con los precios ya actualizados (o el del
   // catálogo, para las líneas que aún no tengan precio propio de BC).
   const { data: itemsFinal } = await supabase
@@ -533,7 +570,7 @@ async function sincronizarPedidoConBCInterno(supabase: any, pedidoId: string, nu
     `[sincronizarPedidoConBC ${numeroApp}] Fin: ${actualizados} línea(s) actualizada(s), ${avisos.length} aviso(s).`
   );
 
-  return { success: true, numeroTecmelec: numerosTecmelec.join(', '), actualizados, avisos };
+  return { success: true, numeroTecmelec: numerosTecmelec.join(', '), actualizados, avisos, proyectoCambiado };
 }
 
 // Botón manual desde /comprador/[id]: usa el cliente con la sesión del
