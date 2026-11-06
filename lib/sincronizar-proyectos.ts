@@ -61,6 +61,28 @@ export async function sincronizarProyectosNucleo(por: string | null) {
     else creados++;
   }
 
+  // Proyectos de la app que ya no están en BC (p. ej. renumerados en BC): en_bc = false,
+  // para ofrecerlos en Admin → Proyectos y unirlos al nuevo. Si la columna aún no existe
+  // (migración 20261105120000), se ignora.
+  let noEnBC = 0;
+  {
+    const enBC = new Set(proyectos.map((p: any) => p.No));
+    const fuera = existentes.filter((p) => !enBC.has(p.bc_job_no)).map((p) => p.id);
+    noEnBC = fuera.length;
+    const { data: marcados, error: eMarca } = await supabase.from('proyectos').select('id, bc_job_no').eq('en_bc', false);
+    if (!eMarca) {
+      const volver = (marcados || []).filter((p: any) => enBC.has(p.bc_job_no)).map((p: any) => p.id);
+      for (let i = 0; i < volver.length; i += 200) {
+        await supabase.from('proyectos').update({ en_bc: true }).in('id', volver.slice(i, i + 200));
+      }
+      const yaMarcados = new Set((marcados || []).map((p: any) => p.id));
+      const nuevos = fuera.filter((id) => !yaMarcados.has(id));
+      for (let i = 0; i < nuevos.length; i += 200) {
+        await supabase.from('proyectos').update({ en_bc: false }).in('id', nuevos.slice(i, i + 200));
+      }
+    }
+  }
+
   revalidatePath('/admin/proyectos');
   revalidatePath('/proyectos-equipo');
 
@@ -71,6 +93,6 @@ export async function sincronizarProyectosNucleo(por: string | null) {
     .eq('id', 1);
   if (errorFecha) console.error('[proyectos] No se pudo guardar la fecha de la última sincronización:', errorFecha.message);
 
-  return { success: true, creados, actualizados, totalBC: proyectos.length, errores };
+  return { success: true, creados, actualizados, totalBC: proyectos.length, errores, noEnBC };
 }
 

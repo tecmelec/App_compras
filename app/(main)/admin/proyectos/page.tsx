@@ -5,6 +5,7 @@ import DiagnosticoJefeObra from './DiagnosticoJefeObra';
 import AprobadoresProyectos from './AprobadoresProyectos';
 import { createAdminClient } from '@/lib/supabase/admin';
 import ExportarExcelSimple from '@/components/ExportarExcelSimple';
+import ProyectosFueraDeBC from './ProyectosFueraDeBC';
 
 export default async function ProyectosAdminPage() {
   const supabase = createClient();
@@ -28,6 +29,26 @@ export default async function ProyectosAdminPage() {
     admin.from('profiles').select('id, nombre_completo, rol').eq('activo', true).in('rol', ['responsable', 'admin', 'integral']).order('nombre_completo'),
   ]);
 
+  // Proyectos que ya no están en BC (en_bc = false tras sincronizar): para unirlos al Nº nuevo.
+  const fueraBC = (proyectos as any[]).filter((p) => p.en_bc === false);
+  const enBC = (proyectos as any[]).filter((p) => p.en_bc !== false);
+  const solicitudesPorProyecto = new Map<string, number>();
+  if (fueraBC.length > 0) {
+    const { data: peds } = await admin.from('pedidos').select('proyecto_id').in('proyecto_id', fueraBC.map((p) => p.id));
+    for (const x of peds || []) solicitudesPorProyecto.set((x as any).proyecto_id, (solicitudesPorProyecto.get((x as any).proyecto_id) || 0) + 1);
+  }
+  const norm = (t: string | null) => (t || '').trim().toLowerCase();
+  const fuera = fueraBC.map((p) => {
+    const iguales = enBC.filter((q) => norm(q.descripcion) && norm(q.descripcion) === norm(p.descripcion));
+    return {
+      id: p.id,
+      bc_job_no: p.bc_job_no,
+      descripcion: p.descripcion,
+      solicitudes: solicitudesPorProyecto.get(p.id) || 0,
+      sugerido: iguales.length === 1 ? iguales[0].bc_job_no : null,
+    };
+  });
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-semibold text-grafito mb-1">Proyectos</h1>
@@ -40,6 +61,10 @@ export default async function ProyectosAdminPage() {
       </p>
 
       <SincronizarProyectosBoton ultima={await textoUltimaSincronizacionProyectos(supabase)} />
+      <ProyectosFueraDeBC
+        fuera={fuera}
+        enBC={enBC.map((p) => ({ id: p.id, bc_job_no: p.bc_job_no, descripcion: p.descripcion }))}
+      />
       <DiagnosticoJefeObra />
       <AprobadoresProyectos
         proyectos={proyectos.map(({ id, bc_job_no, descripcion }) => ({ id, bc_job_no, descripcion }))}

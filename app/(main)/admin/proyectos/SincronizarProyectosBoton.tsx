@@ -26,7 +26,8 @@ export default function SincronizarProyectosBoton({ ultima }: { ultima?: string 
 
     setResultado(
       `${r.creados} proyecto(s) nuevo(s), ${r.actualizados} actualizado(s) de ${r.totalBC} en Business Central.` +
-        (r.errores && r.errores.length > 0 ? ` (${r.errores.length} con error)` : '')
+        (r.errores && r.errores.length > 0 ? ` (${r.errores.length} con error)` : '') +
+        ((r as any).noEnBC > 0 ? ` ${(r as any).noEnBC} proyecto(s) de la app ya no están en BC (ver abajo).` : '')
     );
     router.refresh();
   }
